@@ -38,6 +38,7 @@ window backends.
 | --- | --- |
 | Left arrow or A | Move counterclockwise |
 | Right arrow or D | Move clockwise |
+| Enter, numpad Enter, or Space | Fire, hold for repeat fire |
 | Escape | Quit |
 
 Hold a movement key to accelerate around the rim. The 60 Hz simulation uses
@@ -46,6 +47,11 @@ velocity `0x6000`. That reaches 22.5 lanes per second after 24 ticks.
 Movement wraps around all 16 lanes and stops when the key is released.
 Changing direction stops the claw for one tick before accelerating backwards.
 Opposite directions held together cancel each other.
+
+Shots launch from the current lane and travel straight down the tunnel.
+They stay in their launch lane as the claw moves. The normal weapon fires
+every four simulation ticks, with up to eight shots in flight, and removes
+each shot at the rear opening. Shots are small, bright green projectiles.
 
 ## Development
 
@@ -58,7 +64,7 @@ cargo clippy -- -D warnings
 
 `src/main.rs` contains the scene setup and movement systems. Tunnel dimensions
 and movement settings are constants at the top of the file. This first slice
-has no enemies, shooting, scoring, or audio.
+has no enemies, scoring, or audio.
 
 To capture the level for visual comparisons, run:
 
@@ -76,8 +82,8 @@ cargo run -- --record-motion target/motion
 ffmpeg -framerate 30 -i target/motion/%04d.png -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -pix_fmt yuv420p target/motion.mp4
 ```
 
-The six-second sequence includes acceleration in both directions, stopping,
-wrapping, and camera settling. It saves screenshots roughly every two
+The six-second sequence includes firing, acceleration in both directions,
+stopping, wrapping, and camera settling. It saves screenshots roughly every two
 simulation ticks, then exits. Use a fresh output directory for each recording.
 The encoded video is a visual preview; screenshot timing can vary with GPU load.
 
@@ -94,6 +100,7 @@ The source references used for this prototype are in the original game's
 - `domove` positions the claw at the selected lane's midpoint.
 - `sclaw0` through `sclaw7` define the solid claw's movement poses.
 - `dsclaw` selects one of those eight poses from the fractional lane position.
+- `sclawr`, `frab`, and `player_shot` control repeat firing and shot travel.
 
 The camera framing and colors are tuned to the supplied screenshot rather
 than reproducing the Jaguar's renderer exactly.

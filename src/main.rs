@@ -17,6 +17,9 @@ const ACCELERATION: i32 = 0x400;
 const MAX_VELOCITY: i32 = 0x6000;
 const START_PROGRESS: i32 = 7 * LANE_UNIT;
 const CAMERA_STEP: f32 = FRONT_RADIUS / 96.0;
+const FIRE_INTERVAL: u8 = 4;
+const MAX_BULLETS: usize = 8;
+const BULLET_STEP: f32 = 3.5 * FRONT_RADIUS / 24.0;
 
 // Original web5 coordinates, reordered clockwise from the top-left vertex.
 const WEB: [(f32, f32); LANES] = [
@@ -42,6 +45,22 @@ const WEB: [(f32, f32); LANES] = [
 struct Glider {
     progress: i32,
     velocity: i32,
+}
+
+#[derive(Component, Default)]
+struct Weapon {
+    cooldown: u8,
+}
+
+#[derive(Component)]
+struct Bullet {
+    lane: usize,
+}
+
+#[derive(Resource, Default)]
+struct ShotAssets {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
 }
 
 #[derive(Resource)]
@@ -103,7 +122,15 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             FixedUpdate,
-            (move_glider, animate_glider, update_lane, follow_glider).chain(),
+            (
+                move_glider,
+                animate_glider,
+                update_lane,
+                follow_glider,
+                move_bullets,
+                fire_bullets,
+            )
+                .chain(),
         )
         .add_systems(Update, (fit_camera, quit_on_escape))
         .run();
@@ -345,6 +372,14 @@ fn setup(
         unlit: true,
         ..default()
     });
+    commands.insert_resource(ShotAssets {
+        mesh: meshes.add(Sphere::new(0.095)),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.35, 1.0, 0.12),
+            unlit: true,
+            ..default()
+        }),
+    });
 
     commands.spawn((
         Mesh3d(meshes.add(tunnel_mesh())),
@@ -388,6 +423,7 @@ fn setup(
             progress: START_PROGRESS,
             velocity: 0,
         },
+        Weapon::default(),
         glider_transform(START_PROGRESS),
         Mesh3d(frames.0[claw_frame(START_PROGRESS)].clone()),
         MeshMaterial3d(vertex_material),
@@ -440,7 +476,7 @@ fn setup(
         },
     ));
     commands.spawn((
-        Text::new("LEFT / RIGHT or A / D    Move     ESC    Quit"),
+        Text::new("LEFT / RIGHT or A / D    Move     ENTER / SPACE    Fire     ESC    Quit"),
         TextFont {
             font_size: 14.0,
             ..default()
@@ -524,6 +560,10 @@ fn capture_frame(mut commands: Commands, path: Res<CapturePath>, mut frames: Loc
 fn preview_input(mut capture: ResMut<MotionCapture>, mut keys: ResMut<ButtonInput<KeyCode>>) {
     keys.release(KeyCode::KeyD);
     keys.release(KeyCode::KeyA);
+    keys.release(KeyCode::Space);
+    if (30..330).contains(&capture.tick) {
+        keys.press(KeyCode::Space);
+    }
     match capture.tick {
         60..90 | 240..300 => keys.press(KeyCode::KeyD),
         150..180 => keys.press(KeyCode::KeyA),
@@ -568,6 +608,44 @@ fn move_glider(keys: Res<ButtonInput<KeyCode>>, mut gliders: Query<(&mut Glider,
         }
         glider.progress = (glider.progress + glider.velocity).rem_euclid(WEB_PERIOD);
         *transform = glider_transform(glider.progress);
+    }
+}
+
+fn fire_bullets(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    assets: Res<ShotAssets>,
+    mut glider: Single<(&Glider, &mut Weapon)>,
+    bullets: Query<&Bullet>,
+) {
+    let (glider, weapon) = &mut *glider;
+    weapon.cooldown = weapon.cooldown.saturating_sub(1);
+    if !keys.any_pressed([KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space])
+        || weapon.cooldown != 0
+        || bullets.iter().count() >= MAX_BULLETS
+    {
+        return;
+    }
+    let lane = selected_lane(glider.progress) as usize;
+    let position = glider_transform(glider.progress).translation - Vec3::Z * 0.18;
+    commands.spawn((
+        Bullet { lane },
+        Mesh3d(assets.mesh.clone()),
+        MeshMaterial3d(assets.material.clone()),
+        Transform::from_translation(position),
+    ));
+    weapon.cooldown = FIRE_INTERVAL;
+}
+
+fn move_bullets(mut commands: Commands, mut bullets: Query<(Entity, &Bullet, &mut Transform)>) {
+    for (entity, bullet, mut transform) in &mut bullets {
+        let center = glider_transform(bullet.lane as i32 * LANE_UNIT).translation;
+        transform.translation.x = center.x;
+        transform.translation.y = center.y;
+        transform.translation.z -= BULLET_STEP;
+        if transform.translation.z <= -DEPTH {
+            commands.entity(entity).despawn();
+        }
     }
 }
 
@@ -815,5 +893,122 @@ mod tests {
             target
         );
         assert_eq!(state(&mut app), (8 * LANE_UNIT, 0));
+    }
+
+    fn firing_app(progress: i32, keys: &[KeyCode]) -> App {
+        let mut app = movement_app(progress, keys);
+        let glider = app
+            .world_mut()
+            .query_filtered::<Entity, With<Glider>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut().entity_mut(glider).insert(Weapon::default());
+        app.insert_resource(ShotAssets::default()).add_systems(
+            FixedUpdate,
+            (move_bullets, fire_bullets).chain().after(move_glider),
+        );
+        app
+    }
+
+    fn bullet_count(app: &mut App) -> usize {
+        app.world_mut().query::<&Bullet>().iter(app.world()).count()
+    }
+
+    #[test]
+    fn enter_fires_immediately_and_repeats_at_the_weapon_cadence() {
+        let mut app = firing_app(START_PROGRESS, &[]);
+        ticks(&mut app, 1);
+        assert_eq!(bullet_count(&mut app), 0);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Enter);
+        ticks(&mut app, 1);
+        assert_eq!(bullet_count(&mut app), 1);
+        ticks(&mut app, 3);
+        assert_eq!(bullet_count(&mut app), 1);
+        ticks(&mut app, 1);
+        assert_eq!(bullet_count(&mut app), 2);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::Enter);
+        ticks(&mut app, 8);
+        assert_eq!(bullet_count(&mut app), 2);
+    }
+
+    #[test]
+    fn shots_keep_their_launch_lane_while_the_claw_moves_and_wraps() {
+        let mut app = firing_app(WEB_PERIOD - 512, &[KeyCode::Space, KeyCode::ArrowRight]);
+        ticks(&mut app, 1);
+        let shot = app
+            .world_mut()
+            .query_filtered::<Entity, With<Bullet>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(app.world().get::<Bullet>(shot).unwrap().lane, 0);
+        let start = app.world().get::<Transform>(shot).unwrap().translation;
+        assert_eq!(start.truncate(), glider_transform(0).translation.truncate());
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::Space);
+        ticks(&mut app, 16);
+        assert_ne!(selected_lane(state(&mut app).0), 0.0);
+        let position = app.world().get::<Transform>(shot).unwrap().translation;
+        assert_eq!(position.truncate(), start.truncate());
+        assert!((position.z - (start.z - 16.0 * BULLET_STEP)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn sustained_fire_is_bounded_and_shots_are_cleaned_up() {
+        let mut app = firing_app(START_PROGRESS, &[KeyCode::Space]);
+        let mut reached_limit = false;
+        for _ in 0..180 {
+            ticks(&mut app, 1);
+            let count = bullet_count(&mut app);
+            assert!(count <= MAX_BULLETS);
+            reached_limit |= count == MAX_BULLETS;
+        }
+        assert!(reached_limit);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::Space);
+        ticks(&mut app, 60);
+        assert_eq!(bullet_count(&mut app), 0);
+        assert_eq!(
+            app.world_mut().query::<&Mesh3d>().iter(app.world()).count(),
+            0
+        );
+    }
+
+    #[test]
+    fn repeat_fire_is_independent_of_render_frame_rate() {
+        use bevy::time::TimeUpdateStrategy;
+
+        let mut slow = firing_app(0, &[KeyCode::Space]);
+        let mut fast = firing_app(0, &[KeyCode::Space]);
+        for (app, nanos) in [(&mut slow, 33_333_334), (&mut fast, 16_666_667)] {
+            app.add_plugins(MinimalPlugins)
+                .insert_resource(Time::<Fixed>::from_hz(60.0))
+                .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_nanos(
+                    nanos,
+                )));
+            app.update();
+        }
+        for _ in 0..30 {
+            slow.update();
+        }
+        for _ in 0..60 {
+            fast.update();
+        }
+        let positions = |app: &mut App| {
+            let mut depths: Vec<_> = app
+                .world_mut()
+                .query_filtered::<&Transform, With<Bullet>>()
+                .iter(app.world())
+                .map(|transform| transform.translation.z)
+                .collect();
+            depths.sort_by(f32::total_cmp);
+            depths
+        };
+        assert_eq!(positions(&mut slow), positions(&mut fast));
     }
 }
