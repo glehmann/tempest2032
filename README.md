@@ -71,8 +71,9 @@ therefore matched to the screenshot, not derived from the registers.
 ## First-level enemies
 
 Level one uses the original `_nw1` wave of normal Flippers. Their X-shaped
-bodies use `s_flipper`'s seven vertices and four triangular faces, exactly as
-the source lays them out.
+bodies use `s_flipper`'s seven vertices and four triangular faces. The GPU
+routine confirms the vertex table is indexed from zero, so the centre, the two
+inner points, and the four tips map as listed.
 
 Shading is matched to the original renderer rather than to a literal reading of
 the data. `s_flipper` gives each face a CRY hue of `F0` or `F4` plus a
@@ -84,6 +85,20 @@ scaled so the brightest facet reaches 240 of red. This is a deliberate
 departure from the raw data, chosen because it reproduces what the game
 actually displays.
 
+The proportions are adjusted for the same reason. A Flipper's four tips sit on
+the corners of its bounding box, so that box decides the whole silhouette.
+`fverts` uses 16 by 18, which is nearly square, so
+the X closes towards a plus sign and each arm points at a corner. Measuring
+both references shows a much shallower cross, with the arms meeting at about
+58 degrees where ours meet at 97. A box twice as wide as it is tall gives 53
+degrees, so this prototype
+stretches the tips to `(0, 0)` and `(32, 16)`. That is the third deliberate
+departure from `fverts`.
+
+The inner vertices keep the source's proportion rather than its coordinates.
+In `fverts` they sit halfway between the centre and a tip, which makes each arm
+about a quarter as wide as it is long. The reference measures the same ratio,
+so here they move to `(8, 8)` and `(24, 8)`, again halfway out.
 Flippers first approach as small red points from beyond the rear opening.
 Their approach takes 150 ticks, then they climb their lane at the original
 `0xA000` depth speed. At the rim they pivot about a lane boundary toward the

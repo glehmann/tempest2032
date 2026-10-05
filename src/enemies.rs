@@ -134,17 +134,29 @@ fn playing(game: Res<Game>) -> bool {
 const BRIGHTEST_RED: u8 = 240;
 
 fn flipper_mesh() -> Mesh {
-    // fverts and s_flipper. Each face is one triangle around the shared centre.
+    // A Flipper's four tips sit on the corners of its bounding box, so that box
+    // decides the whole look. `fverts` uses 16 by 18, which is nearly square, so
+    // the X closes towards a plus sign. Sampling both references gives a much
+    // shallower cross: the arms meet at roughly 58 degrees, which needs a box
+    // about twice as wide as it is tall. So the tips move to (0,0) and (32,16).
+    //
+    // The inner vertices keep the source's proportion. There they sit halfway
+    // between the centre and a tip, which makes each arm about a quarter as
+    // wide as it is long. The reference measures the same ratio, so the inner
+    // points move out to (8,8) and (24,8) to match.
+    //
+    // This is a deliberate departure from fverts, made to match how the
+    // original actually renders.
     let vertices = [
-        (9., 9.),
-        (5., 9.),
-        (13., 9.),
-        (1., 0.),
-        (17., 0.),
-        (1., 18.),
-        (17., 18.),
+        (16., 8.),
+        (8., 8.),
+        (24., 8.),
+        (0., 0.),
+        (32., 0.),
+        (0., 16.),
+        (32., 16.),
     ]
-    .map(|(x, y)| Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, 0.0));
+    .map(|(x, y)| Vec3::new((x - 16.) * 0.06, (8. - y) * 0.06, 0.0));
     // The original intensities for each face's tip, inner, and centre vertices.
     let faces = [
         ([3, 1, 0], [128u16, 192, 255]),
@@ -863,6 +875,17 @@ mod tests {
             assert_eq!(red(face * 3 + 1), first);
             assert_eq!(red(face * 3 + 2), first);
         }
+
+        // The four tips sit on the corners of a box twice as wide as it is tall,
+        // which is what makes the X read as an elongated cross instead of
+        // closing towards a plus sign. See the reference notes in the README.
+        let min = |index: usize| positions.iter().map(|p| p[index]).fold(f32::MAX, f32::min);
+        let max = |index: usize| positions.iter().map(|p| p[index]).fold(f32::MIN, f32::max);
+        let (width, height) = (max(0) - min(0), max(1) - min(1));
+        assert!(
+            (width / height - 2.0).abs() < 0.01,
+            "tip box should be twice as wide as tall, got {width} by {height}"
+        );
     }
 
     #[test]
