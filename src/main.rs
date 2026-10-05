@@ -1,11 +1,14 @@
 use bevy::{
     asset::RenderAssetUsages,
+    camera::visibility::RenderLayers,
     core_pipeline::tonemapping::Tonemapping,
     mesh::PrimitiveTopology,
     prelude::*,
     render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk},
     window::PrimaryWindow,
 };
+
+mod enemies;
 
 const LANES: usize = 16;
 const FRONT_RADIUS: f32 = 4.0;
@@ -55,6 +58,7 @@ struct Weapon {
 #[derive(Component)]
 struct Bullet {
     lane: usize,
+    previous_z: f32,
 }
 
 #[derive(Resource, Default)]
@@ -79,6 +83,7 @@ struct MotionCapture {
     next_capture: u32,
     frame: u32,
     finished: bool,
+    end_tick: u32,
 }
 
 fn main() {
@@ -95,6 +100,14 @@ fn main() {
             let directory = args
                 .next()
                 .expect("--record-motion requires an output directory");
+            let seconds = args
+                .next()
+                .map(|value| {
+                    value
+                        .parse::<u32>()
+                        .expect("capture duration must be whole seconds")
+                })
+                .unwrap_or(6);
             std::fs::create_dir_all(&directory).expect("could not create motion capture directory");
             app.insert_resource(MotionCapture {
                 directory,
@@ -102,6 +115,7 @@ fn main() {
                 next_capture: 0,
                 frame: 0,
                 finished: false,
+                end_tick: seconds * 60,
             })
             .add_systems(FixedUpdate, preview_input.before(move_glider))
             .add_systems(Update, capture_motion);
@@ -119,21 +133,9 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems(Startup, setup)
-        .add_systems(
-            FixedUpdate,
-            (
-                move_glider,
-                animate_glider,
-                update_lane,
-                follow_glider,
-                move_bullets,
-                fire_bullets,
-            )
-                .chain(),
-        )
-        .add_systems(Update, (fit_camera, quit_on_escape))
-        .run();
+        .add_systems(Startup, setup);
+    enemies::add_systems(&mut app);
+    app.run();
 }
 
 fn rim_vertex(index: f32, radius: f32, z: f32) -> Vec3 {
@@ -342,18 +344,32 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn((
-        Camera3d::default(),
-        Tonemapping::None,
-        Projection::Perspective(PerspectiveProjection {
-            fov: 1.2,
-            ..default()
-        }),
-        Transform::from_translation(camera_position(
-            glider_transform(START_PROGRESS).translation,
-        ))
-        .with_rotation(Quat::from_euler(EulerRot::YXZ, 0.105, 0.06, 0.0)),
-    ));
+    enemies::setup(&mut commands, &mut meshes, &mut materials);
+    // Original actors render over the web rather than being clipped by its faces.
+    for layer in 0..=1 {
+        commands.spawn((
+            Camera3d::default(),
+            Camera {
+                order: layer as isize,
+                clear_color: if layer == 0 {
+                    ClearColorConfig::Default
+                } else {
+                    ClearColorConfig::None
+                },
+                ..default()
+            },
+            RenderLayers::layer(layer),
+            Tonemapping::None,
+            Projection::Perspective(PerspectiveProjection {
+                fov: 1.2,
+                ..default()
+            }),
+            Transform::from_translation(camera_position(
+                glider_transform(START_PROGRESS).translation,
+            ))
+            .with_rotation(Quat::from_euler(EulerRot::YXZ, 0.105, 0.06, 0.0)),
+        ));
+    }
 
     let beam = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let blue = materials.add(StandardMaterial {
@@ -424,6 +440,8 @@ fn setup(
             velocity: 0,
         },
         Weapon::default(),
+        Visibility::Visible,
+        RenderLayers::layer(1),
         glider_transform(START_PROGRESS),
         Mesh3d(frames.0[claw_frame(START_PROGRESS)].clone()),
         MeshMaterial3d(vertex_material),
@@ -476,7 +494,7 @@ fn setup(
         },
     ));
     commands.spawn((
-        Text::new("LEFT / RIGHT or A / D    Move     ENTER / SPACE    Fire     ESC    Quit"),
+        Text::new("LEFT / RIGHT or A / D    Move     ENTER / SPACE    Fire     R    Restart     ESC    Quit"),
         TextFont {
             font_size: 14.0,
             ..default()
@@ -561,10 +579,10 @@ fn preview_input(mut capture: ResMut<MotionCapture>, mut keys: ResMut<ButtonInpu
     keys.release(KeyCode::KeyD);
     keys.release(KeyCode::KeyA);
     keys.release(KeyCode::Space);
-    if (30..330).contains(&capture.tick) {
+    if (30..capture.end_tick.saturating_sub(30)).contains(&capture.tick) {
         keys.press(KeyCode::Space);
     }
-    match capture.tick {
+    match capture.tick % 360 {
         60..90 | 240..300 => keys.press(KeyCode::KeyD),
         150..180 => keys.press(KeyCode::KeyA),
         _ => {}
@@ -576,7 +594,7 @@ fn capture_motion(mut commands: Commands, mut capture: ResMut<MotionCapture>) {
     if capture.finished || capture.tick < capture.next_capture {
         return;
     }
-    let finished = capture.tick >= 360;
+    let finished = capture.tick >= capture.end_tick;
     commands
         .spawn(Screenshot::primary_window())
         .observe(save_to_disk(format!(
@@ -629,7 +647,11 @@ fn fire_bullets(
     let lane = selected_lane(glider.progress) as usize;
     let position = glider_transform(glider.progress).translation - Vec3::Z * 0.18;
     commands.spawn((
-        Bullet { lane },
+        Bullet {
+            lane,
+            previous_z: position.z,
+        },
+        RenderLayers::layer(1),
         Mesh3d(assets.mesh.clone()),
         MeshMaterial3d(assets.material.clone()),
         Transform::from_translation(position),
@@ -637,11 +659,12 @@ fn fire_bullets(
     weapon.cooldown = FIRE_INTERVAL;
 }
 
-fn move_bullets(mut commands: Commands, mut bullets: Query<(Entity, &Bullet, &mut Transform)>) {
-    for (entity, bullet, mut transform) in &mut bullets {
+fn move_bullets(mut commands: Commands, mut bullets: Query<(Entity, &mut Bullet, &mut Transform)>) {
+    for (entity, mut bullet, mut transform) in &mut bullets {
         let center = glider_transform(bullet.lane as i32 * LANE_UNIT).translation;
         transform.translation.x = center.x;
         transform.translation.y = center.y;
+        bullet.previous_z = transform.translation.z;
         transform.translation.z -= BULLET_STEP;
         if transform.translation.z <= -DEPTH {
             commands.entity(entity).despawn();
