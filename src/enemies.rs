@@ -2,6 +2,8 @@ use std::{collections::HashSet, f32::consts::TAU};
 
 use super::*;
 
+use crate::explosion;
+
 const WORLD_UNIT: f32 = FRONT_RADIUS / 24.0;
 const REAR: i32 = 160 * LANE_UNIT;
 const FLIPPER_SPEED: i32 = 0xa000;
@@ -115,12 +117,12 @@ pub(super) fn add_systems(app: &mut App) {
                 spawn_enemies,
                 move_enemies,
                 move_enemy_shots,
-                resolve_hits,
-                fire_enemy_shots,
-                check_game,
             )
                 .chain(),
         )
+        .add_systems(FixedUpdate, (resolve_hits, fire_enemy_shots).chain())
+        .add_systems(FixedUpdate, explosion::age_explosions)
+        .add_systems(FixedUpdate, check_game)
         .add_systems(
             Update,
             (fit_camera, quit_on_escape, restart_game, update_hud).chain(),
@@ -204,6 +206,7 @@ pub(super) fn setup(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
+    explosion::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh()),
         point: meshes.add(Sphere::new(0.08)),
@@ -434,8 +437,9 @@ fn move_enemy_shots(
 fn resolve_hits(
     mut commands: Commands,
     mut game: ResMut<Game>,
+    bursts: Res<explosion::BurstAssets>,
     bullets: Query<(Entity, &Bullet, &Transform)>,
-    enemies: Query<(Entity, &Flipper)>,
+    enemies: Query<(Entity, &Flipper, &Transform)>,
     enemy_shots: Query<(Entity, &EnemyShot)>,
 ) {
     if game.status != Status::Playing {
@@ -451,26 +455,31 @@ fn resolve_hits(
         };
         let hit = enemies
             .iter()
-            .filter(|(entity, flipper)| {
+            .filter(|(entity, flipper, _)| {
                 !killed.contains(entity)
                     && flipper.hit_lane() == Some(bullet.lane)
                     && intersects(flipper.lane, flipper.depth)
             })
-            .map(|(entity, flipper)| (entity, flipper.depth, 150))
+            .map(|(entity, flipper, transform)| {
+                (entity, flipper.depth, 150, Some(transform.translation))
+            })
             .chain(
                 enemy_shots
                     .iter()
                     .filter(|(entity, shot)| {
                         !killed.contains(entity) && intersects(shot.lane, shot.depth)
                     })
-                    .map(|(entity, shot)| (entity, shot.depth, 0)),
+                    .map(|(entity, shot)| (entity, shot.depth, 0, None::<Vec3>)),
             )
-            .min_by_key(|(_, depth, _)| *depth);
-        if let Some((entity, _, points)) = hit {
+            .min_by_key(|(_, depth, _, _)| *depth);
+        if let Some((entity, _, points, centre)) = hit {
             commands.entity(shot).despawn();
             commands.entity(entity).despawn();
             killed.insert(entity);
             game.score += points;
+            if let Some(centre) = centre {
+                explosion::spawn_explosion(&mut commands, &bursts, centre);
+            }
         }
     }
 }
@@ -586,6 +595,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<Game>()
             .init_resource::<FlipperAssets>()
+            .init_resource::<explosion::BurstAssets>()
             .init_resource::<ButtonInput<KeyCode>>();
         app.world_mut().spawn((
             Glider {

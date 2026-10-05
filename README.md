@@ -115,6 +115,16 @@ in flight. It uses `s_shot`'s three rotating chevrons, shaded with the original
 purple and yellow-green CRY colors. Enemy shots travel toward the rim at
 `0x18000` depth units per tick, and your shots can intercept them.
 
+Destroying a Flipper replaces it with the original's ring explosion. The
+source turns the enemy into a `dpring` object, which draws two rings of single
+pixels for 51 ticks: an inner ring of 16 pixels and an outer one of 14, at twice
+the radius and four units further up the tube. Both rings start green and sweep
+along `dat/sines.dat` through `pulser`, so the inner ring only reaches lime
+while the outer one carries on into orange. Every frame of that sequence is
+prebuilt here. Each explosion adjusts its dot geometry for camera distance and
+projection, targeting one pixel at the original 384-pixel framebuffer width.
+This keeps distant dots visible instead of shrinking them with the ring.
+
 A Flipper or enemy shot that catches the claw on the rim costs a life. You
 start with three lives. Losing a life resets the wave and gives two seconds
 of invulnerability.
@@ -132,7 +142,8 @@ cargo clippy -- -D warnings
 
 `src/main.rs` contains the scene setup, claw movement, and firing systems.
 `src/enemies.rs` contains the Flipper geometry, wave generator, enemy state
-machine, collisions, score, and lives. The prototype has no audio or power-ups.
+machine, collisions, score, and lives. `src/explosion.rs` contains the death
+rings, the sine table, and the CRY palette lookup behind them. The prototype has no audio or power-ups.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
 
@@ -181,6 +192,15 @@ The source references used for this prototype are in the original game's
 - `collie` defines shot vulnerability and the six-unit depth collision threshold.
 - `scores` assigns 150 points to a normal Flipper.
 - `alienfire`, `run_ashot`, `s_shot`, and `chevron` define enemy firing and shots.
+- `killme`, `sphkillme`, and `kime` turn a killed Flipper into its explosion.
+- `dpring`, `draw_prex`, and `run_prex` build, draw, and age the ring explosion.
+- `pulser` reads `dat/sines.dat` to pick each ring's colour.
+- `pring2` in `src/gpu/xcamel.gas` plots a ring a pixel at a time.
+
+`pring2` also computes `255 - radius >> 16` as a ring's intensity, which looks
+like a fade as the ring grows. It cannot be one: by that point it has already
+divided the radius by z, so the shifted byte is always zero and every ring draws
+at full intensity. The colour sweep is the whole of the apparent fade.
 
 The CRY hue-to-RGB lookup used to check those colors comes from
 [Virtual Jaguar's TOM implementation](https://github.com/libretro/virtualjaguar-libretro/blob/master/src/tom/tom.c).

@@ -9,6 +9,7 @@ use bevy::{
 };
 
 mod enemies;
+mod explosion;
 
 const LANES: usize = 16;
 const FRONT_RADIUS: f32 = 4.0;
