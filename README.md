@@ -52,7 +52,21 @@ Opposite directions held together cancel each other.
 Shots launch from the current lane and travel straight down the tunnel.
 They stay in their launch lane as the claw moves. The normal weapon fires
 every four simulation ticks, with up to eight shots in flight, and removes
-each shot at the rear opening. Shots are small, bright green projectiles.
+each shot at the rear opening.
+
+A shot is not a flat green dot. Sampling a reference screenshot shows three
+layers: a near-white core in the shape of the original's `shot` vector, a
+bright cyan-green body, and a darker green rim. The original gets this by
+drawing a small shape at full brightness and letting bloom spread the colour,
+so this prototype builds the layers into the mesh instead. The shades,
+`(236, 250, 254)`, `(14, 250, 155)`, and `(0, 154, 53)`, are sampled from that
+screenshot.
+
+The shot's own colour register could not explain this. `frab` starts a shot at
+hue `$88` and `player_shot` adds `$30` to the high byte of the colour word every
+frame, but decoding that cycle through the Jaguar's CRY tables yields blues,
+magentas, and oranges, never the green the original displays. The green is
+therefore matched to the screenshot, not derived from the registers.
 
 ## First-level enemies
 

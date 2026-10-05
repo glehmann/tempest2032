@@ -61,6 +61,58 @@ struct Bullet {
     previous_z: f32,
 }
 
+/// A player shot reads as a white-hot core inside a cyan-green glow. The
+/// original draws a small rotating vector shape and lets bloom spread the
+/// colour outwards, so these layers stand in for that glow. The shades are
+/// sampled from a reference screenshot of the Jaguar original.
+fn shot_mesh() -> Mesh {
+    const SEGMENTS: usize = 8;
+    const THICKNESS: f32 = 0.3;
+    let shades = [
+        Color::srgb_u8(236, 250, 254),
+        Color::srgb_u8(14, 250, 155),
+        Color::srgb_u8(0, 154, 53),
+    ];
+    let radii = [0.037, 0.08, 0.132];
+    let point = |layer: usize, index: usize, z: f32| {
+        let angle = index as f32 * std::f32::consts::TAU / SEGMENTS as f32;
+        Vec3::new(
+            angle.cos() * radii[layer],
+            angle.sin() * radii[layer] * 1.05,
+            z,
+        )
+    };
+
+    let mut triangles = Vec::new();
+    for z in [THICKNESS, -THICKNESS] {
+        for index in 0..SEGMENTS {
+            let next = (index + 1) % SEGMENTS;
+            let (a, b) = (point(0, index, z), point(0, next, z));
+            triangles.push([
+                (Vec3::new(0.0, 0.0, z), shades[0]),
+                (a, shades[0]),
+                (b, shades[0]),
+            ]);
+            for layer in 0..radii.len() - 1 {
+                let (near, far) = (shades[layer], shades[layer + 1]);
+                let (a, b) = (point(layer, index, z), point(layer, next, z));
+                let (c, d) = (point(layer + 1, index, z), point(layer + 1, next, z));
+                triangles.push([(a, near), (b, near), (c, far)]);
+                triangles.push([(a, near), (c, far), (d, far)]);
+            }
+        }
+    }
+    // Close the rim so the bolt stays solid when a shot is seen from the side.
+    for index in 0..SEGMENTS {
+        let next = (index + 1) % SEGMENTS;
+        let (a, b) = (point(2, index, THICKNESS), point(2, next, THICKNESS));
+        let (c, d) = (point(2, index, -THICKNESS), point(2, next, -THICKNESS));
+        triangles.push([(a, shades[2]), (c, shades[2]), (d, shades[2])]);
+        triangles.push([(a, shades[2]), (d, shades[2]), (b, shades[2])]);
+    }
+    colored_mesh(triangles)
+}
+
 #[derive(Resource, Default)]
 struct ShotAssets {
     mesh: Handle<Mesh>,
@@ -389,10 +441,11 @@ fn setup(
         ..default()
     });
     commands.insert_resource(ShotAssets {
-        mesh: meshes.add(Sphere::new(0.095)),
+        mesh: meshes.add(shot_mesh()),
         material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.35, 1.0, 0.12),
+            base_color: Color::WHITE,
             unlit: true,
+            cull_mode: None,
             ..default()
         }),
     });
@@ -916,6 +969,43 @@ mod tests {
             target
         );
         assert_eq!(state(&mut app), (8 * LANE_UNIT, 0));
+    }
+
+    #[test]
+    fn shot_has_a_white_core_inside_a_cyan_green_glow() {
+        let mesh = shot_mesh();
+        let colors = match mesh.attribute(Mesh::ATTRIBUTE_COLOR) {
+            Some(bevy::mesh::VertexAttributeValues::Float32x4(values)) => values,
+            other => panic!("shot mesh needs colours, got {other:?}"),
+        };
+        assert!(!colors.is_empty());
+
+        // Exactly the three sampled shades, in the linear space the GPU uses.
+        let shade = |rgb: [u8; 3]| {
+            let value = LinearRgba::from(Color::srgb_u8(rgb[0], rgb[1], rgb[2])).to_f32_array();
+            [value[0], value[1], value[2]]
+        };
+        let shades = [
+            shade([236, 250, 254]),
+            shade([14, 250, 155]),
+            shade([0, 154, 53]),
+        ];
+        let matches = |color: &[f32], want: &[f32; 3]| {
+            (0..3).all(|channel| (color[channel] - want[channel]).abs() < 1e-6)
+        };
+        for color in colors {
+            assert!(
+                shades.iter().any(|want| matches(color, want)),
+                "unexpected shot colour {color:?}"
+            );
+        }
+        for want in shades {
+            assert!(colors.iter().any(|color| matches(color, &want)));
+        }
+        // The core is the brightest layer and the rim the dimmest.
+        let luminance = |shade: &[f32; 3]| shade.iter().sum::<f32>();
+        assert!(luminance(&shades[0]) > luminance(&shades[1]));
+        assert!(luminance(&shades[1]) > luminance(&shades[2]));
     }
 
     fn firing_app(progress: i32, keys: &[KeyCode]) -> App {
