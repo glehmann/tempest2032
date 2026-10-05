@@ -1,0 +1,18 @@
+[package]
+name = "t2k"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+
+[dependencies]
+bevy = { version = "0.18", default-features = false, features = [
+    "std", "async_executor", "multi_threaded", "bevy_asset", "bevy_log",
+    "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render",
+    "default_font", "x11", "wayland", "png",
+] }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
