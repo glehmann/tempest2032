@@ -194,6 +194,7 @@ struct MotionCapture {
     frame: u32,
     finished: bool,
     end_tick: u32,
+    exit_preview: bool,
 }
 
 fn main() {
@@ -206,10 +207,8 @@ fn main() {
             ))
             .add_systems(Update, capture_frame);
         }
-        Some("--record-motion") => {
-            let directory = args
-                .next()
-                .expect("--record-motion requires an output directory");
+        Some(mode @ ("--record-motion" | "--record-exit")) => {
+            let directory = args.next().expect("recording requires an output directory");
             let seconds = args
                 .next()
                 .map(|value| {
@@ -217,7 +216,7 @@ fn main() {
                         .parse::<u32>()
                         .expect("capture duration must be whole seconds")
                 })
-                .unwrap_or(6);
+                .unwrap_or(if mode == "--record-exit" { 14 } else { 6 });
             std::fs::create_dir_all(&directory).expect("could not create motion capture directory");
             app.insert_resource(MotionCapture {
                 directory,
@@ -226,6 +225,7 @@ fn main() {
                 frame: 0,
                 finished: false,
                 end_tick: seconds * 60,
+                exit_preview: mode == "--record-exit",
             })
             .add_systems(FixedUpdate, preview_input.before(move_glider))
             .add_systems(Update, capture_motion);
@@ -757,7 +757,9 @@ fn move_glider(keys: Res<ButtonInput<KeyCode>>, mut gliders: Query<(&mut Glider,
                 (glider.velocity + direction * ACCELERATION).clamp(-MAX_VELOCITY, MAX_VELOCITY);
         }
         glider.progress = (glider.progress + glider.velocity).rem_euclid(WEB_PERIOD);
+        let z = transform.translation.z;
         *transform = glider_transform(glider.progress);
+        transform.translation.z = z;
     }
 }
 
@@ -765,11 +767,11 @@ fn fire_bullets(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     assets: Res<ShotAssets>,
-    mut glider: Single<(&Glider, &mut Weapon)>,
+    mut glider: Single<(&Glider, &mut Weapon, &Transform)>,
     bullets: Query<&Bullet>,
     upgrades: Option<Res<Upgrades>>,
 ) {
-    let (glider, weapon) = &mut *glider;
+    let (glider, weapon, transform) = &mut *glider;
     if !keys.any_pressed([KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space]) {
         weapon.firing = false;
         return;
@@ -796,10 +798,7 @@ fn fire_bullets(
     }
     weapon.firing = true;
     let lane = selected_lane(glider.progress) as usize;
-    let height = upgrades.as_ref().map_or(0, |u| u.jump_height) as f32 / LANE_UNIT as f32
-        * FRONT_RADIUS
-        / 24.0;
-    let position = glider_transform(glider.progress).translation + Vec3::Z * (height - 0.18);
+    let position = transform.translation - Vec3::Z * 0.18;
     let mut shot = commands.spawn((
         Bullet { lane },
         RenderLayers::layer(1),

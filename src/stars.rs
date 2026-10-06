@@ -5,6 +5,13 @@ const DEPTH_WRAP: i32 = 512 * LANE_UNIT;
 const STEP: i32 = 2 * LANE_UNIT;
 const BACKGROUND_DISTANCE: f32 = 100.0;
 
+#[derive(Resource, Default)]
+pub(crate) struct Warp {
+    pub(crate) distance: i32,
+    pub(crate) spacing: i32,
+    pub(crate) copies: u8,
+}
+
 struct Star {
     position: Vec2,
     depth: i32,
@@ -69,6 +76,7 @@ pub(super) fn setup(
     materials: &mut Assets<StandardMaterial>,
 ) {
     commands.insert_resource(Stars::default());
+    commands.insert_resource(Warp::default());
     commands.spawn((
         StarField,
         RenderLayers::layer(0),
@@ -100,6 +108,7 @@ fn advance_stars(mut stars: ResMut<Stars>) {
 #[allow(clippy::type_complexity)]
 fn draw_stars(
     stars: Res<Stars>,
+    warp: Res<Warp>,
     mut meshes: ResMut<Assets<Mesh>>,
     cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<StarField>)>,
     mut fields: Query<(&Mesh3d, &mut Transform), With<StarField>>,
@@ -110,20 +119,30 @@ fn draw_stars(
     let half_height = BACKGROUND_DISTANCE * (projection.fov * 0.5).tan();
     let half_width = half_height * projection.aspect_ratio;
     let pixel = 2.0 * half_width / 384.0;
+    let warp = &*warp;
     let triangles = stars.0.iter().flat_map(|star| {
-        let centre = star.projected(camera.translation.truncate() * (24.0 / FRONT_RADIUS)) * pixel;
-        if centre.x.abs() > half_width || centre.y.abs() > half_height {
-            return Vec::new();
-        }
-        let color = star.color();
-        let quad = [
-            Vec2::new(-0.5, -0.5),
-            Vec2::new(0.5, -0.5),
-            Vec2::new(0.5, 0.5),
-            Vec2::new(-0.5, 0.5),
-        ]
-        .map(|corner| ((centre + corner * pixel).extend(0.0), color));
-        vec![[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
+        (0..=warp.copies).flat_map(move |index| {
+            let star = Star {
+                position: star.position,
+                depth: (star.depth - warp.distance + i32::from(index) * warp.spacing)
+                    .rem_euclid(DEPTH_WRAP),
+                color: star.color,
+            };
+            let centre =
+                star.projected(camera.translation.truncate() * (24.0 / FRONT_RADIUS)) * pixel;
+            if centre.x.abs() > half_width || centre.y.abs() > half_height {
+                return Vec::new();
+            }
+            let color = star.color();
+            let quad = [
+                Vec2::new(-0.5, -0.5),
+                Vec2::new(0.5, -0.5),
+                Vec2::new(0.5, 0.5),
+                Vec2::new(-0.5, 0.5),
+            ]
+            .map(|corner| ((centre + corner * pixel).extend(0.0), color));
+            vec![[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
+        })
     });
     let geometry = colored_mesh(triangles);
     for (mesh, mut transform) in &mut fields {
@@ -139,6 +158,63 @@ fn draw_stars(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn warp_draws_four_depth_spaced_samples_and_returns_to_single_dots() {
+        let mut app = App::new();
+        let mut meshes = Assets::<Mesh>::default();
+        let mesh = meshes.add(colored_mesh([]));
+        app.insert_resource(meshes)
+            .insert_resource(Stars(vec![Star {
+                position: Vec2::ZERO,
+                depth: 32 * LANE_UNIT,
+                color: Color::WHITE,
+            }]))
+            .insert_resource(Warp {
+                distance: 0,
+                spacing: 16 * LANE_UNIT,
+                copies: 3,
+            })
+            .add_systems(Update, draw_stars);
+        app.world_mut().spawn((
+            Camera3d::default(),
+            Transform::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+        ));
+        app.world_mut()
+            .spawn((StarField, Mesh3d(mesh.clone()), Transform::default()));
+        app.world_mut().run_schedule(Update);
+        let colors = match app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .get(&mesh)
+            .unwrap()
+            .attribute(Mesh::ATTRIBUTE_COLOR)
+            .unwrap()
+        {
+            bevy::mesh::VertexAttributeValues::Float32x4(colors) => colors,
+            _ => panic!("star mesh needs colors"),
+        };
+        assert_eq!(colors.len(), 24);
+        assert!(
+            colors
+                .chunks_exact(6)
+                .map(|dot| dot[0][0])
+                .collect::<Vec<_>>()
+                .windows(2)
+                .all(|pair| pair[0] > pair[1])
+        );
+        *app.world_mut().resource_mut::<Warp>() = Warp::default();
+        app.world_mut().run_schedule(Update);
+        assert_eq!(
+            app.world()
+                .resource::<Assets<Mesh>>()
+                .get(&mesh)
+                .unwrap()
+                .count_vertices(),
+            6
+        );
+    }
 
     fn star(depth: i32) -> Star {
         Star {

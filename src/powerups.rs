@@ -111,6 +111,12 @@ impl Upgrades {
         *self = Self::default();
         self.warp_tokens = tokens;
     }
+
+    pub(super) fn land(&mut self) {
+        self.jump_height = 0;
+        self.jump_velocity = 0;
+        self.jump_queued = false;
+    }
 }
 
 #[derive(Component)]

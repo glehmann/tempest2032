@@ -49,6 +49,22 @@ as the web settles. The solid claw replaces the outlines when rezzing ends.
 
 Restarting with R and re-entering after a lost life replay this sequence.
 
+## Level exit
+
+Clearing the wave starts the original `zoom1` and `czoom1` fly-through. The
+camera and claw accelerate down the tunnel using `zs_stuff`'s `0x400` fixed-point
+step per tick. The blue faces fade away; movement and firing remain available
+until the claw reaches the rear.
+
+At the rear, `czoom2` replaces the solid claw with four spinning wireframe
+copies. Their depth spacing grows as they fly away. `zoom2` hides the web and
+adds further acceleration to the claw. The starfield uses `starfield1`'s four
+depth-spaced samples per star, with separation growing by a quarter unit per
+tick. Reaching the source's 2,000-unit claw depth triggers the warp flash.
+
+After the flash, this prototype automatically replays level one with score,
+lives, and upgrades preserved. R cancels the exit and starts a fresh game.
+
 ## Controls
 
 | Key | Action |
@@ -173,8 +189,8 @@ restarts immediately.
 
 Enemy shots cost a life immediately. You start with three lives. Losing a life
 resets the wave and gives two seconds of invulnerability.
-Press **R** to restart, or replay after clearing the level. This prototype
-replays level one rather than advancing to another web.
+Press **R** to restart. The level-clear exit replays level one automatically
+rather than advancing to another web.
 
 ## Power-ups
 
@@ -248,6 +264,7 @@ rings, the sine table, and the CRY palette lookup behind them. `src/stars.rs`
 contains the moving background star field. `src/powerups.rs`, a child module of
 `enemies`, contains drops, collection effects, rewards, jumping, and the droid.
 `src/entry.rs` contains the approaching web and wireframe claw entry animation.
+`src/exit.rs` contains the accelerating fly-through, claw warp, flash, and replay.
 The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
@@ -276,6 +293,16 @@ The encoded video is a visual preview; screenshot timing can vary with GPU load.
 An optional duration extends the capture, for example
 `cargo run -- --record-motion target/enemies 15` to see enemies reach the rim.
 
+To preview the exit without playing through the wave, run:
+
+```sh
+cargo run -- --record-exit target/exit
+```
+
+This records 14 seconds and clears the wave six seconds into the capture,
+showing entry, the complete exit, the warp flash, and the start of re-entry.
+An optional duration works as with `--record-motion`.
+
 ## Original geometry references
 
 The source references used for this prototype are in the original game's
@@ -290,6 +317,8 @@ The source references used for this prototype are in the original game's
 - `sclaw0` through `sclaw7` define the solid claw's movement poses.
 - `setweb`, `rotate_web`, `srezclaw`, `dsclaw2`, and `draw_z` define level entry
   and the contracting wireframe claw trails.
+- `szoom`, `zoom1`, `czoom1`, `zoom2`, and `czoom2` define the level-clear flight
+  and expanding claw trails; `starfield1` draws the warp star samples.
 - `dsclaw` selects one of those eight poses from the fractional lane position.
 - `sclawr`, `frab`, and `player_shot` control repeat firing and shot travel.
 - `_nw1`, `setnewgen`, and `newgen` define level-one enemies and spawn timing.

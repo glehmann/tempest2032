@@ -190,12 +190,12 @@ pub(super) fn advance(mut game: ResMut<Game>) {
     game.entry = (tick < APPROACH_TICKS + REZ_TICKS).then_some(tick);
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(super) fn draw(
     game: Res<Game>,
     assets: Res<EntryAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut web: Single<&mut Transform, With<WebRoot>>,
+    mut web: Single<(&mut Transform, &mut Visibility), With<WebRoot>>,
     mut player: Single<(&Glider, &Transform, &mut Visibility), Without<WebRoot>>,
     mut trails: Query<
         (&ClawTrail, &mut Transform, &mut Mesh3d, &mut Visibility),
@@ -203,17 +203,44 @@ pub(super) fn draw(
     >,
     mut highlights: Query<
         &mut Visibility,
-        (With<LaneHighlight>, Without<Glider>, Without<ClawTrail>),
+        (
+            With<LaneHighlight>,
+            Without<Glider>,
+            Without<ClawTrail>,
+            Without<WebRoot>,
+        ),
+    >,
+    mut droids: Query<
+        &mut Visibility,
+        (
+            With<powerups::Droid>,
+            Without<Glider>,
+            Without<ClawTrail>,
+            Without<WebRoot>,
+            Without<LaneHighlight>,
+        ),
     >,
 ) {
     let tick = game.entry.unwrap_or(APPROACH_TICKS + REZ_TICKS);
-    **web = web_transform(tick);
+    let (web_transform, web_visibility) = &mut *web;
+    **web_transform = self::web_transform(tick);
+    **web_visibility = if game
+        .exit
+        .is_some_and(|exit| !exit.web_visible || exit.flash > 0)
+    {
+        Visibility::Hidden
+    } else {
+        Visibility::Visible
+    };
     if let Some(surface) = materials.get_mut(&assets.surface) {
-        surface.base_color = Color::WHITE
-            .with_alpha((f32::from(tick.saturating_sub(APPROACH_TICKS)) * 8.0 / 248.0).min(1.0));
+        let alpha = game.exit.map_or_else(
+            || (f32::from(tick.saturating_sub(APPROACH_TICKS)) * 8.0 / 248.0).min(1.0),
+            |exit| (1.0 - f32::from(exit.ticks) * 8.0 / 248.0).max(0.0),
+        );
+        surface.base_color = Color::WHITE.with_alpha(alpha);
     }
     let (glider, transform, visibility) = &mut *player;
-    if game.entry.is_some() {
+    if game.entry.is_some() || game.exit.is_some_and(|exit| exit.wireframe) {
         **visibility = Visibility::Hidden;
     }
     // check_game owns the invulnerability blink once the claw has rezzed.
@@ -221,7 +248,14 @@ pub(super) fn draw(
         **visibility = Visibility::Visible;
     }
     for mut visibility in &mut highlights {
-        *visibility = if tick < APPROACH_TICKS {
+        *visibility = if tick < APPROACH_TICKS || game.exit.is_some_and(|exit| exit.wireframe) {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
+    }
+    for mut visibility in &mut droids {
+        *visibility = if tick < APPROACH_TICKS || game.exit.is_some() {
             Visibility::Hidden
         } else {
             Visibility::Visible
@@ -229,14 +263,25 @@ pub(super) fn draw(
     }
     let (frame, mirror) = vector_pose(glider.progress);
     for (trail, mut copy, mut mesh, mut visibility) in &mut trails {
-        *visibility = if (APPROACH_TICKS + 1..APPROACH_TICKS + REZ_TICKS).contains(&tick) {
+        let exiting = game
+            .exit
+            .is_some_and(|exit| exit.wireframe && exit.flash == 0);
+        *visibility = if exiting || (APPROACH_TICKS + 1..APPROACH_TICKS + REZ_TICKS).contains(&tick)
+        {
             Visibility::Visible
         } else {
             Visibility::Hidden
         };
         *copy = **transform;
-        copy.translation.z +=
-            trail.0 as f32 * f32::from(APPROACH_TICKS + REZ_TICKS - tick) * WORLD_UNIT / 4.0;
+        let spacing = game
+            .exit
+            .map_or(f32::from(APPROACH_TICKS + REZ_TICKS - tick) / 4.0, |exit| {
+                exit.spacing as f32 / LANE_UNIT as f32
+            });
+        copy.translation.z += trail.0 as f32 * spacing * WORLD_UNIT;
+        if let Some(exit) = game.exit {
+            copy.rotation *= Quat::from_rotation_z(f32::from(exit.spin) * TAU / 256.0);
+        }
         copy.scale.x = mirror;
         mesh.0 = assets.frames[frame].clone();
     }
