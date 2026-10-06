@@ -8,6 +8,9 @@ pub(super) struct Exit {
     speed: i32,
     extra_depth: i32,
     camera_z: f32,
+    rear: i32,
+    web_end: f32,
+    warp_end: i32,
     pub(super) distance: i32,
     pub(super) depth: i32,
     pub(super) ticks: u16,
@@ -19,11 +22,14 @@ pub(super) struct Exit {
 }
 
 impl Exit {
-    pub(super) fn new(position: Vec3) -> Self {
+    pub(super) fn new(position: Vec3, web: &level::Web) -> Self {
         Self {
             speed: 0,
             extra_depth: 0,
-            camera_z: camera_position(position).z,
+            camera_z: web.camera_position(position).z,
+            rear: web.rear(),
+            web_end: 30.0 + f32::from(web.depth) + 70.0,
+            warp_end: web.rear() + 1810 * LANE_UNIT,
             distance: 0,
             depth: ((0.12 - position.z) / WORLD_UNIT * LANE_UNIT as f32) as i32,
             ticks: 0,
@@ -49,12 +55,12 @@ impl Exit {
             if self.wireframe {
                 self.spin = self.spin.wrapping_add(4);
                 self.spacing += 0x4000;
-            } else if self.depth >= REAR {
+            } else if self.depth >= self.rear {
                 self.wireframe = true;
             }
             let source_camera =
                 30.0 - self.camera_z / WORLD_UNIT + self.distance as f32 / LANE_UNIT as f32;
-            if source_camera > 260.0 {
+            if source_camera > self.web_end {
                 self.web_visible = false;
             }
         } else {
@@ -66,7 +72,7 @@ impl Exit {
             self.speed += ZOOM_ACCELERATION;
             self.extra_depth += 0x1000;
         }
-        if self.depth >= (2000 - 30) * LANE_UNIT {
+        if self.depth >= self.warp_end {
             self.flash = FLASH_TICKS;
         }
         false
@@ -94,9 +100,9 @@ pub(super) fn setup(commands: &mut Commands) {
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(super) fn animate(
+    level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
-    mut upgrades: ResMut<powerups::Upgrades>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
     mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
     actors: Query<
@@ -120,21 +126,11 @@ pub(super) fn animate(
     let (glider, weapon, transform, visibility) = &mut *player;
     let was_wireframe = exit.wireframe;
     if exit.advance() {
-        for (entity, _) in &actors {
-            commands.entity(entity).despawn();
-        }
         game.exit = None;
         game.invulnerable = 0;
-        reset_wave(&mut game);
-        upgrades.land();
-        glider.progress = START_PROGRESS;
-        glider.velocity = 0;
-        **weapon = Weapon::default();
-        **transform = glider_transform(START_PROGRESS);
+        game.load = Some(LoadReason::Advance);
+        game.status = Status::Entering;
         **visibility = Visibility::Hidden;
-        for mut camera in &mut cameras {
-            camera.translation = camera_position(transform.translation);
-        }
         if let Some(warp) = &mut warp {
             **warp = stars::Warp::default();
         }
@@ -152,7 +148,9 @@ pub(super) fn animate(
         glider.velocity = 0;
         **weapon = Weapon::default();
     }
-    let target = camera_position(glider_transform(glider.progress).translation);
+    let target = level
+        .web
+        .camera_position(level.web.glider_transform(glider.progress).translation);
     for mut camera in &mut cameras {
         let delta = (target - camera.translation)
             .clamp(Vec3::splat(-CAMERA_STEP), Vec3::splat(CAMERA_STEP));
@@ -181,7 +179,10 @@ mod tests {
 
     #[test]
     fn zoom_accelerates_then_switches_to_spinning_trails_at_the_rear() {
-        let mut exit = Exit::new(glider_transform(START_PROGRESS).translation);
+        let mut exit = Exit::new(
+            glider_transform(START_PROGRESS).translation,
+            &Level::default().web,
+        );
         for _ in 0..64 {
             assert!(!exit.advance());
         }
@@ -225,7 +226,12 @@ mod tests {
         let mut app = App::new();
         let mut meshes = Assets::<Mesh>::default();
         let mut materials = Assets::<StandardMaterial>::default();
-        entry::setup(&mut app.world_mut().commands(), &mut meshes, &mut materials);
+        entry::setup(
+            &mut app.world_mut().commands(),
+            &mut meshes,
+            &mut materials,
+            &Level::default().web,
+        );
         setup(&mut app.world_mut().commands());
         app.world_mut().flush();
         let mut keys = ButtonInput::default();
@@ -238,6 +244,8 @@ mod tests {
             ..default()
         })
         .insert_resource(keys)
+        .init_resource::<Level>()
+        .init_resource::<Levels>()
         .insert_resource(meshes)
         .insert_resource(materials)
         .init_resource::<powerups::Upgrades>()
@@ -252,10 +260,14 @@ mod tests {
                 entry::advance,
                 animate,
                 check_game,
+                load_level,
             )
                 .chain(),
         )
-        .add_systems(Update, (entry::draw, draw).chain());
+        .add_systems(
+            Update,
+            (load_level.after(restart_game), entry::draw, draw).chain(),
+        );
         app.world_mut().spawn((
             Glider {
                 progress: START_PROGRESS,

@@ -16,14 +16,10 @@ mod exit;
 #[path = "shot_death.rs"]
 mod shot_death;
 
-const WORLD_UNIT: f32 = FRONT_RADIUS / 24.0;
+#[cfg(test)]
 const REAR: i32 = 160 * LANE_UNIT;
 const RETREAT_END: f32 = (110.0 - 80.0 + 400.0) * WORLD_UNIT;
-const FLIPPER_SPEED: i32 = 0xa000;
-const FLIP_SPEED: u8 = 4;
-const FLIP_ANGLE: u8 = 112;
-// T2K's stdinit indexes rospeeds[1], crossdels[4], then pauses[1].
-const FLIP_PAUSE: u8 = 8;
+#[cfg(test)]
 const MAX_FLIPPERS: usize = 11;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -49,7 +45,7 @@ struct Game {
     score: u32,
     lives: u8,
     status: Status,
-    remaining: u8,
+    remaining: u16,
     spawn_timer: u16,
     invulnerable: u16,
     random: u32,
@@ -58,6 +54,8 @@ struct Game {
     entry: Option<u16>,
     exit: Option<exit::Exit>,
     death: Option<shot_death::Death>,
+    level_index: usize,
+    load: Option<LoadReason>,
 }
 
 impl Default for Game {
@@ -76,6 +74,8 @@ impl Default for Game {
             entry: None,
             exit: None,
             death: None,
+            level_index: 0,
+            load: None,
         }
     }
 }
@@ -87,12 +87,13 @@ enum Motion {
     Flip {
         from: usize,
         direction: i32,
-        angle: u8,
+        angle: u16,
     },
     Pause(u8),
 }
 
 #[derive(Component, Debug)]
+#[require(LevelActor)]
 pub(crate) struct Flipper {
     lane: usize,
     depth: i32,
@@ -101,6 +102,7 @@ pub(crate) struct Flipper {
 }
 
 #[derive(Component)]
+#[require(LevelActor)]
 struct EnemyShot {
     lane: usize,
     depth: i32,
@@ -108,22 +110,42 @@ struct EnemyShot {
 }
 
 impl Flipper {
-    pub(crate) fn preview_target(&self) -> Option<(usize, i32)> {
-        self.hit_lane().map(|lane| (lane, self.depth))
+    pub(crate) fn preview_target(&self, web: &level::Web) -> Option<(usize, i32)> {
+        self.hit_lane(web).map(|lane| (lane, self.depth))
     }
 
-    fn hit_lane(&self) -> Option<usize> {
+    fn hit_lane(&self, web: &level::Web) -> Option<usize> {
         match self.motion {
             Motion::Approach => None,
-            Motion::Flip { angle, .. } if FLIP_ANGLE - angle > 52 => None,
+            Motion::Flip {
+                from,
+                direction,
+                angle,
+            } if web
+                .flip_angle(from, self.lane, direction)
+                .saturating_sub(angle)
+                > 52 =>
+            {
+                None
+            }
             _ => Some(self.lane),
         }
     }
 
-    fn danger_lane(&self) -> Option<usize> {
+    fn danger_lane(&self, web: &level::Web) -> Option<usize> {
         match self.motion {
             Motion::Pause(_) => Some(self.lane),
-            Motion::Flip { from, angle, .. } if FLIP_ANGLE - angle > 52 => Some(from),
+            Motion::Flip {
+                from,
+                direction,
+                angle,
+            } if web
+                .flip_angle(from, self.lane, direction)
+                .saturating_sub(angle)
+                > 52 =>
+            {
+                Some(from)
+            }
             Motion::Flip { .. } => Some(self.lane),
             _ => None,
         }
@@ -143,75 +165,93 @@ struct FlipperAssets {
 struct GameHud;
 
 pub(super) fn add_systems(app: &mut App) {
-    app.insert_resource(Game {
-        status: Status::Entering,
-        entry: Some(0),
-        ..default()
-    })
-    .init_resource::<powerups::Upgrades>()
-    .add_systems(
-        PreUpdate,
-        powerups::queue_jump.after(bevy::input::InputSystems),
-    )
-    .add_systems(
-        FixedUpdate,
-        preview_transition.after(preview_input).before(move_glider),
-    )
-    .add_systems(
-        FixedUpdate,
-        (
-            move_glider.run_if(controlling),
-            powerups::update_jump,
-            animate_glider,
-            update_lane,
-            follow_glider.run_if(|game: Res<Game>| {
-                !matches!(
-                    game.status,
-                    Status::Entering | Status::Captured | Status::ShotHit | Status::Exiting
-                )
-            }),
-            move_bullets,
-            fire_bullets.run_if(controlling),
-            spawn_enemies,
-            move_enemies,
-            move_enemy_shots,
-            resolve_hits,
-            fire_enemy_shots,
-            powerups::advance_powerups,
-            powerups::move_droid,
-            explosion::age_explosions,
-            entry::advance,
-            animate_capture,
-            shot_death::animate,
-            exit::animate,
-            check_game,
+    app.init_resource::<Level>()
+        .init_resource::<Levels>()
+        .insert_resource(Game {
+            status: Status::Entering,
+            entry: Some(0),
+            ..default()
+        })
+        .init_resource::<powerups::Upgrades>()
+        .add_systems(
+            PreUpdate,
+            powerups::queue_jump.after(bevy::input::InputSystems),
         )
-            .chain(),
-    )
-    .add_systems(
-        Update,
-        (fit_camera, quit_on_escape, restart_game, update_hud).chain(),
-    )
-    .add_systems(Update, draw_approaching_flippers.after(fit_camera))
-    .add_systems(Update, draw_particle_shots.after(fit_camera))
-    .add_systems(
-        Update,
-        (
-            powerups::draw_powerups.after(fit_camera),
-            entry::draw.after(restart_game),
-            exit::draw.after(restart_game),
-            shot_death::draw.after(restart_game),
-            powerups::update_notice,
-        ),
-    );
+        .add_systems(
+            FixedUpdate,
+            preview_transition.after(preview_input).before(move_glider),
+        )
+        .add_systems(
+            FixedUpdate,
+            (
+                (
+                    move_glider.run_if(controlling),
+                    powerups::update_jump,
+                    animate_glider,
+                    update_lane,
+                    follow_glider.run_if(|game: Res<Game>| {
+                        !matches!(
+                            game.status,
+                            Status::Entering | Status::Captured | Status::ShotHit | Status::Exiting
+                        )
+                    }),
+                    move_bullets,
+                    fire_bullets.run_if(controlling),
+                    spawn_enemies,
+                    move_enemies,
+                    move_enemy_shots,
+                    resolve_hits,
+                    fire_enemy_shots,
+                    powerups::advance_powerups,
+                    powerups::move_droid,
+                )
+                    .chain(),
+                (
+                    explosion::age_explosions,
+                    entry::advance,
+                    animate_capture,
+                    shot_death::animate,
+                    exit::animate,
+                    check_game,
+                    load_level,
+                )
+                    .chain(),
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            (
+                fit_camera,
+                quit_on_escape,
+                restart_game,
+                load_level,
+                update_hud,
+            )
+                .chain(),
+        )
+        .add_systems(Update, sync_web.after(load_level))
+        .add_systems(Update, draw_approaching_flippers.after(fit_camera))
+        .add_systems(Update, draw_particle_shots.after(fit_camera))
+        .add_systems(
+            Update,
+            (
+                powerups::draw_powerups.after(fit_camera),
+                entry::draw.after(restart_game),
+                exit::draw.after(restart_game),
+                shot_death::draw.after(restart_game),
+                powerups::update_notice,
+            ),
+        );
 }
 
 fn playing(game: Res<Game>) -> bool {
     game.status == Status::Playing
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn preview_transition(
+    level: Res<Level>,
     mut commands: Commands,
     capture: Option<Res<MotionCapture>>,
     mut game: ResMut<Game>,
@@ -242,11 +282,11 @@ fn preview_transition(
                 keys.release(key);
             }
             let shot = EnemyShot {
-                lane: selected_lane(player.progress) as usize,
+                lane: level.web.selected_lane(player.progress) as usize,
                 depth: 2 * LANE_UNIT + LANE_UNIT / 2,
                 angle: 0,
             };
-            let mut transform = glider_transform(shot.lane as i32 * LANE_UNIT);
+            let mut transform = level.web.glider_transform(shot.lane as i32 * LANE_UNIT);
             transform.translation.z = -(shot.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
             commands.spawn((
                 shot,
@@ -379,11 +419,7 @@ pub(super) fn setup(
     ));
 }
 
-fn orientation(lane: usize) -> Quat {
-    Quat::from_rotation_z(-(lane as f32) * TAU / LANES as f32)
-}
-
-fn flipper_transform(flipper: &Flipper) -> Transform {
+fn flipper_transform(flipper: &Flipper, web: &level::Web) -> Transform {
     let z = -(flipper.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
     if let Motion::Flip {
         from,
@@ -391,25 +427,26 @@ fn flipper_transform(flipper: &Flipper) -> Transform {
         angle,
     } = flipper.motion
     {
-        let pivot = rim_vertex(
+        let pivot = web.vertex(
             (from as i32 + i32::from(direction > 0)) as f32,
             FRONT_RADIUS,
             z,
         );
-        let rotation = orientation(from)
+        let rotation = web.orientation(from)
             * Quat::from_rotation_z(direction as f32 * angle as f32 * TAU / 256.0);
         return Transform::from_translation(
             pivot + rotation * Vec3::X * (-direction as f32 * 9.0 * 0.075),
         )
         .with_rotation(rotation);
     }
-    let mut transform = glider_transform(flipper.lane as i32 * LANE_UNIT);
+    let mut transform = web.glider_transform(flipper.lane as i32 * LANE_UNIT);
     transform.translation.z = z;
-    transform.rotation = orientation(flipper.lane);
+    transform.rotation = web.orientation(flipper.lane);
     transform
 }
 
 fn spawn_enemies(
+    level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
@@ -422,36 +459,37 @@ fn spawn_enemies(
         game.spawn_timer -= 1;
         return;
     }
-    if enemies.iter().count() >= MAX_FLIPPERS {
+    if enemies.iter().count() >= level.flippers.max_active {
         return;
     }
     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
     let flipper = Flipper {
-        lane: (game.random >> 16) as usize % LANES,
-        depth: REAR + 300 * LANE_UNIT,
+        lane: (game.random >> 16) as usize % level.web.lanes(),
+        depth: level.web.rear() + 300 * LANE_UNIT,
         motion: Motion::Approach,
-        pause: FLIP_PAUSE,
+        pause: level.flippers.pause_ticks,
     };
     commands.spawn((
-        flipper_transform(&flipper),
+        flipper_transform(&flipper, &level.web),
         flipper,
         RenderLayers::layer(1),
         Mesh3d(assets.point.clone()),
         MeshMaterial3d(assets.point_shades.first().cloned().unwrap_or_default()),
     ));
     game.remaining -= 1;
-    game.spawn_timer = 120;
+    game.spawn_timer = level.flippers.spawn_interval_ticks - 1;
 }
 
-fn start_flip(flipper: &mut Flipper, player_lane: usize) {
+fn start_flip(flipper: &mut Flipper, player_lane: usize, web: &level::Web) {
     if flipper.lane == player_lane {
         flipper.motion = Motion::Pause(flipper.pause);
         return;
     }
-    let clockwise = (player_lane + LANES - flipper.lane) % LANES;
-    let direction = if clockwise < LANES / 2 { 1 } else { -1 };
+    let lanes = web.lanes();
+    let clockwise = (player_lane + lanes - flipper.lane) % lanes;
+    let direction = if clockwise < lanes / 2 { 1 } else { -1 };
     let from = flipper.lane;
-    flipper.lane = (from as i32 + direction).rem_euclid(LANES as i32) as usize;
+    flipper.lane = (from as i32 + direction).rem_euclid(lanes as i32) as usize;
     flipper.motion = Motion::Flip {
         from,
         direction,
@@ -460,6 +498,7 @@ fn start_flip(flipper: &mut Flipper, player_lane: usize) {
 }
 
 fn move_enemies(
+    level: Res<Level>,
     game: Res<Game>,
     player: Single<&Glider>,
     assets: Res<FlipperAssets>,
@@ -473,22 +512,22 @@ fn move_enemies(
     if game.status != Status::Playing {
         return;
     }
-    let player_lane = selected_lane(player.progress) as usize;
+    let player_lane = level.web.selected_lane(player.progress) as usize;
     for (mut flipper, mut transform, mut mesh, mut material) in &mut enemies {
         match flipper.motion {
             Motion::Approach => {
                 flipper.depth -= 2 * LANE_UNIT;
-                if flipper.depth <= REAR {
-                    flipper.depth = REAR - FLIPPER_SPEED;
+                if flipper.depth <= level.web.rear() {
+                    flipper.depth = level.web.rear() - level.flippers.climb_speed;
                     flipper.motion = Motion::Climb;
                     mesh.0 = assets.body.clone();
                     material.0 = assets.shaded.clone();
                 }
             }
             Motion::Climb => {
-                flipper.depth = (flipper.depth - FLIPPER_SPEED).max(0);
+                flipper.depth = (flipper.depth - level.flippers.climb_speed).max(0);
                 if flipper.depth == 0 {
-                    start_flip(&mut flipper, player_lane);
+                    start_flip(&mut flipper, player_lane, &level.web);
                 }
             }
             Motion::Flip {
@@ -496,8 +535,8 @@ fn move_enemies(
                 direction,
                 angle,
             } => {
-                let angle = angle + FLIP_SPEED;
-                flipper.motion = if angle >= FLIP_ANGLE {
+                let angle = angle + level.flippers.flip_speed;
+                flipper.motion = if angle >= level.web.flip_angle(from, flipper.lane, direction) {
                     Motion::Pause(flipper.pause)
                 } else {
                     Motion::Flip {
@@ -508,11 +547,11 @@ fn move_enemies(
                 };
             }
             Motion::Pause(0) => {
-                start_flip(&mut flipper, player_lane);
+                start_flip(&mut flipper, player_lane, &level.web);
             }
             Motion::Pause(ticks) => flipper.motion = Motion::Pause(ticks - 1),
         }
-        *transform = flipper_transform(&flipper);
+        *transform = flipper_transform(&flipper, &level.web);
     }
 }
 
@@ -556,6 +595,7 @@ fn draw_approaching_flippers(
 }
 
 fn fire_enemy_shots(
+    level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
@@ -583,7 +623,7 @@ fn fire_enemy_shots(
             angle: 0,
         };
         commands.spawn((
-            Transform::from_translation(flipper_transform(flipper).translation),
+            Transform::from_translation(flipper_transform(flipper, &level.web).translation),
             shot,
             RenderLayers::layer(1),
             Mesh3d(assets.shot.clone()),
@@ -614,6 +654,7 @@ fn move_enemy_shots(
 
 #[allow(clippy::too_many_arguments)]
 fn resolve_hits(
+    level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
     bursts: Res<explosion::BurstAssets>,
@@ -636,7 +677,7 @@ fn resolve_hits(
             .iter()
             .filter(|(entity, flipper, _)| {
                 !killed.contains(entity)
-                    && flipper.hit_lane() == Some(bullet.lane)
+                    && flipper.hit_lane(&level.web) == Some(bullet.lane)
                     && intersects(flipper.lane, flipper.depth)
             })
             .map(|(entity, flipper, transform)| {
@@ -672,7 +713,14 @@ fn resolve_hits(
             game.score += points;
             if let Some((lane, centre)) = centre {
                 if upgrades.drop_due() {
-                    powerups::spawn_drop(&mut commands, &mut upgrades, &power_assets, lane, depth);
+                    powerups::spawn_drop(
+                        &mut commands,
+                        &mut upgrades,
+                        &power_assets,
+                        lane,
+                        depth,
+                        &level.web,
+                    );
                 } else {
                     explosion::spawn_explosion(&mut commands, &bursts, centre);
                 }
@@ -681,9 +729,9 @@ fn resolve_hits(
     }
 }
 
-fn reset_wave(game: &mut Game) {
-    game.remaining = 25;
-    game.spawn_timer = 60;
+fn reset_wave(game: &mut Game, level: &Level) {
+    game.remaining = level.flippers.count;
+    game.spawn_timer = level.flippers.first_spawn_ticks - 1;
     game.status = Status::Entering;
     game.entry = Some(0);
     game.fire_timer = 112;
@@ -691,6 +739,7 @@ fn reset_wave(game: &mut Game) {
 
 #[allow(clippy::type_complexity)]
 fn animate_capture(
+    level: Res<Level>,
     mut game: ResMut<Game>,
     mut player: Single<&mut Transform, With<Glider>>,
     mut enemies: Query<(&mut Flipper, &mut Transform), Without<Glider>>,
@@ -702,12 +751,13 @@ fn animate_capture(
     if game.status != Status::Captured {
         return;
     }
-    if capture.depth < 160 {
-        capture.depth += 2;
-        player.translation.z -= 2.0 * WORLD_UNIT;
+    if capture.depth < level.web.depth {
+        let step = (level.web.depth - capture.depth).min(2);
+        capture.depth += step;
+        player.translation.z -= f32::from(step) * WORLD_UNIT;
         if let Ok((mut flipper, mut transform)) = enemies.get_mut(capture.flipper) {
-            flipper.depth += 2 * LANE_UNIT;
-            transform.translation.z -= 2.0 * WORLD_UNIT;
+            flipper.depth += i32::from(step) * LANE_UNIT;
+            transform.translation.z -= f32::from(step) * WORLD_UNIT;
         }
     } else {
         capture.camera_z += 8.0 * WORLD_UNIT;
@@ -719,7 +769,9 @@ fn animate_capture(
             game.status = Status::Respawning;
             game.capture = None;
             for mut camera in &mut cameras {
-                camera.translation = camera_position(glider_transform(START_PROGRESS).translation);
+                camera.translation = level
+                    .web
+                    .camera_position(level.web.glider_transform(level.web.start()).translation);
             }
             return;
         }
@@ -729,6 +781,7 @@ fn animate_capture(
 
 #[allow(clippy::too_many_arguments)]
 fn check_game(
+    level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
     mut upgrades: ResMut<powerups::Upgrades>,
@@ -750,7 +803,8 @@ fn check_game(
     let grabber = (!weapon.firing)
         .then(|| {
             enemies.iter().find(|(_, flipper)| {
-                flipper.danger_lane() == Some(selected_lane(glider.progress) as usize)
+                flipper.danger_lane(&level.web)
+                    == Some(level.web.selected_lane(glider.progress) as usize)
             })
         })
         .flatten()
@@ -766,7 +820,7 @@ fn check_game(
         || (upgrades.jump_height == 0
             && (grabber.is_some()
                 || enemy_shots.iter().any(|(_, shot)| {
-                    shot.lane == selected_lane(glider.progress) as usize
+                    shot.lane == level.web.selected_lane(glider.progress) as usize
                         && shot.depth <= 2 * LANE_UNIT
                 })))
     {
@@ -777,7 +831,7 @@ fn check_game(
             game.capture = Some(Capture {
                 flipper,
                 depth: 0,
-                camera_z: camera_position(transform.translation).z,
+                camera_z: level.web.camera_position(transform.translation).z,
             });
             glider.velocity = 0;
             **weapon = Weapon::default();
@@ -786,7 +840,7 @@ fn check_game(
         }
         if game.status == Status::Playing {
             game.status = Status::ShotHit;
-            game.death = Some(shot_death::Death::new(transform.translation));
+            game.death = Some(shot_death::Death::new(transform.translation, &level.web));
             glider.velocity = 0;
             **weapon = Weapon::default();
             **visibility = Visibility::Hidden;
@@ -798,7 +852,7 @@ fn check_game(
                 commands.entity(entity).despawn();
             }
             for (entity, shot) in &enemy_shots {
-                if shot.lane == selected_lane(glider.progress) as usize
+                if shot.lane == level.web.selected_lane(glider.progress) as usize
                     && shot.depth <= 2 * LANE_UNIT
                 {
                     let mut centre = transform.translation;
@@ -810,31 +864,13 @@ fn check_game(
             return;
         }
         game.lives -= 1;
-        upgrades.lose_life();
-        for (entity, _) in &pickups {
-            commands.entity(entity).despawn();
-        }
-        for entity in &droids {
-            commands.entity(entity).despawn();
-        }
-        for (entity, _) in &enemies {
-            commands.entity(entity).despawn();
-        }
-        for entity in &bullets {
-            commands.entity(entity).despawn();
-        }
-        for (entity, _) in &enemy_shots {
-            commands.entity(entity).despawn();
-        }
-        glider.progress = START_PROGRESS;
-        glider.velocity = 0;
-        **weapon = Weapon::default();
-        **transform = glider_transform(START_PROGRESS);
-        **visibility = Visibility::Visible;
         if game.lives == 0 {
+            // The final reset also removes actors while leaving the web visible.
+            game.load = Some(LoadReason::Retry);
             game.status = Status::GameOver;
         } else {
-            reset_wave(&mut game);
+            game.load = Some(LoadReason::Retry);
+            game.status = Status::Entering;
             game.invulnerable = 120;
         }
         return;
@@ -846,7 +882,7 @@ fn check_game(
     {
         game.status = Status::Exiting;
         game.entry = None;
-        game.exit = Some(exit::Exit::new(transform.translation));
+        game.exit = Some(exit::Exit::new(transform.translation, &level.web));
         **weapon = Weapon::default();
         **visibility = Visibility::Visible;
         for entity in &bullets {
@@ -855,45 +891,72 @@ fn check_game(
     }
 }
 
+fn restart_game(keys: Res<ButtonInput<KeyCode>>, mut game: ResMut<Game>) {
+    if keys.just_pressed(KeyCode::KeyR) {
+        game.load = Some(LoadReason::Restart);
+    }
+}
+
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn restart_game(
+fn load_level(
     mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
     mut game: ResMut<Game>,
+    mut level: ResMut<Level>,
+    levels: Res<Levels>,
     mut upgrades: ResMut<powerups::Upgrades>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
-    enemies: Query<Entity, With<Flipper>>,
-    bullets: Query<Entity, With<Bullet>>,
-    enemy_shots: Query<Entity, With<EnemyShot>>,
-    powers: Query<Entity, Or<(With<powerups::PowerUp>, With<powerups::Droid>)>>,
+    actors: Query<Entity, With<LevelActor>>,
     mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
+    power_assets: Option<Res<powerups::PowerAssets>>,
     mut warp: Option<ResMut<stars::Warp>>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyR) {
+    let Some(reason) = game.load.take() else {
         return;
+    };
+    match reason {
+        LoadReason::Restart => {
+            *game = Game::default();
+            *upgrades = powerups::Upgrades::default();
+        }
+        LoadReason::Retry => {
+            upgrades.lose_life();
+            game.invulnerable = if game.lives > 0 { 120 } else { 0 };
+        }
+        LoadReason::Advance => {
+            game.invulnerable = 0;
+            game.level_index = (game.level_index + 1) % levels.0.len();
+            upgrades.land();
+        }
     }
-    for entity in enemies
-        .iter()
-        .chain(bullets.iter())
-        .chain(enemy_shots.iter())
-        .chain(powers.iter())
-    {
+    for entity in &actors {
         commands.entity(entity).despawn();
     }
-    *game = Game::default();
-    reset_wave(&mut game);
-    *upgrades = powerups::Upgrades::default();
+    *level = levels.0[game.level_index].clone();
+    game.capture = None;
+    game.death = None;
+    game.exit = None;
+    game.entry = None;
+    if game.lives > 0 {
+        reset_wave(&mut game, &level);
+    } else {
+        game.status = Status::GameOver;
+    }
     if let Some(warp) = &mut warp {
         **warp = stars::Warp::default();
     }
     let (glider, weapon, transform, visibility) = &mut *player;
-    glider.progress = START_PROGRESS;
+    glider.progress = level.web.start();
     glider.velocity = 0;
     **weapon = Weapon::default();
-    **transform = glider_transform(START_PROGRESS);
+    **transform = level.web.glider_transform(level.web.start());
     **visibility = Visibility::Visible;
     for mut camera in &mut cameras {
-        camera.translation = camera_position(transform.translation);
+        camera.translation = level.web.camera_position(transform.translation);
+    }
+    if upgrades.droid
+        && let Some(assets) = power_assets
+    {
+        powerups::spawn_droid(&mut commands, &assets, &level.web);
     }
 }
 
@@ -917,6 +980,74 @@ fn update_hud(game: Res<Game>, mut hud: Single<&mut Text, With<GameHud>>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn level_loading_distinguishes_advancing_retrying_and_restarting() {
+        let mut app = app();
+        let mut second = Level::default();
+        second.number = 2;
+        second.web.start_lane = 3;
+        second.web.depth = 180;
+        second.flippers.count = 10;
+        second.flippers.first_spawn_ticks = 11;
+        app.world_mut().resource_mut::<Levels>().0.push(second);
+        app.world_mut().resource_mut::<Game>().score = 9000;
+        app.world_mut().resource_mut::<Game>().lives = 2;
+        app.world_mut().resource_mut::<powerups::Upgrades>().laser = true;
+        app.world_mut().resource_mut::<powerups::Upgrades>().droid = true;
+        let old = enemy(&mut app, 7, 0, Motion::Pause(0));
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Advance);
+        ticks(&mut app, 1);
+        assert!(app.world().get_entity(old).is_err());
+        assert_eq!(app.world().resource::<Level>().number, 2);
+        assert_eq!(
+            (
+                app.world().resource::<Game>().score,
+                app.world().resource::<Game>().lives,
+                app.world().resource::<Game>().remaining
+            ),
+            (9000, 2, 10)
+        );
+        assert_eq!(app.world().resource::<Game>().spawn_timer, 10);
+        assert!(app.world().resource::<powerups::Upgrades>().laser);
+        assert_eq!(
+            app.world_mut()
+                .query::<&powerups::Droid>()
+                .iter(app.world())
+                .count(),
+            1
+        );
+        assert_eq!(
+            app.world_mut()
+                .query::<&Glider>()
+                .single(app.world())
+                .unwrap()
+                .progress,
+            3 * LANE_UNIT
+        );
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Level>().number, 2);
+        assert!(!app.world().resource::<powerups::Upgrades>().laser);
+        assert_eq!(
+            app.world_mut()
+                .query::<&powerups::Droid>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+        assert_eq!(app.world().resource::<Game>().score, 9000);
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Level>().number, 1);
+        assert_eq!(
+            (
+                app.world().resource::<Game>().score,
+                app.world().resource::<Game>().lives
+            ),
+            (0, 3)
+        );
+    }
 
     #[test]
     fn approach_dots_stay_two_pixels_wide_and_brighten_with_proximity() {
@@ -973,6 +1104,8 @@ mod tests {
     fn app() -> App {
         let mut app = App::new();
         app.init_resource::<Game>()
+            .init_resource::<Level>()
+            .init_resource::<Levels>()
             .init_resource::<powerups::Upgrades>()
             .init_resource::<powerups::PowerAssets>()
             .init_resource::<FlipperAssets>()
@@ -983,6 +1116,10 @@ mod tests {
                 (entry::advance, animate_capture, shot_death::animate)
                     .chain()
                     .before(check_game),
+            )
+            .add_systems(
+                FixedUpdate,
+                load_level.after(check_game).after(restart_game),
             );
         app.world_mut().spawn((
             Glider {
@@ -1017,7 +1154,7 @@ mod tests {
         };
         app.world_mut()
             .spawn((
-                flipper_transform(&flipper),
+                flipper_transform(&flipper, &Level::default().web),
                 flipper,
                 Mesh3d::default(),
                 MeshMaterial3d::<StandardMaterial>::default(),
@@ -1095,21 +1232,27 @@ mod tests {
             motion: Motion::Pause(0),
             pause: 0,
         };
-        start_flip(&mut flipper, 0);
+        start_flip(&mut flipper, 0, &Level::default().web);
         assert_eq!(flipper.lane, 0);
-        assert_eq!(flipper.hit_lane(), None);
-        assert_eq!(flipper.danger_lane(), Some(15));
+        assert_eq!(flipper.hit_lane(&Level::default().web), None);
+        assert_eq!(flipper.danger_lane(&Level::default().web), Some(15));
         let id = app
             .world_mut()
             .spawn((
-                flipper_transform(&flipper),
+                flipper_transform(&flipper, &Level::default().web),
                 flipper,
                 Mesh3d::default(),
                 MeshMaterial3d::<StandardMaterial>::default(),
             ))
             .id();
         ticks(&mut app, 15);
-        assert_eq!(app.world().get::<Flipper>(id).unwrap().hit_lane(), Some(0));
+        assert_eq!(
+            app.world()
+                .get::<Flipper>(id)
+                .unwrap()
+                .hit_lane(&Level::default().web),
+            Some(0)
+        );
         ticks(&mut app, 13);
         assert!(matches!(
             app.world().get::<Flipper>(id).unwrap().motion,
@@ -1121,7 +1264,7 @@ mod tests {
             motion: Motion::Pause(0),
             pause: 4,
         };
-        start_flip(&mut reverse, 15);
+        start_flip(&mut reverse, 15, &Level::default().web);
         assert_eq!(reverse.lane, 15);
         assert!(matches!(reverse.motion, Motion::Flip { direction: -1, .. }));
     }
@@ -1607,6 +1750,7 @@ mod tests {
             &powerups::PowerAssets::default(),
             1,
             REAR,
+            &Level::default().web,
         );
         app.world_mut().flush();
         ticks(&mut app, 1);
@@ -1635,6 +1779,7 @@ mod tests {
             &powerups::PowerAssets::default(),
             3,
             REAR,
+            &Level::default().web,
         );
         app.world_mut().flush();
         app.world_mut().spawn(Bullet { lane: 2 });

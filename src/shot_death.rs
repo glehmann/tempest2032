@@ -8,11 +8,11 @@ pub(super) struct Death {
 }
 
 impl Death {
-    pub(super) fn new(position: Vec3) -> Self {
+    pub(super) fn new(position: Vec3, web: &level::Web) -> Self {
         Self {
             tick: 0,
             visible: true,
-            camera_z: camera_position(position).z,
+            camera_z: web.camera_position(position).z,
         }
     }
 
@@ -81,6 +81,7 @@ fn zap_mesh() -> Mesh {
 }
 
 pub(super) fn animate(
+    level: Res<Level>,
     mut game: ResMut<Game>,
     mut player: Single<&mut Transform, With<Glider>>,
     mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
@@ -93,7 +94,9 @@ pub(super) fn animate(
         game.death = None;
         game.status = Status::Respawning;
         for mut camera in &mut cameras {
-            camera.translation = camera_position(glider_transform(START_PROGRESS).translation);
+            camera.translation = level
+                .web
+                .camera_position(level.web.glider_transform(level.web.start()).translation);
         }
         return;
     }
@@ -140,7 +143,12 @@ mod tests {
         let mut app = App::new();
         let mut meshes = Assets::<Mesh>::default();
         let mut materials = Assets::<StandardMaterial>::default();
-        entry::setup(&mut app.world_mut().commands(), &mut meshes, &mut materials);
+        entry::setup(
+            &mut app.world_mut().commands(),
+            &mut meshes,
+            &mut materials,
+            &Level::default().web,
+        );
         setup(&mut app.world_mut().commands(), &mut meshes, &mut materials);
         app.world_mut().flush();
         app.insert_resource(Game {
@@ -149,6 +157,8 @@ mod tests {
             ..default()
         })
         .insert_resource(meshes)
+        .init_resource::<Level>()
+        .init_resource::<Levels>()
         .insert_resource(materials)
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<powerups::Upgrades>()
@@ -163,10 +173,14 @@ mod tests {
                 move_enemy_shots,
                 animate,
                 check_game,
+                load_level,
             )
                 .chain(),
         )
-        .add_systems(Update, (entry::draw, draw).chain());
+        .add_systems(
+            Update,
+            (load_level.after(restart_game), entry::draw, draw).chain(),
+        );
         app.world_mut().spawn((
             Glider {
                 progress: START_PROGRESS,

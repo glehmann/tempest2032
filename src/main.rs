@@ -11,43 +11,31 @@ use bevy::{
 mod cry;
 mod enemies;
 mod explosion;
+mod level;
 mod stars;
+
+use level::{Level, LevelActor, Levels, LoadReason};
 
 use enemies::powerups::Upgrades;
 
+#[cfg(test)]
 const LANES: usize = 16;
 const FRONT_RADIUS: f32 = 4.0;
 const BACK_RADIUS: f32 = FRONT_RADIUS;
+#[cfg(test)]
 const DEPTH: f32 = 40.0 * FRONT_RADIUS / 6.0;
+const WORLD_UNIT: f32 = FRONT_RADIUS / 24.0;
 const LANE_UNIT: i32 = 1 << 16;
+#[cfg(test)]
 const WEB_PERIOD: i32 = LANES as i32 * LANE_UNIT;
 const ACCELERATION: i32 = 0x400;
 const MAX_VELOCITY: i32 = 0x6000;
+#[cfg(test)]
 const START_PROGRESS: i32 = 7 * LANE_UNIT;
 const CAMERA_STEP: f32 = FRONT_RADIUS / 96.0;
 const FIRE_INTERVAL: u8 = 4;
 const MAX_BULLETS: usize = 8;
 const BULLET_STEP: f32 = 3.5 * FRONT_RADIUS / 24.0;
-
-// Original web5 coordinates, reordered clockwise from the top-left vertex.
-const WEB: [(f32, f32); LANES] = [
-    (7.0, 2.0),
-    (9.0, 2.0),
-    (11.0, 3.0),
-    (13.0, 5.0),
-    (14.0, 7.0),
-    (14.0, 9.0),
-    (13.0, 11.0),
-    (11.0, 13.0),
-    (9.0, 14.0),
-    (7.0, 14.0),
-    (5.0, 13.0),
-    (3.0, 11.0),
-    (2.0, 9.0),
-    (2.0, 7.0),
-    (3.0, 5.0),
-    (5.0, 3.0),
-];
 
 #[derive(Component, Default)]
 struct Glider {
@@ -62,6 +50,7 @@ struct Weapon {
 }
 
 #[derive(Component)]
+#[require(LevelActor)]
 struct Bullet {
     lane: usize,
 }
@@ -184,6 +173,17 @@ struct ClawFrames([Handle<Mesh>; 8]);
 struct LaneHighlight(usize);
 
 #[derive(Resource)]
+struct WebAssets {
+    beam: Handle<Mesh>,
+    blue: Handle<StandardMaterial>,
+    yellow: Handle<StandardMaterial>,
+    surface: Handle<StandardMaterial>,
+}
+
+#[derive(Component)]
+struct LevelLabel;
+
+#[derive(Resource)]
 struct CapturePath(String);
 
 #[derive(Resource)]
@@ -264,28 +264,21 @@ fn main() {
     app.run();
 }
 
+#[cfg(test)]
 fn rim_vertex(index: f32, radius: f32, z: f32) -> Vec3 {
-    let (x, y) = WEB[index.rem_euclid(LANES as f32) as usize];
-    Vec3::new((x - 8.0) * radius / 6.0, (8.0 - y) * radius / 6.0, z)
+    Level::default().web.vertex(index, radius, z)
 }
-
+#[cfg(test)]
 fn selected_lane(progress: i32) -> f32 {
-    ((progress + LANE_UNIT / 2).rem_euclid(WEB_PERIOD) / LANE_UNIT) as f32
+    Level::default().web.selected_lane(progress)
 }
-
+#[cfg(test)]
 fn glider_transform(progress: i32) -> Transform {
-    let start = selected_lane(progress);
-    let position =
-        rim_vertex(start, FRONT_RADIUS, 0.0).lerp(rim_vertex(start + 1.0, FRONT_RADIUS, 0.0), 0.5);
-    let tangent = rim_vertex(start + 1.0, FRONT_RADIUS, 0.0) - rim_vertex(start, FRONT_RADIUS, 0.0);
-    Transform::from_translation(position + Vec3::Z * 0.12)
-        .with_rotation(Quat::from_rotation_z(tangent.y.atan2(tangent.x)))
+    Level::default().web.glider_transform(progress)
 }
-
+#[cfg(test)]
 fn camera_position(glider: Vec3) -> Vec3 {
-    let initial = glider_transform(START_PROGRESS).translation;
-    Vec3::new(-0.3 + initial.x * 0.15, -0.95 + initial.y * 0.15, 5.3)
-        + (glider - initial) * Vec3::new(0.5, 0.5, 1.0)
+    Level::default().web.camera_position(glider)
 }
 
 fn colored_mesh(triangles: impl IntoIterator<Item = [(Vec3, Color); 3]>) -> Mesh {
@@ -311,11 +304,11 @@ fn colored_mesh(triangles: impl IntoIterator<Item = [(Vec3, Color); 3]>) -> Mesh
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
 }
 
-fn tunnel_mesh() -> Mesh {
+fn tunnel_mesh(web: &level::Web) -> Mesh {
     let mut triangles = Vec::new();
-    for lane in 0..LANES {
+    for lane in 0..web.lanes() {
         let lane = lane as f32;
-        let left = 0.5 - rim_vertex(lane, FRONT_RADIUS, 0.0).x / (2.0 * FRONT_RADIUS);
+        let left = 0.5 - web.vertex(lane, FRONT_RADIUS, 0.0).x / (2.0 * FRONT_RADIUS);
         for section in 0..12 {
             let mut quad = [(Vec3::ZERO, Color::BLACK); 4];
             for (vertex, (edge, depth)) in [
@@ -330,7 +323,7 @@ fn tunnel_mesh() -> Mesh {
                 let progress = depth as f32 / 12.0;
                 let blue = (0.08 + left * 0.5) * (1.0 - progress).powf(1.4) + 0.012;
                 quad[vertex] = (
-                    rim_vertex(edge, FRONT_RADIUS, -DEPTH * progress),
+                    web.vertex(edge, FRONT_RADIUS, -web.world_depth() * progress),
                     Color::srgb(0.0, 0.0, blue),
                 );
             }
@@ -469,7 +462,9 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    level: Res<Level>,
 ) {
+    let web = &level.web;
     enemies::setup(&mut commands, &mut meshes, &mut materials);
     // Original actors render over the web rather than being clipped by its faces.
     for layer in 0..=1 {
@@ -490,9 +485,9 @@ fn setup(
                 fov: 1.2,
                 ..default()
             }),
-            Transform::from_translation(camera_position(
-                glider_transform(START_PROGRESS).translation,
-            ))
+            Transform::from_translation(
+                web.camera_position(web.glider_transform(web.start()).translation),
+            )
             .with_rotation(Quat::from_euler(EulerRot::YXZ, 0.105, 0.06, 0.0)),
         ));
     }
@@ -514,7 +509,7 @@ fn setup(
         unlit: true,
         ..default()
     });
-    let (web, surface) = enemies::entry::setup(&mut commands, &mut meshes, &mut materials);
+    let (root, surface) = enemies::entry::setup(&mut commands, &mut meshes, &mut materials, web);
     commands.insert_resource(ShotAssets {
         mesh: meshes.add(shot_mesh()),
         material: materials.add(StandardMaterial {
@@ -525,57 +520,25 @@ fn setup(
         }),
     });
 
-    commands.spawn((
-        Mesh3d(meshes.add(tunnel_mesh())),
-        MeshMaterial3d(surface),
-        ChildOf(web),
-    ));
-    for lane in 0..LANES {
-        let lane = lane as f32;
-        commands.spawn((
-            ChildOf(web),
-            Mesh3d(beam.clone()),
-            MeshMaterial3d(blue.clone()),
-            segment_transform(
-                rim_vertex(lane, FRONT_RADIUS, 0.0),
-                rim_vertex(lane, BACK_RADIUS, -DEPTH),
-                0.024,
-            ),
-        ));
-        for z in [0.0, -DEPTH] {
-            commands.spawn((
-                ChildOf(web),
-                Mesh3d(beam.clone()),
-                MeshMaterial3d(blue.clone()),
-                segment_transform(
-                    rim_vertex(lane, FRONT_RADIUS, z),
-                    rim_vertex(lane + 1.0, FRONT_RADIUS, z),
-                    0.026,
-                ),
-            ));
-        }
-    }
-
-    for edge in 0..2 {
-        commands.spawn((
-            ChildOf(web),
-            LaneHighlight(edge),
-            Mesh3d(beam.clone()),
-            MeshMaterial3d(yellow.clone()),
-            Transform::default(),
-        ));
-    }
+    let assets = WebAssets {
+        beam,
+        blue,
+        yellow,
+        surface,
+    };
+    spawn_web(&mut commands, &mut meshes, root, web, &assets);
+    commands.insert_resource(assets);
     let frames = ClawFrames(std::array::from_fn(|frame| meshes.add(claw_mesh(frame))));
     commands.spawn((
         Glider {
-            progress: START_PROGRESS,
+            progress: web.start(),
             velocity: 0,
         },
         Weapon::default(),
         Visibility::Hidden,
         RenderLayers::layer(1),
-        glider_transform(START_PROGRESS),
-        Mesh3d(frames.0[claw_frame(START_PROGRESS)].clone()),
+        web.glider_transform(web.start()),
+        Mesh3d(frames.0[claw_frame(web.start())].clone()),
         MeshMaterial3d(vertex_material),
     ));
     commands.insert_resource(frames);
@@ -583,7 +546,8 @@ fn setup(
     stars::setup(&mut commands, &mut meshes, &mut materials);
 
     commands.spawn((
-        Text::new("LEVEL 01"),
+        LevelLabel,
+        Text::new(format!("LEVEL {:02}", level.number)),
         TextFont {
             font_size: 18.0,
             ..default()
@@ -612,6 +576,71 @@ fn setup(
     ));
 }
 
+fn spawn_web(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    root: Entity,
+    web: &level::Web,
+    assets: &WebAssets,
+) {
+    commands.spawn((
+        Mesh3d(meshes.add(tunnel_mesh(web))),
+        MeshMaterial3d(assets.surface.clone()),
+        ChildOf(root),
+    ));
+    for lane in 0..web.lanes() {
+        let lane = lane as f32;
+        commands.spawn((
+            ChildOf(root),
+            Mesh3d(assets.beam.clone()),
+            MeshMaterial3d(assets.blue.clone()),
+            segment_transform(
+                web.vertex(lane, FRONT_RADIUS, 0.0),
+                web.vertex(lane, BACK_RADIUS, -web.world_depth()),
+                0.024,
+            ),
+        ));
+        for z in [0.0, -web.world_depth()] {
+            commands.spawn((
+                ChildOf(root),
+                Mesh3d(assets.beam.clone()),
+                MeshMaterial3d(assets.blue.clone()),
+                segment_transform(
+                    web.vertex(lane, FRONT_RADIUS, z),
+                    web.vertex(lane + 1.0, FRONT_RADIUS, z),
+                    0.026,
+                ),
+            ));
+        }
+    }
+    for edge in 0..2 {
+        commands.spawn((
+            ChildOf(root),
+            LaneHighlight(edge),
+            Visibility::Hidden,
+            Mesh3d(assets.beam.clone()),
+            MeshMaterial3d(assets.yellow.clone()),
+            Transform::default(),
+        ));
+    }
+}
+
+fn sync_web(
+    mut commands: Commands,
+    level: Res<Level>,
+    assets: Res<WebAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    root: Single<Entity, With<enemies::entry::WebRoot>>,
+    mut label: Single<&mut Text, With<LevelLabel>>,
+) {
+    if !level.is_changed() {
+        return;
+    }
+    commands.entity(*root).despawn_related::<Children>();
+    spawn_web(&mut commands, &mut meshes, *root, &level.web, &assets);
+    label.0 = format!("LEVEL {:02}", level.number);
+}
+
 fn claw_frame(progress: i32) -> usize {
     // dsclaw uses 16:16 fractional progress. WEB reverses the original lane order.
     ((-(progress + LANE_UNIT / 2)).rem_euclid(LANE_UNIT) >> 13) as usize
@@ -627,26 +656,29 @@ fn animate_glider(frames: Res<ClawFrames>, mut gliders: Query<(&Glider, &mut Mes
 }
 
 fn update_lane(
+    level: Res<Level>,
     glider: Single<&Glider>,
     mut highlights: Query<(&LaneHighlight, &mut Transform), Without<Glider>>,
 ) {
-    let lane = selected_lane(glider.progress);
+    let web = &level.web;
+    let lane = web.selected_lane(glider.progress);
     for (edge, mut transform) in &mut highlights {
         let index = lane + edge.0 as f32;
         *transform = segment_transform(
-            rim_vertex(index, FRONT_RADIUS, 0.0) + Vec3::Z * 0.025,
-            rim_vertex(index, BACK_RADIUS, -DEPTH) + Vec3::Z * 0.025,
+            web.vertex(index, FRONT_RADIUS, 0.0) + Vec3::Z * 0.025,
+            web.vertex(index, BACK_RADIUS, -web.world_depth()) + Vec3::Z * 0.025,
             0.034,
         );
     }
 }
 
 fn follow_glider(
+    level: Res<Level>,
     glider: Single<&Transform, With<Glider>>,
     mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
 ) {
     for mut transform in &mut cameras {
-        let target = camera_position(glider.translation);
+        let target = level.web.camera_position(glider.translation);
         let delta = target - transform.translation;
         transform.translation += delta.clamp(Vec3::splat(-CAMERA_STEP), Vec3::splat(CAMERA_STEP));
         transform.translation.z = target.z;
@@ -689,6 +721,7 @@ fn capture_frame(
 }
 
 fn preview_input(
+    level: Res<Level>,
     mut capture: ResMut<MotionCapture>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     player: Single<&Glider>,
@@ -712,15 +745,16 @@ fn preview_input(
         .or_else(|| {
             enemies
                 .iter()
-                .filter_map(|enemy| enemy.preview_target())
+                .filter_map(|enemy| enemy.preview_target(&level.web))
                 .min_by_key(|(_, depth)| *depth)
                 .map(|(lane, _)| lane)
         });
     if let Some(target) = target {
-        let lane = selected_lane(player.progress) as usize;
-        let clockwise = (target + LANES - lane) % LANES;
+        let lane = level.web.selected_lane(player.progress) as usize;
+        let lanes = level.web.lanes();
+        let clockwise = (target + lanes - lane) % lanes;
         if clockwise > 0 {
-            keys.press(if clockwise < LANES / 2 {
+            keys.press(if clockwise < lanes / 2 {
                 KeyCode::KeyA
             } else {
                 KeyCode::KeyD
@@ -759,7 +793,11 @@ fn capture_motion(mut commands: Commands, mut capture: ResMut<MotionCapture>) {
     capture.finished = finished;
 }
 
-fn move_glider(keys: Res<ButtonInput<KeyCode>>, mut gliders: Query<(&mut Glider, &mut Transform)>) {
+fn move_glider(
+    keys: Res<ButtonInput<KeyCode>>,
+    level: Res<Level>,
+    mut gliders: Query<(&mut Glider, &mut Transform)>,
+) {
     let left = keys.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]);
     let right = keys.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]);
     // web5's lane order is reversed in WEB, so its input sign must be reversed too.
@@ -771,14 +809,15 @@ fn move_glider(keys: Res<ButtonInput<KeyCode>>, mut gliders: Query<(&mut Glider,
             glider.velocity =
                 (glider.velocity + direction * ACCELERATION).clamp(-MAX_VELOCITY, MAX_VELOCITY);
         }
-        glider.progress = (glider.progress + glider.velocity).rem_euclid(WEB_PERIOD);
+        glider.progress = (glider.progress + glider.velocity).rem_euclid(level.web.period());
         let z = transform.translation.z;
-        *transform = glider_transform(glider.progress);
+        *transform = level.web.glider_transform(glider.progress);
         transform.translation.z = z;
     }
 }
 
 fn fire_bullets(
+    level: Res<Level>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     assets: Res<ShotAssets>,
@@ -812,7 +851,7 @@ fn fire_bullets(
         return;
     }
     weapon.firing = true;
-    let lane = selected_lane(glider.progress) as usize;
+    let lane = level.web.selected_lane(glider.progress) as usize;
     let position = transform.translation - Vec3::Z * 0.18;
     let mut shot = commands.spawn((
         Bullet { lane },
@@ -827,12 +866,16 @@ fn fire_bullets(
 }
 
 fn move_bullets(
+    level: Res<Level>,
     mut commands: Commands,
     mut bullets: Query<(Entity, &Bullet, &mut Transform)>,
     upgrades: Option<Res<Upgrades>>,
 ) {
     for (entity, bullet, mut transform) in &mut bullets {
-        let center = glider_transform(bullet.lane as i32 * LANE_UNIT).translation;
+        let center = level
+            .web
+            .glider_transform(bullet.lane as i32 * LANE_UNIT)
+            .translation;
         transform.translation.x = center.x;
         transform.translation.y = center.y;
         transform.translation.z -= if upgrades.as_ref().is_some_and(|u| u.laser) {
@@ -840,7 +883,7 @@ fn move_bullets(
         } else {
             BULLET_STEP
         };
-        if transform.translation.z <= -DEPTH {
+        if transform.translation.z <= -level.web.world_depth() {
             commands.entity(entity).despawn();
         }
     }
@@ -863,7 +906,8 @@ mod tests {
         for &key in keys {
             input.press(key);
         }
-        app.insert_resource(input)
+        app.init_resource::<Level>()
+            .insert_resource(input)
             .add_systems(FixedUpdate, move_glider);
         app.world_mut().spawn((
             Glider {
@@ -888,6 +932,16 @@ mod tests {
         for _ in 0..count {
             app.world_mut().run_schedule(FixedUpdate);
         }
+    }
+
+    #[test]
+    fn movement_uses_the_active_webs_lane_count() {
+        let mut app = movement_app(512, &[KeyCode::ArrowRight]);
+        let mut level = app.world_mut().resource_mut::<Level>();
+        level.web.vertices.truncate(8);
+        level.web.orientations.truncate(8);
+        ticks(&mut app, 1);
+        assert_eq!(state(&mut app), (8 * LANE_UNIT - 512, -ACCELERATION));
     }
 
     #[test]

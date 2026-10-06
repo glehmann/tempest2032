@@ -19,6 +19,7 @@ pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    web: &level::Web,
 ) -> (Entity, Handle<StandardMaterial>) {
     let frames = std::array::from_fn(|frame| meshes.add(wire_claw_mesh(frame)));
     for index in 0..4 {
@@ -49,13 +50,13 @@ pub(crate) fn setup(
     });
     (
         commands
-            .spawn((WebRoot, web_transform(0), Visibility::Visible))
+            .spawn((WebRoot, web_transform(0, web), Visibility::Visible))
             .id(),
         surface,
     )
 }
 
-fn web_transform(tick: u16) -> Transform {
+fn web_transform(tick: u16, web: &level::Web) -> Transform {
     if tick >= APPROACH_TICKS {
         return Transform::default();
     }
@@ -66,7 +67,7 @@ fn web_transform(tick: u16) -> Transform {
         Quat::from_rotation_x((128 + tick / 2) as f32 * unit)
             * Quat::from_rotation_y(tick as f32 * unit)
     };
-    let center = Vec3::NEG_Z * (DEPTH * 0.5);
+    let center = Vec3::NEG_Z * (web.world_depth() * 0.5);
     Transform::from_translation(
         center - rotation * center - Vec3::Z * f32::from(APPROACH_TICKS - tick) * WORLD_UNIT,
     )
@@ -192,6 +193,7 @@ pub(super) fn advance(mut game: ResMut<Game>) {
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(super) fn draw(
+    level: Res<Level>,
     game: Res<Game>,
     assets: Res<EntryAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -223,7 +225,7 @@ pub(super) fn draw(
 ) {
     let tick = game.entry.unwrap_or(APPROACH_TICKS + REZ_TICKS);
     let (web_transform, web_visibility) = &mut *web;
-    **web_transform = self::web_transform(tick);
+    **web_transform = self::web_transform(tick, &level.web);
     **web_visibility = if game
         .exit
         .is_some_and(|exit| !exit.web_visible || exit.flash > 0)
@@ -302,7 +304,12 @@ mod tests {
         let mut app = App::new();
         let mut meshes = Assets::<Mesh>::default();
         let mut materials = Assets::<StandardMaterial>::default();
-        setup(&mut app.world_mut().commands(), &mut meshes, &mut materials);
+        setup(
+            &mut app.world_mut().commands(),
+            &mut meshes,
+            &mut materials,
+            &Level::default().web,
+        );
         app.world_mut().flush();
         let mut keys = ButtonInput::default();
         keys.press(KeyCode::KeyA);
@@ -313,6 +320,8 @@ mod tests {
             ..default()
         })
         .insert_resource(keys)
+        .init_resource::<Level>()
+        .init_resource::<Levels>()
         .insert_resource(meshes)
         .insert_resource(materials)
         .init_resource::<powerups::Upgrades>()
@@ -328,7 +337,7 @@ mod tests {
             )
                 .chain(),
         )
-        .add_systems(Update, draw);
+        .add_systems(Update, (load_level.after(restart_game), draw).chain());
         app.world_mut().spawn((
             Glider {
                 progress: START_PROGRESS,
@@ -480,7 +489,7 @@ mod tests {
                 .query_filtered::<&Transform, With<WebRoot>>()
                 .single(app.world())
                 .unwrap(),
-            web_transform(0)
+            web_transform(0, &Level::default().web)
         );
         assert_eq!(
             *app.world_mut()

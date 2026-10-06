@@ -120,6 +120,7 @@ impl Upgrades {
 }
 
 #[derive(Component)]
+#[require(LevelActor)]
 pub(crate) struct PowerUp {
     lane: usize,
     depth: i32,
@@ -151,6 +152,7 @@ impl PowerUp {
 }
 
 #[derive(Component)]
+#[require(LevelActor)]
 pub(super) struct Droid {
     progress: i32,
     cooldown: u8,
@@ -250,9 +252,10 @@ pub(super) fn spawn_drop(
     assets: &PowerAssets,
     lane: usize,
     depth: i32,
+    web: &level::Web,
 ) {
     upgrades.message("COLLECT POWERUPS!");
-    let mut transform = glider_transform(lane as i32 * LANE_UNIT);
+    let mut transform = web.glider_transform(lane as i32 * LANE_UNIT);
     transform.translation.z = -(depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
     commands.spawn((
         PowerUp {
@@ -268,6 +271,20 @@ pub(super) fn spawn_drop(
         transform,
         RenderLayers::layer(1),
         bevy::camera::visibility::NoFrustumCulling,
+    ));
+}
+
+pub(super) fn spawn_droid(commands: &mut Commands, assets: &PowerAssets, web: &level::Web) {
+    let progress = (2 % web.lanes()) as i32 * LANE_UNIT;
+    commands.spawn((
+        Droid {
+            progress,
+            cooldown: 5,
+        },
+        Mesh3d(assets.droid.clone()),
+        MeshMaterial3d(assets.droid_material.clone()),
+        web.glider_transform(progress),
+        RenderLayers::layer(1),
     ));
 }
 
@@ -303,6 +320,7 @@ pub(super) fn update_jump(
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn advance_powerups(
+    level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
     mut upgrades: ResMut<Upgrades>,
@@ -315,23 +333,14 @@ pub(super) fn advance_powerups(
 ) {
     upgrades.frame = upgrades.frame.wrapping_add(1);
     upgrades.notice_ticks = upgrades.notice_ticks.saturating_sub(1);
-    let lane = selected_lane(player.progress) as usize;
+    let lane = level.web.selected_lane(player.progress) as usize;
     for (entity, mut pickup) in &mut pickups {
         if (pickup.captured || game.status == Status::Playing)
             && pickup.tick(lane, upgrades.jump_height == 0)
         {
             match upgrades.collect(&mut game.score) {
                 Reward::Droid => {
-                    commands.spawn((
-                        Droid {
-                            progress: 2 * LANE_UNIT,
-                            cooldown: 5,
-                        },
-                        Mesh3d(assets.droid.clone()),
-                        MeshMaterial3d(assets.droid_material.clone()),
-                        glider_transform(2 * LANE_UNIT),
-                        RenderLayers::layer(1),
-                    ));
+                    spawn_droid(&mut commands, &assets, &level.web);
                 }
                 reward @ (Reward::Zap | Reward::Skip) => {
                     for (enemy, _, transform) in &enemies {
@@ -353,7 +362,10 @@ pub(super) fn advance_powerups(
         }
         if pickup.radius >= 255 || pickup.depth < -80 * LANE_UNIT {
             if !pickup.captured {
-                let mut centre = glider_transform(pickup.lane as i32 * LANE_UNIT).translation;
+                let mut centre = level
+                    .web
+                    .glider_transform(pickup.lane as i32 * LANE_UNIT)
+                    .translation;
                 centre.z = -(pickup.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
                 explosion::spawn_explosion(&mut commands, &bursts, centre);
             }
@@ -364,6 +376,7 @@ pub(super) fn advance_powerups(
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn move_droid(
+    level: Res<Level>,
     mut commands: Commands,
     game: Res<Game>,
     upgrades: Res<Upgrades>,
@@ -388,24 +401,36 @@ pub(super) fn move_droid(
         .map(|flipper| flipper.lane);
     for (mut droid, mut transform) in &mut droids {
         if let Some(target) = target {
-            let delta = (target as i32 * LANE_UNIT - droid.progress + WEB_PERIOD / 2)
-                .rem_euclid(WEB_PERIOD)
-                - WEB_PERIOD / 2;
+            let period = level.web.period();
+            let delta = (target as i32 * LANE_UNIT - droid.progress + period / 2)
+                .rem_euclid(period)
+                - period / 2;
             droid.progress = (droid.progress + delta.clamp(-LANE_UNIT / 16, LANE_UNIT / 16))
-                .rem_euclid(WEB_PERIOD);
+                .rem_euclid(level.web.period());
         }
         let lane = droid.progress / LANE_UNIT;
         let fraction = (droid.progress % LANE_UNIT) as f32 / LANE_UNIT as f32;
-        transform.translation = glider_transform(lane * LANE_UNIT).translation.lerp(
-            glider_transform((lane + 1) * LANE_UNIT).translation,
-            fraction,
-        ) + Vec3::Z * (10.0 * WORLD_UNIT);
+        transform.translation = level
+            .web
+            .glider_transform(lane * LANE_UNIT)
+            .translation
+            .lerp(
+                level
+                    .web
+                    .glider_transform((lane + 1) * LANE_UNIT)
+                    .translation,
+                fraction,
+            )
+            + Vec3::Z * (10.0 * WORLD_UNIT);
         let angle = upgrades.frame as f32 * TAU / 256.0;
         transform.rotation = Quat::from_euler(EulerRot::XYZ, angle, angle * 2.0, angle * 3.0);
         droid.cooldown = droid.cooldown.saturating_sub(1);
         if target.is_some() && droid.cooldown == 0 && bullets.iter().count() < MAX_BULLETS + 8 {
-            let lane = selected_lane(droid.progress) as usize;
-            let mut position = glider_transform(lane as i32 * LANE_UNIT).translation;
+            let lane = level.web.selected_lane(droid.progress) as usize;
+            let mut position = level
+                .web
+                .glider_transform(lane as i32 * LANE_UNIT)
+                .translation;
             position.z = transform.translation.z;
             commands.spawn((
                 Bullet { lane },
@@ -667,6 +692,7 @@ mod tests {
         })
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<Game>()
+        .init_resource::<Level>()
         .init_resource::<ShotAssets>()
         .add_systems(PreUpdate, queue_jump)
         .add_systems(
@@ -710,6 +736,7 @@ mod tests {
         app.insert_resource(upgrades)
             .insert_resource(keys)
             .init_resource::<Game>()
+            .init_resource::<Level>()
             .add_systems(FixedUpdate, update_jump);
         app.world_mut()
             .spawn((Glider::default(), Transform::default()));
@@ -730,6 +757,7 @@ mod tests {
     fn collection_grants_one_reward_and_the_burst_expires() {
         let mut app = App::new();
         app.init_resource::<Game>()
+            .init_resource::<Level>()
             .init_resource::<Upgrades>()
             .init_resource::<PowerAssets>()
             .init_resource::<explosion::BurstAssets>()
@@ -757,6 +785,7 @@ mod tests {
     fn droid_seeks_the_closest_enemy_and_fires_every_six_ticks() {
         let mut app = App::new();
         app.init_resource::<Game>()
+            .init_resource::<Level>()
             .init_resource::<Upgrades>()
             .init_resource::<FlipperAssets>()
             .init_resource::<ShotAssets>()

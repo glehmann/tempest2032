@@ -158,6 +158,7 @@ pub(super) struct BurstAssets {
 pub(super) struct Frames(u32);
 
 #[derive(Component)]
+#[require(LevelActor)]
 pub(super) struct Explosion {
     centre: Vec3,
     age: u8,
