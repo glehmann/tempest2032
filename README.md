@@ -145,9 +145,17 @@ prebuilt here. Each explosion adjusts its dot geometry for camera distance and
 projection, targeting one pixel at the original 384-pixel framebuffer width.
 This keeps distant dots visible instead of shrinking them with the ring.
 
-A Flipper or enemy shot that catches the claw on the rim costs a life. You
-start with three lives. Losing a life resets the wave and gives two seconds
-of invulnerability.
+A Flipper grab shows "CAUGHT YOU" and locks movement, jumping, and firing.
+Following `take_me_to_your_leader`, the Flipper and claw keep their grab poses
+and travel down the web together at two depth units per tick, reaching the
+rear after 80 ticks. The camera stays at the rim during this descent.
+`snatch_it_away` then pulls the camera back at eight depth units per tick until
+the original viewpoint threshold of -400, about 50 more ticks with this camera.
+Only then is the life deducted and the wave reset. R cancels the sequence and
+restarts immediately.
+
+Enemy shots cost a life immediately. You start with three lives. Losing a life
+resets the wave and gives two seconds of invulnerability.
 Press **R** to restart, or replay after clearing the level. This prototype
 replays level one rather than advancing to another web.
 
@@ -269,6 +277,8 @@ The source references used for this prototype are in the original game's
 - `fz_stuff`, `rospeeds`, and `pauses` define the level-one movement parameters.
 - `stdrail`, `flip_set`, `flipto`, and `stdstop` implement climbing and rim pivots.
 - `collie` defines shot vulnerability and the six-unit depth collision threshold.
+- `gotu`, `take_me_to_your_leader`, and `snatch_it_away` define the Flipper grab,
+  joint descent, camera retreat, and delayed loss of a life.
 - `scores` assigns 150 points to a normal Flipper.
 - `alienfire`, `run_ashot`, `s_shot`, and `chevron` define enemy firing and shots.
 - `killme`, `sphkillme`, and `kime` turn a killed Flipper into its explosion.
