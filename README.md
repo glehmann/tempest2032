@@ -73,6 +73,10 @@ no Rust changes are needed. The supplied levels are:
 - `levels/06.toml`: the open fifteen-lane U-shaped `web3`, with a 31-spawn
   budget. Flippers repeat every 96 ticks and Tankers every 261 ticks, retaining
   level five's climbing speeds. Spikers repeat every 801 ticks.
+- `levels/07.toml`: Tempest 2000's fourteen-lane lemon-shaped `web18`, with a
+  31-spawn budget, `0xA600` Flippers, and `0xF000` Spikers. The T2K mode adds
+  16 to the web-table index, so this is `web18`, not classic mode's `web12`.
+  Flippers repeat every 91 ticks, Tankers every 251, and Spikers every 751.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current

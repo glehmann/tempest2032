@@ -417,6 +417,27 @@ mod tests {
     }
 
     #[test]
+    fn original_level_seven_selects_the_t2k_lemon_and_its_speed_group() {
+        let level = Level::parse(include_str!("../levels/07.toml"), "level7").unwrap();
+        assert!(level.web.closed);
+        assert_eq!(level.web.lanes(), 14);
+        assert_eq!(level.web.start_lane, 5);
+        assert_eq!(level.web.vertices[0], [12., 3.]);
+        assert_eq!(level.web.vertices[7], [3., 12.]);
+        assert_eq!(level.flippers.climb_speed, 0xa600);
+        assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0xf000);
+        assert_eq!(
+            (
+                level.tankers.as_ref().unwrap().first_spawn_ticks,
+                level.tankers.as_ref().unwrap().spawn_interval_ticks
+            ),
+            (126, 251)
+        );
+        assert_eq!(level.web.neighbor(13, 1), Some(0));
+        assert_eq!(level.web.flip_angle(13, 0, 1), 64);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);
