@@ -383,6 +383,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn original_level_five_uses_the_triangle_and_faster_climbers() {
+        let level = Level::parse(include_str!("../levels/05.toml"), "level5").unwrap();
+        assert!(level.web.closed);
+        assert_eq!(level.web.lanes(), 18);
+        assert_eq!(level.web.start_lane, 9);
+        assert_eq!(level.web.flip_angle(5, 6, 1), 48);
+        assert_eq!(level.web.flip_angle(17, 0, 1), 32);
+        assert_eq!(level.flippers.climb_speed, 0xa400);
+        assert_eq!(level.tankers.as_ref().unwrap().climb_speed, 0x8800);
+        assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0xe000);
+        assert_eq!(level.powerups.kill_interval, 6);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);
