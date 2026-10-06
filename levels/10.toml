@@ -1,0 +1,36 @@
+# Original _nw10 on the closed clover-shaped web4.
+number = 10
+enemy_count = 31
+
+[web]
+start_lane = 8
+depth = 160
+vertices = [[8,6],[9,4],[11,5],[12,7],[10,8],[12,9],[11,11],[9,12],[8,10],[7,12],[5,11],[4,9],[6,8],[4,7],[5,5],[7,4]]
+orientations = [48,-16,-48,-112,-16,-80,-112,80,-80,112,80,16,112,48,16,-48]
+
+[flippers]
+first_spawn_ticks = 43
+spawn_interval_ticks = 86
+climb_speed = 0.65625
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 121
+spawn_interval_ticks = 241
+climb_speed = 0.5625
+super_chance = 36
+
+[spikers]
+first_spawn_ticks = 426
+spawn_interval_ticks = 851
+climb_speed = 1.0
+
+[beasts]
+first_spawn_ticks = 1001
+spawn_interval_ticks = 2001
+climb_speed = 0.65625
+
+[powerups]
+kill_interval = 7

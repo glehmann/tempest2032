@@ -53,10 +53,13 @@ struct Weapon {
 }
 
 #[derive(Component)]
-#[require(LevelActor)]
+#[require(LevelActor, ShotSlot)]
 struct Bullet {
     lane: usize,
 }
+
+#[derive(Component, Default)]
+struct ShotSlot;
 
 /// A player shot reads as a white-hot core inside a cyan-green glow. The
 /// original draws a small rotating vector shape and lets bloom spread the
@@ -916,7 +919,7 @@ fn fire_bullets(
     keys: Res<ButtonInput<KeyCode>>,
     assets: Res<ShotAssets>,
     mut glider: Single<(&Glider, &mut Weapon, &Transform)>,
-    bullets: Query<&Bullet>,
+    bullets: Query<Entity, With<ShotSlot>>,
     upgrades: Option<Res<Upgrades>>,
 ) {
     let (glider, weapon, transform) = &mut *glider;

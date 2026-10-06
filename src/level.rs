@@ -104,6 +104,7 @@ pub(crate) struct Level {
     pub(crate) tankers: Option<Generator>,
     pub(crate) spikers: Option<Generator>,
     pub(crate) enemy_shots: usize,
+    pub(crate) beasts: Option<Generator>,
 }
 
 fn closed_web() -> bool {
@@ -216,6 +217,8 @@ struct Definition {
     tankers: Option<GeneratorDefinition>,
     #[serde(default)]
     spikers: Option<GeneratorDefinition>,
+    #[serde(default)]
+    beasts: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -328,6 +331,7 @@ impl Level {
                 .map(|generator| generator.compile(name))
                 .transpose()?,
             enemy_shots,
+            beasts: def.beasts.map(|g| g.compile(name)).transpose()?,
         })
     }
 }
@@ -486,6 +490,22 @@ mod tests {
         assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0x10000);
         assert_eq!(level.tankers.as_ref().unwrap().spawn_interval_ticks, 231);
         assert_eq!(level.powerups.kill_interval, 7);
+    }
+
+    #[test]
+    fn original_level_ten_has_the_clover_and_beast_generator() {
+        let level = Level::parse(include_str!("../levels/10.toml"), "level10").unwrap();
+        assert!(level.web.closed);
+        assert_eq!(level.web.lanes(), 16);
+        assert_eq!(level.web.vertices[0], [8., 6.]);
+        assert_eq!(level.web.orientations[4], -16);
+        assert_eq!(
+            (
+                level.beasts.as_ref().unwrap().first_spawn_ticks,
+                level.beasts.as_ref().unwrap().spawn_interval_ticks
+            ),
+            (1001, 2001)
+        );
     }
 
     #[test]

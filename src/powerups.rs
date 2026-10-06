@@ -414,7 +414,7 @@ pub(super) fn move_droid(
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
-    bullets: Query<&Bullet>,
+    bullets: Query<Entity, With<ShotSlot>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     power_assets: Res<PowerAssets>,
     mut droids: Query<(&mut Droid, &mut Transform)>,

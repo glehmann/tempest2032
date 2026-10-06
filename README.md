@@ -84,6 +84,11 @@ no Rust changes are needed. The supplied levels are:
   budget, `0xA800` Flippers, and `0x10000` Spikers. Two alien shots can now be
   active at once, following the original `ashots` table calculation. Tankers
   repeat every 231 ticks and pickups every seventh kill after the first.
+- `levels/10.toml`: the closed clover `web4`, introducing Beasties every 2,001
+  ticks. Their original `hornm1` core and two `hornm2`/`hornm3` armor layers are
+  drawn together. Rail hits strip horns before killing the core; stripped
+  horns fly back at half shot speed, occupy their original player shot slots,
+  and absorb ordinary shots. Beasties pursue without the normal rim pause.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current

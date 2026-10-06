@@ -22,6 +22,9 @@ pub(crate) mod tankers;
 #[path = "spikers.rs"]
 pub(crate) mod spikers;
 
+#[path = "beasts.rs"]
+mod beasts;
+
 #[derive(Component, Default)]
 struct Enemy;
 
@@ -68,6 +71,7 @@ struct Game {
     load: Option<LoadReason>,
     tanker_timer: u16,
     spiker_timer: u16,
+    beast_timer: u16,
 }
 
 impl Default for Game {
@@ -90,6 +94,7 @@ impl Default for Game {
             load: None,
             tanker_timer: 0,
             spiker_timer: 0,
+            beast_timer: 0,
         }
     }
 }
@@ -207,6 +212,10 @@ pub(super) fn add_systems(app: &mut App) {
                 .spikers
                 .as_ref()
                 .map_or(0, |g| g.first_spawn_ticks - 1),
+            beast_timer: initial
+                .beasts
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             ..default()
         })
         .init_resource::<powerups::Upgrades>()
@@ -241,6 +250,7 @@ pub(super) fn add_systems(app: &mut App) {
                     spawn_enemies,
                     tankers::spawn,
                     spikers::spawn,
+                    beasts::spawn,
                     move_enemies,
                     move_enemy_shots,
                     resolve_hits,
@@ -427,6 +437,7 @@ pub(super) fn setup(
     shot_death::setup(commands, meshes, materials);
     tankers::setup(commands, meshes, materials);
     spikers::setup(commands, meshes, materials);
+    beasts::setup(commands, meshes);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh(level.appearance.flipper)),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
@@ -583,31 +594,44 @@ fn move_enemies(
     game: Res<Game>,
     player: Single<&Glider>,
     assets: Res<FlipperAssets>,
+    beast_assets: Res<beasts::BeastAssets>,
     mut enemies: Query<(
         &mut Flipper,
         &mut Transform,
         &mut Mesh3d,
         &mut MeshMaterial3d<StandardMaterial>,
         Option<&mut tankers::Released>,
+        Option<&beasts::Beast>,
     )>,
 ) {
     if game.status != Status::Playing {
         return;
     }
     let player_lane = level.web.selected_lane(player.progress) as usize;
-    for (mut flipper, mut transform, mut mesh, mut material, mut released) in &mut enemies {
+    for (mut flipper, mut transform, mut mesh, mut material, mut released, beast) in &mut enemies {
+        let speed = if beast.is_some() {
+            level
+                .beasts
+                .as_ref()
+                .map_or(level.flippers.climb_speed, |g| g.climb_speed)
+        } else {
+            level.flippers.climb_speed
+        };
         match flipper.motion {
             Motion::Approach => {
                 flipper.depth -= 2 * LANE_UNIT;
                 if flipper.depth <= level.web.rear() {
-                    flipper.depth = level.web.rear() - level.flippers.climb_speed;
+                    flipper.depth = level.web.rear() - speed;
                     flipper.motion = Motion::Climb;
-                    mesh.0 = assets.body.clone();
+                    mesh.0 = beast.map_or_else(
+                        || assets.body.clone(),
+                        |beast| beast_assets.frames[beast.stage].clone(),
+                    );
                     material.0 = assets.shaded.clone();
                 }
             }
             Motion::Climb => {
-                flipper.depth = (flipper.depth - level.flippers.climb_speed).max(0);
+                flipper.depth = (flipper.depth - speed).max(0);
                 if flipper.depth == 0 {
                     start_flip(&mut flipper, player_lane, &level.web);
                 }
@@ -667,6 +691,16 @@ fn move_enemies(
             Motion::Pause(ticks) => flipper.motion = Motion::Pause(ticks - 1),
         }
         *transform = flipper_transform(&flipper, &level.web);
+        if beast.is_some()
+            && let Motion::Flip {
+                from,
+                direction,
+                angle,
+            } = flipper.motion
+        {
+            transform.rotation = level.web.orientation(from)
+                * Quat::from_rotation_z(direction as f32 * angle as f32 * TAU / 128.);
+        }
     }
 }
 
@@ -715,7 +749,7 @@ fn fire_enemy_shots(
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
     enemies: Query<&Flipper>,
-    shots: Query<&EnemyShot>,
+    shots: Query<(&EnemyShot, Option<&beasts::Reflected>)>,
     spikers: Query<&spikers::Spiker>,
 ) {
     if game.status != Status::Playing {
@@ -737,7 +771,13 @@ fn fire_enemy_shots(
             continue;
         }
         game.fire_timer = 112;
-        if depth <= 60 * LANE_UNIT || shots.iter().count() >= level.enemy_shots {
+        if depth <= 60 * LANE_UNIT
+            || shots
+                .iter()
+                .filter(|(_, reflection)| reflection.is_none())
+                .count()
+                >= level.enemy_shots
+        {
             continue;
         }
         let shot = EnemyShot {
@@ -766,13 +806,18 @@ fn fire_enemy_shots(
 fn move_enemy_shots(
     mut commands: Commands,
     game: Res<Game>,
-    mut shots: Query<(Entity, &mut EnemyShot, &mut Transform)>,
+    mut shots: Query<(
+        Entity,
+        &mut EnemyShot,
+        &mut Transform,
+        Option<&beasts::Reflected>,
+    )>,
 ) {
     if game.status != Status::Playing {
         return;
     }
-    for (entity, mut shot, mut transform) in &mut shots {
-        shot.depth -= 0x18000;
+    for (entity, mut shot, mut transform, reflection) in &mut shots {
+        shot.depth -= reflection.map_or(0x18000, |reflection| reflection.speed);
         shot.angle = shot.angle.wrapping_add(4);
         transform.translation.z = -(shot.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
         transform.rotation = Quat::from_rotation_z(-(shot.angle as f32) * TAU / 256.0);
@@ -792,12 +837,14 @@ fn resolve_hits(
     power_assets: Res<powerups::PowerAssets>,
     bullets: Query<(Entity, &Bullet, &Transform, Option<&ParticleShot>)>,
     enemies: Query<(Entity, &Flipper, &Transform)>,
-    enemy_shots: Query<(Entity, &EnemyShot)>,
+    enemy_shots: Query<(Entity, &EnemyShot, Option<&beasts::Reflected>)>,
     tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
     shells: Res<tankers::TankerAssets>,
     flipper_assets: Res<FlipperAssets>,
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
     mut spikes: Query<(Entity, &mut spikers::Spike)>,
+    mut beast_layers: Query<(&mut beasts::Beast, &Flipper, &mut Mesh3d)>,
+    beast_assets: Res<beasts::BeastAssets>,
 ) {
     if !matches!(game.status, Status::Playing | Status::Exiting) {
         return;
@@ -854,10 +901,10 @@ fn resolve_hits(
             .chain(
                 enemy_shots
                     .iter()
-                    .filter(|(entity, shot)| {
+                    .filter(|(entity, shot, _)| {
                         !killed.contains(entity) && intersects(shot.lane, shot.depth)
                     })
-                    .map(|(entity, shot)| (entity, shot.depth, 0, None)),
+                    .map(|(entity, shot, _)| (entity, shot.depth, 0, None)),
             )
             .collect::<Vec<_>>();
         let nearest = hits
@@ -870,6 +917,36 @@ fn resolve_hits(
             }
             if particle.is_none() {
                 commands.entity(shot).despawn();
+            }
+            if enemy_shots
+                .get(entity)
+                .is_ok_and(|(_, _, reflection)| reflection.is_some())
+            {
+                continue;
+            }
+            if let Ok((mut beast, flipper, mut mesh)) = beast_layers.get_mut(entity)
+                && beast.stage > 0
+                && matches!(flipper.motion, Motion::Climb)
+            {
+                let part = beast_assets.parts[beast.stage - 1].clone();
+                beast.stage -= 1;
+                mesh.0 = beast_assets.frames[beast.stage].clone();
+                commands.entity(shot).despawn();
+                commands.spawn((
+                    EnemyShot {
+                        lane: bullet.lane,
+                        depth,
+                        angle: 0,
+                    },
+                    beasts::Reflected {
+                        speed: if upgrades.laser { 0x24000 } else { 0x1c000 },
+                    },
+                    Transform::from_translation(transform.translation),
+                    RenderLayers::layer(1),
+                    Mesh3d(part),
+                    MeshMaterial3d(flipper_assets.shaded.clone()),
+                ));
+                break;
             }
             if let Ok((_, mut spike)) = spikes.get_mut(entity) {
                 game.score += 3;
@@ -927,6 +1004,7 @@ fn reset_wave(game: &mut Game, level: &Level) {
         .spikers
         .as_ref()
         .map_or(0, |g| g.first_spawn_ticks - 1);
+    game.beast_timer = level.beasts.as_ref().map_or(0, |g| g.first_spawn_ticks - 1);
 }
 
 #[allow(clippy::type_complexity)]
@@ -1307,6 +1385,7 @@ mod tests {
             .init_resource::<powerups::PowerAssets>()
             .init_resource::<FlipperAssets>()
             .init_resource::<tankers::TankerAssets>()
+            .init_resource::<beasts::BeastAssets>()
             .init_resource::<explosion::BurstAssets>()
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(
