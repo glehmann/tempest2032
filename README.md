@@ -187,8 +187,21 @@ the original viewpoint threshold of -400, about 50 more ticks with this camera.
 Only then is the life deducted and the wave reset. R cancels the sequence and
 restarts immediately.
 
-Enemy shots cost a life immediately. You start with three lives. Losing a life
-resets the wave and gives two seconds of invulnerability.
+An enemy-shot hit shows "SHOT YOU!" and replaces the glider with `zap`'s
+ten-point starburst outline. `draw_z` draws four copies with hues separated by
+17 palette entries. Following `zap_player`, the burst spins by 12 angle units
+per tick, its copies spread apart by half a depth unit per tick, and its centre
+moves toward the viewer by a quarter unit per tick. The camera moves toward
+the burst's XY position and pulls back, including `vp_xform`'s depth correction.
+The blue web faces fade out during the explosion.
+
+After 121 ticks the starburst disappears, and the camera retreats at eight
+depth units per tick until the same -400 viewpoint threshold as a grab. Only
+then is the life deducted, followed by re-entry or game over. Movement, jumping,
+and firing are locked during the sequence; R cancels it and restarts.
+
+You start with three lives. Losing a life resets the wave and gives two seconds
+of invulnerability.
 Press **R** to restart. The level-clear exit replays level one automatically
 rather than advancing to another web.
 
@@ -265,6 +278,8 @@ contains the moving background star field. `src/powerups.rs`, a child module of
 `enemies`, contains drops, collection effects, rewards, jumping, and the droid.
 `src/entry.rs` contains the approaching web and wireframe claw entry animation.
 `src/exit.rs` contains the accelerating fly-through, claw warp, flash, and replay.
+`src/shot_death.rs` contains the glider's starburst and camera retreat after an
+enemy-shot hit.
 The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
@@ -303,6 +318,15 @@ This records 14 seconds and clears the wave six seconds into the capture,
 showing entry, the complete exit, the warp flash, and the start of re-entry.
 An optional duration works as with `--record-motion`.
 
+To preview the enemy-shot death sequence, run:
+
+```sh
+cargo run -- --record-shot-hit target/shot-hit
+```
+
+This records 15 seconds and injects an enemy shot six seconds into the capture,
+showing entry, the starburst, camera retreat, and re-entry.
+
 ## Original geometry references
 
 The source references used for this prototype are in the original game's
@@ -329,6 +353,8 @@ The source references used for this prototype are in the original game's
 - `collie` defines shot vulnerability and the six-unit depth collision threshold.
 - `gotu`, `take_me_to_your_leader`, and `snatch_it_away` define the Flipper grab,
   joint descent, camera retreat, and delayed loss of a life.
+- `run_ashot`, `ouch`, `zap_player`, `zap`, and `draw_z` define the shot-hit
+  message, spinning starburst, depth copies, and retreat before losing a life.
 - `scores` assigns 150 points to a normal Flipper.
 - `alienfire`, `run_ashot`, `s_shot`, and `chevron` define enemy firing and shots.
 - `killme`, `sphkillme`, and `kime` turn a killed Flipper into its explosion.

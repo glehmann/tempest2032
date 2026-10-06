@@ -242,6 +242,7 @@ mod tests {
         .insert_resource(materials)
         .init_resource::<powerups::Upgrades>()
         .init_resource::<ShotAssets>()
+        .init_resource::<explosion::BurstAssets>()
         .init_resource::<stars::Warp>()
         .add_systems(
             FixedUpdate,

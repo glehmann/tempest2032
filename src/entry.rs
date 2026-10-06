@@ -237,10 +237,13 @@ pub(super) fn draw(
             || (f32::from(tick.saturating_sub(APPROACH_TICKS)) * 8.0 / 248.0).min(1.0),
             |exit| (1.0 - f32::from(exit.ticks) * 8.0 / 248.0).max(0.0),
         );
-        surface.base_color = Color::WHITE.with_alpha(alpha);
+        surface.base_color = Color::WHITE.with_alpha(game.death.map_or(alpha, |death| {
+            (1.0 - f32::from(death.tick) * 8.0 / 248.0).max(0.0)
+        }));
     }
     let (glider, transform, visibility) = &mut *player;
-    if game.entry.is_some() || game.exit.is_some_and(|exit| exit.wireframe) {
+    if game.entry.is_some() || game.exit.is_some_and(|exit| exit.wireframe) || game.death.is_some()
+    {
         **visibility = Visibility::Hidden;
     }
     // check_game owns the invulnerability blink once the claw has rezzed.
@@ -248,14 +251,17 @@ pub(super) fn draw(
         **visibility = Visibility::Visible;
     }
     for mut visibility in &mut highlights {
-        *visibility = if tick < APPROACH_TICKS || game.exit.is_some_and(|exit| exit.wireframe) {
+        *visibility = if tick < APPROACH_TICKS
+            || game.exit.is_some_and(|exit| exit.wireframe)
+            || game.death.is_some()
+        {
             Visibility::Hidden
         } else {
             Visibility::Visible
         };
     }
     for mut visibility in &mut droids {
-        *visibility = if tick < APPROACH_TICKS || game.exit.is_some() {
+        *visibility = if tick < APPROACH_TICKS || game.exit.is_some() || game.death.is_some() {
             Visibility::Hidden
         } else {
             Visibility::Visible
@@ -266,7 +272,8 @@ pub(super) fn draw(
         let exiting = game
             .exit
             .is_some_and(|exit| exit.wireframe && exit.flash == 0);
-        *visibility = if exiting || (APPROACH_TICKS + 1..APPROACH_TICKS + REZ_TICKS).contains(&tick)
+        *visibility = if game.death.is_none()
+            && (exiting || (APPROACH_TICKS + 1..APPROACH_TICKS + REZ_TICKS).contains(&tick))
         {
             Visibility::Visible
         } else {

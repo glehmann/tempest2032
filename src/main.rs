@@ -194,7 +194,14 @@ struct MotionCapture {
     frame: u32,
     finished: bool,
     end_tick: u32,
-    exit_preview: bool,
+    preview: CapturePreview,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CapturePreview {
+    Motion,
+    Exit,
+    ShotHit,
 }
 
 fn main() {
@@ -207,7 +214,7 @@ fn main() {
             ))
             .add_systems(Update, capture_frame);
         }
-        Some(mode @ ("--record-motion" | "--record-exit")) => {
+        Some(mode @ ("--record-motion" | "--record-exit" | "--record-shot-hit")) => {
             let directory = args.next().expect("recording requires an output directory");
             let seconds = args
                 .next()
@@ -216,7 +223,11 @@ fn main() {
                         .parse::<u32>()
                         .expect("capture duration must be whole seconds")
                 })
-                .unwrap_or(if mode == "--record-exit" { 14 } else { 6 });
+                .unwrap_or(match mode {
+                    "--record-exit" => 14,
+                    "--record-shot-hit" => 15,
+                    _ => 6,
+                });
             std::fs::create_dir_all(&directory).expect("could not create motion capture directory");
             app.insert_resource(MotionCapture {
                 directory,
@@ -225,7 +236,11 @@ fn main() {
                 frame: 0,
                 finished: false,
                 end_tick: seconds * 60,
-                exit_preview: mode == "--record-exit",
+                preview: match mode {
+                    "--record-exit" => CapturePreview::Exit,
+                    "--record-shot-hit" => CapturePreview::ShotHit,
+                    _ => CapturePreview::Motion,
+                },
             })
             .add_systems(FixedUpdate, preview_input.before(move_glider))
             .add_systems(Update, capture_motion);

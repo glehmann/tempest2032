@@ -13,8 +13,12 @@ pub(crate) mod entry;
 #[path = "exit.rs"]
 mod exit;
 
+#[path = "shot_death.rs"]
+mod shot_death;
+
 const WORLD_UNIT: f32 = FRONT_RADIUS / 24.0;
 const REAR: i32 = 160 * LANE_UNIT;
+const RETREAT_END: f32 = (110.0 - 80.0 + 400.0) * WORLD_UNIT;
 const FLIPPER_SPEED: i32 = 0xa000;
 const FLIP_SPEED: u8 = 4;
 const FLIP_ANGLE: u8 = 112;
@@ -27,6 +31,7 @@ enum Status {
     Entering,
     Playing,
     Captured,
+    ShotHit,
     Respawning,
     Exiting,
     GameOver,
@@ -52,6 +57,7 @@ struct Game {
     capture: Option<Capture>,
     entry: Option<u16>,
     exit: Option<exit::Exit>,
+    death: Option<shot_death::Death>,
 }
 
 impl Default for Game {
@@ -69,6 +75,7 @@ impl Default for Game {
             capture: None,
             entry: None,
             exit: None,
+            death: None,
         }
     }
 }
@@ -148,7 +155,7 @@ pub(super) fn add_systems(app: &mut App) {
     )
     .add_systems(
         FixedUpdate,
-        preview_exit.after(preview_input).before(move_glider),
+        preview_transition.after(preview_input).before(move_glider),
     )
     .add_systems(
         FixedUpdate,
@@ -160,7 +167,7 @@ pub(super) fn add_systems(app: &mut App) {
             follow_glider.run_if(|game: Res<Game>| {
                 !matches!(
                     game.status,
-                    Status::Entering | Status::Captured | Status::Exiting
+                    Status::Entering | Status::Captured | Status::ShotHit | Status::Exiting
                 )
             }),
             move_bullets,
@@ -175,6 +182,7 @@ pub(super) fn add_systems(app: &mut App) {
             explosion::age_explosions,
             entry::advance,
             animate_capture,
+            shot_death::animate,
             exit::animate,
             check_game,
         )
@@ -192,6 +200,7 @@ pub(super) fn add_systems(app: &mut App) {
             powerups::draw_powerups.after(fit_camera),
             entry::draw.after(restart_game),
             exit::draw.after(restart_game),
+            shot_death::draw.after(restart_game),
             powerups::update_notice,
         ),
     );
@@ -202,17 +211,51 @@ fn playing(game: Res<Game>) -> bool {
 }
 
 #[allow(clippy::type_complexity)]
-fn preview_exit(
+fn preview_transition(
     mut commands: Commands,
     capture: Option<Res<MotionCapture>>,
     mut game: ResMut<Game>,
-    actors: Query<Entity, Or<(With<Flipper>, With<EnemyShot>, With<powerups::PowerUp>)>>,
+    actors: Query<
+        Entity,
+        Or<(
+            With<Flipper>,
+            With<EnemyShot>,
+            With<powerups::PowerUp>,
+            With<Bullet>,
+        )>,
+    >,
+    player: Single<&Glider>,
+    assets: Res<FlipperAssets>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
 ) {
-    if capture.is_some_and(|capture| capture.exit_preview && capture.tick == 360) {
+    let Some(capture) = capture else {
+        return;
+    };
+    if capture.tick == 360 && capture.preview != CapturePreview::Motion {
         for entity in &actors {
             commands.entity(entity).despawn();
         }
-        game.remaining = 0;
+        if capture.preview == CapturePreview::Exit {
+            game.remaining = 0;
+        } else {
+            for key in [KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space] {
+                keys.release(key);
+            }
+            let shot = EnemyShot {
+                lane: selected_lane(player.progress) as usize,
+                depth: 2 * LANE_UNIT + LANE_UNIT / 2,
+                angle: 0,
+            };
+            let mut transform = glider_transform(shot.lane as i32 * LANE_UNIT);
+            transform.translation.z = -(shot.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
+            commands.spawn((
+                shot,
+                transform,
+                RenderLayers::layer(1),
+                Mesh3d(assets.shot.clone()),
+                MeshMaterial3d(assets.shaded.clone()),
+            ));
+        }
     }
 }
 
@@ -298,6 +341,7 @@ pub(super) fn setup(
     explosion::setup(commands, meshes, materials);
     powerups::setup(commands, meshes, materials);
     exit::setup(commands);
+    shot_death::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh()),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
@@ -671,7 +715,7 @@ fn animate_capture(
             camera.translation.z = capture.camera_z;
         }
         // snatch_it_away stops at vp_z <= -400; webz-80 is our rim's zero.
-        if capture.camera_z >= (110.0 - 80.0 + 400.0) * WORLD_UNIT {
+        if capture.camera_z >= RETREAT_END {
             game.status = Status::Respawning;
             game.capture = None;
             for mut camera in &mut cameras {
@@ -688,6 +732,7 @@ fn check_game(
     mut commands: Commands,
     mut game: ResMut<Game>,
     mut upgrades: ResMut<powerups::Upgrades>,
+    bursts: Res<explosion::BurstAssets>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
     enemies: Query<(Entity, &Flipper)>,
     bullets: Query<Entity, With<Bullet>>,
@@ -737,6 +782,31 @@ fn check_game(
             glider.velocity = 0;
             **weapon = Weapon::default();
             **visibility = Visibility::Visible;
+            return;
+        }
+        if game.status == Status::Playing {
+            game.status = Status::ShotHit;
+            game.death = Some(shot_death::Death::new(transform.translation));
+            glider.velocity = 0;
+            **weapon = Weapon::default();
+            **visibility = Visibility::Hidden;
+            upgrades.lose_life();
+            for entity in &bullets {
+                commands.entity(entity).despawn();
+            }
+            for entity in &droids {
+                commands.entity(entity).despawn();
+            }
+            for (entity, shot) in &enemy_shots {
+                if shot.lane == selected_lane(glider.progress) as usize
+                    && shot.depth <= 2 * LANE_UNIT
+                {
+                    let mut centre = transform.translation;
+                    centre.z = -(shot.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
+                    commands.entity(entity).despawn();
+                    explosion::spawn_explosion(&mut commands, &bursts, centre);
+                }
+            }
             return;
         }
         game.lives -= 1;
@@ -834,6 +904,7 @@ fn update_hud(game: Res<Game>, mut hud: Single<&mut Text, With<GameHud>>) {
     let status = match game.status {
         Status::Entering | Status::Playing => "",
         Status::Captured | Status::Respawning => "\nCAUGHT YOU",
+        Status::ShotHit => "\nSHOT YOU!",
         Status::Exiting => "\nLEVEL CLEAR",
         Status::GameOver => "\nGAME OVER   R to restart",
     };
@@ -909,7 +980,9 @@ mod tests {
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(
                 FixedUpdate,
-                (entry::advance, animate_capture).chain().before(check_game),
+                (entry::advance, animate_capture, shot_death::animate)
+                    .chain()
+                    .before(check_game),
             );
         app.world_mut().spawn((
             Glider {
@@ -1711,7 +1784,8 @@ mod tests {
             angle: 0,
         });
         ticks(&mut app, 1);
-        assert_eq!(app.world().resource::<Game>().lives, 2);
+        assert!(app.world().resource::<Game>().status == Status::ShotHit);
+        assert_eq!(app.world().resource::<Game>().lives, 3);
         assert!(
             app.world_mut()
                 .query::<&EnemyShot>()
@@ -1719,5 +1793,8 @@ mod tests {
                 .next()
                 .is_none()
         );
+        ticks(&mut app, 163);
+        assert_eq!(app.world().resource::<Game>().lives, 2);
+        assert!(app.world().resource::<Game>().status == Status::Entering);
     }
 }
