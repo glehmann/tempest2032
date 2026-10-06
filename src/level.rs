@@ -105,6 +105,7 @@ pub(crate) struct Level {
     pub(crate) spikers: Option<Generator>,
     pub(crate) enemy_shots: usize,
     pub(crate) beasts: Option<Generator>,
+    pub(crate) fuseballs: Option<Generator>,
 }
 
 fn closed_web() -> bool {
@@ -219,6 +220,8 @@ struct Definition {
     spikers: Option<GeneratorDefinition>,
     #[serde(default)]
     beasts: Option<GeneratorDefinition>,
+    #[serde(default)]
+    fuseballs: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -332,6 +335,7 @@ impl Level {
                 .transpose()?,
             enemy_shots,
             beasts: def.beasts.map(|g| g.compile(name)).transpose()?,
+            fuseballs: def.fuseballs.map(|g| g.compile(name)).transpose()?,
         })
     }
 }

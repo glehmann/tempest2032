@@ -25,6 +25,9 @@ pub(crate) mod spikers;
 #[path = "beasts.rs"]
 mod beasts;
 
+#[path = "fuseballs.rs"]
+pub(crate) mod fuseballs;
+
 #[derive(Component, Default)]
 struct Enemy;
 
@@ -41,6 +44,7 @@ enum Status {
     Captured,
     ShotHit,
     Spiked,
+    Fried,
     Respawning,
     Exiting,
     GameOver,
@@ -72,6 +76,7 @@ struct Game {
     tanker_timer: u16,
     spiker_timer: u16,
     beast_timer: u16,
+    fuse_timer: u16,
 }
 
 impl Default for Game {
@@ -95,6 +100,7 @@ impl Default for Game {
             tanker_timer: 0,
             spiker_timer: 0,
             beast_timer: 0,
+            fuse_timer: 0,
         }
     }
 }
@@ -216,6 +222,10 @@ pub(super) fn add_systems(app: &mut App) {
                 .beasts
                 .as_ref()
                 .map_or(0, |g| g.first_spawn_ticks - 1),
+            fuse_timer: initial
+                .fuseballs
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             ..default()
         })
         .init_resource::<powerups::Upgrades>()
@@ -242,6 +252,7 @@ pub(super) fn add_systems(app: &mut App) {
                                 | Status::Captured
                                 | Status::ShotHit
                                 | Status::Spiked
+                                | Status::Fried
                                 | Status::Exiting
                         )
                     }),
@@ -251,7 +262,12 @@ pub(super) fn add_systems(app: &mut App) {
                     tankers::spawn,
                     spikers::spawn,
                     beasts::spawn,
+                    fuseballs::spawn,
+                )
+                    .chain(),
+                (
                     move_enemies,
+                    fuseballs::advance,
                     move_enemy_shots,
                     resolve_hits,
                     tankers::move_tankers,
@@ -289,6 +305,7 @@ pub(super) fn add_systems(app: &mut App) {
         .add_systems(Update, update_enemy_colors.after(load_level))
         .add_systems(Update, draw_approaching_flippers.after(fit_camera))
         .add_systems(Update, tankers::draw_points.after(fit_camera))
+        .add_systems(Update, fuseballs::draw_points.after(fit_camera))
         .add_systems(Update, draw_particle_shots.after(fit_camera))
         .add_systems(
             Update,
@@ -438,6 +455,7 @@ pub(super) fn setup(
     tankers::setup(commands, meshes, materials);
     spikers::setup(commands, meshes, materials);
     beasts::setup(commands, meshes);
+    fuseballs::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh(level.appearance.flipper)),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
@@ -527,6 +545,7 @@ fn flipper_transform(flipper: &Flipper, web: &level::Web) -> Transform {
     transform
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_enemies(
     level: Res<Level>,
     mut commands: Commands,
@@ -535,6 +554,7 @@ fn spawn_enemies(
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
+    fuses: Query<&fuseballs::Fuseball>,
 ) {
     if game.status != Status::Playing || game.remaining == 0 {
         return;
@@ -543,7 +563,10 @@ fn spawn_enemies(
         game.spawn_timer -= 1;
         return;
     }
-    if enemies.iter().count() + tankers.iter().count() * 3 + spikers.iter().count()
+    if enemies.iter().count()
+        + tankers.iter().count() * 3
+        + spikers.iter().count()
+        + fuses.iter().count()
         >= level.flippers.max_active
     {
         return;
@@ -1005,6 +1028,10 @@ fn reset_wave(game: &mut Game, level: &Level) {
         .as_ref()
         .map_or(0, |g| g.first_spawn_ticks - 1);
     game.beast_timer = level.beasts.as_ref().map_or(0, |g| g.first_spawn_ticks - 1);
+    game.fuse_timer = level
+        .fuseballs
+        .as_ref()
+        .map_or(0, |g| g.first_spawn_ticks - 1);
 }
 
 #[allow(clippy::type_complexity)]
@@ -1242,6 +1269,7 @@ fn update_hud(game: Res<Game>, level: Res<Level>, mut hud: Single<&mut Text, Wit
         Status::Captured | Status::Respawning => "\nCAUGHT YOU",
         Status::ShotHit => "\nSHOT YOU!",
         Status::Spiked => "\nSPIKED!",
+        Status::Fried => "\nFRIED YOU!",
         Status::Exiting if level.spikers.is_some() => "\nLEVEL CLEAR\nAVOID THE SPIKES",
         Status::Exiting => "\nLEVEL CLEAR",
         Status::GameOver => "\nGAME OVER   R to restart",

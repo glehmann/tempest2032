@@ -89,6 +89,13 @@ no Rust changes are needed. The supplied levels are:
   drawn together. Rail hits strip horns before killing the core; stripped
   horns fly back at half shot speed, occupy their original player shot slots,
   and absorb ordinary shots. Beasties pursue without the normal rim pause.
+- `levels/11.toml`: the open parabolic `web14`, introducing Fuseballs. Their
+  five independently shaped colored legs use `fbpiece1`/`fbpiece2` and the
+  original five hue values. They climb along lane boundaries for 49 ticks,
+  then cross in sixteen steps with a five-tick delay per step. Only the middle
+  of a crossing is shootable. A crossing at the rim can fry the glider even
+  during active firing, using the original "FRIED YOU!" death sequence.
+  Kills award the original random 250, 500, or 750 points without a pickup drop.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current

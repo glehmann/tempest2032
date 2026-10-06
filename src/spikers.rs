@@ -76,6 +76,7 @@ pub(super) fn setup(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn spawn(
     level: Res<Level>,
     mut commands: Commands,
@@ -84,6 +85,7 @@ pub(super) fn spawn(
     flippers: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&Spiker>,
+    fuses: Query<&fuseballs::Fuseball>,
 ) {
     let Some(generator) = &level.spikers else {
         return;
@@ -95,7 +97,10 @@ pub(super) fn spawn(
         game.spiker_timer -= 1;
         return;
     }
-    if flippers.iter().count() + tankers.iter().count() * 3 + spikers.iter().count()
+    if flippers.iter().count()
+        + tankers.iter().count() * 3
+        + spikers.iter().count()
+        + fuses.iter().count()
         >= level.flippers.max_active
     {
         return;

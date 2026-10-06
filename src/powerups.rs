@@ -338,6 +338,7 @@ pub(super) fn advance_powerups(
     shells: Res<tankers::TankerAssets>,
     flippers: Res<FlipperAssets>,
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
+    fuses: Query<(Entity, &fuseballs::Fuseball, &Transform)>,
 ) {
     upgrades.frame = upgrades.frame.wrapping_add(1);
     upgrades.notice_ticks = upgrades.notice_ticks.saturating_sub(1);
@@ -351,6 +352,13 @@ pub(super) fn advance_powerups(
                     spawn_droid(&mut commands, &assets, &level.web);
                 }
                 reward @ (Reward::Zap | Reward::Skip) => {
+                    for (entity, _, pose) in &fuses {
+                        commands.entity(entity).despawn();
+                        explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+                        if reward == Reward::Zap {
+                            game.score += 250;
+                        }
+                    }
                     for (entity, _, pose) in &spikers {
                         commands.entity(entity).despawn();
                         explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
@@ -414,6 +422,7 @@ pub(super) fn move_droid(
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
+    fuses: Query<&fuseballs::Fuseball>,
     bullets: Query<Entity, With<ShotSlot>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     power_assets: Res<PowerAssets>,
@@ -436,6 +445,7 @@ pub(super) fn move_droid(
                 .map(|t| (t.lane, t.depth)),
         )
         .chain(spikers.iter().map(|s| (s.lane, s.depth)))
+        .chain(fuses.iter().filter_map(|f| f.target()))
         .min_by_key(|(_, depth)| *depth)
         .map(|(lane, _)| lane);
     for (mut droid, mut transform) in &mut droids {

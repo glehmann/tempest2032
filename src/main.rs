@@ -806,6 +806,7 @@ fn preview_input(
     enemies: Query<&enemies::Flipper>,
     tankers: Query<&enemies::tankers::Tanker>,
     spikers: Query<&enemies::spikers::Spiker>,
+    fuses: Query<&enemies::fuseballs::Fuseball>,
     upgrades: Res<Upgrades>,
 ) {
     keys.release(KeyCode::KeyD);
@@ -832,6 +833,7 @@ fn preview_input(
                         .map(|t| (t.lane, t.depth)),
                 )
                 .chain(spikers.iter().map(|s| (s.lane, s.depth)))
+                .chain(fuses.iter().filter_map(|f| f.target()))
                 .min_by_key(|(_, depth)| *depth)
                 .map(|(lane, _)| lane)
         });

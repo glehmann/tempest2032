@@ -125,6 +125,7 @@ pub(super) fn spawn(
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
+    fuses: Query<&fuseballs::Fuseball>,
 ) {
     let Some(generator) = &level.beasts else {
         return;
@@ -136,7 +137,10 @@ pub(super) fn spawn(
         game.beast_timer -= 1;
         return;
     }
-    if enemies.iter().count() + tankers.iter().count() * 3 + spikers.iter().count()
+    if enemies.iter().count()
+        + tankers.iter().count() * 3
+        + spikers.iter().count()
+        + fuses.iter().count()
         >= level.flippers.max_active
     {
         return;
