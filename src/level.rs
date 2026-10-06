@@ -1,6 +1,9 @@
 use super::*;
+use serde::Deserialize;
+use std::{path::Path, sync::LazyLock};
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Web {
     pub(crate) vertices: Vec<[f32; 2]>,
     pub(crate) orientations: Vec<i16>,
@@ -59,6 +62,8 @@ pub(crate) struct Level {
     pub(crate) number: usize,
     pub(crate) web: Web,
     pub(crate) flippers: Flippers,
+    pub(crate) appearance: Appearance,
+    pub(crate) powerups: PowerUps,
 }
 
 #[derive(Clone)]
@@ -74,43 +79,145 @@ pub(crate) struct Flippers {
 
 impl Default for Level {
     fn default() -> Self {
+        static FIRST: LazyLock<Level> = LazyLock::new(|| {
+            Level::parse(include_str!("../levels/01.toml"), "levels/01.toml")
+                .expect("bundled level one must be valid")
+        });
+        FIRST.clone()
+    }
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct Appearance {
+    pub(crate) surface: [f32; 3],
+    pub(crate) lines: [f32; 3],
+    pub(crate) flipper: [u8; 3],
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
         Self {
-            number: 1,
-            web: Web {
-                vertices: [
-                    (7., 2.),
-                    (9., 2.),
-                    (11., 3.),
-                    (13., 5.),
-                    (14., 7.),
-                    (14., 9.),
-                    (13., 11.),
-                    (11., 13.),
-                    (9., 14.),
-                    (7., 14.),
-                    (5., 13.),
-                    (3., 11.),
-                    (2., 9.),
-                    (2., 7.),
-                    (3., 5.),
-                    (5., 3.),
-                ]
-                .map(|(x, y)| [x, y])
-                .to_vec(),
-                orientations: (0..16).map(|lane| -lane * 16).collect(),
-                start_lane: 7,
-                depth: 160,
-            },
-            flippers: Flippers {
-                count: 25,
-                first_spawn_ticks: 61,
-                spawn_interval_ticks: 121,
-                climb_speed: 0xa000,
-                flip_speed: 4,
-                pause_ticks: 8,
-                max_active: 11,
-            },
+            surface: [0., 0., 1.],
+            lines: [0.015, 0.01, 0.78],
+            flipper: [240, 0, 0],
         }
+    }
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct PowerUps {
+    pub(crate) kill_interval: u8,
+}
+impl Default for PowerUps {
+    fn default() -> Self {
+        Self { kill_interval: 5 }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Definition {
+    number: usize,
+    web: Web,
+    flippers: FlipperDefinition,
+    #[serde(default)]
+    appearance: Appearance,
+    #[serde(default)]
+    powerups: PowerUps,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlipperDefinition {
+    count: u16,
+    first_spawn_ticks: u16,
+    spawn_interval_ticks: u16,
+    climb_speed: f32,
+    flip_speed: u16,
+    pause_ticks: u8,
+    max_active: usize,
+}
+
+impl Level {
+    pub(crate) fn parse(source: &str, name: &str) -> Result<Self, String> {
+        let def: Definition = toml::from_str(source).map_err(|err| format!("{name}: {err}"))?;
+        let fail = |message: &str| Err(format!("{name}: {message}"));
+        let web = &def.web;
+        if def.number == 0 {
+            return fail("number must be positive");
+        }
+        if !(3..=128).contains(&web.lanes()) {
+            return fail("web must have 3 to 128 vertices");
+        }
+        if web.start_lane >= web.lanes() {
+            return fail("start_lane is outside the web");
+        }
+        if !(1..=1000).contains(&web.depth) {
+            return fail("depth must be between 1 and 1000");
+        }
+        if web.orientations.len() != web.lanes()
+            || web
+                .orientations
+                .iter()
+                .any(|angle| !(-256..=256).contains(angle))
+        {
+            return fail("orientations must contain one angle per lane, between -256 and 256");
+        }
+        let mut area = 0.0;
+        for index in 0..web.lanes() {
+            let a = Vec2::from_array(web.vertices[index]);
+            let b = Vec2::from_array(web.vertices[(index + 1) % web.lanes()]);
+            if !a.is_finite() || !b.is_finite() || a.distance_squared(b) < 1e-6 {
+                return fail("web vertices must be finite with nonzero lane lengths");
+            }
+            area += a.perp_dot(b);
+        }
+        if !area.is_finite() || area <= 0.0 {
+            return fail("web vertices must enclose an area in clockwise screen order");
+        }
+        let f = def.flippers;
+        if f.count == 0
+            || f.first_spawn_ticks == 0
+            || f.spawn_interval_ticks == 0
+            || f.max_active == 0
+        {
+            return fail("Flipper count, spawn times, and max_active must be positive");
+        }
+        if !f.climb_speed.is_finite() || !(1.0 / 65536.0..=16.0).contains(&f.climb_speed) {
+            return fail("climb_speed must be finite and between 1/65536 and 16 units per tick");
+        }
+        if !(1..=64).contains(&f.flip_speed) {
+            return fail("flip_speed must be between 1 and 64 angle units per tick");
+        }
+        if def.powerups.kill_interval == 0 {
+            return fail("kill_interval must be positive");
+        }
+        if def
+            .appearance
+            .surface
+            .iter()
+            .chain(&def.appearance.lines)
+            .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(channel))
+        {
+            return fail("surface and line colors must have finite channels between 0 and 1");
+        }
+        Ok(Self {
+            number: def.number,
+            web: def.web,
+            flippers: Flippers {
+                count: f.count,
+                first_spawn_ticks: f.first_spawn_ticks,
+                spawn_interval_ticks: f.spawn_interval_ticks,
+                climb_speed: (f.climb_speed * LANE_UNIT as f32).round() as i32,
+                flip_speed: f.flip_speed,
+                pause_ticks: f.pause_ticks,
+                max_active: f.max_active,
+            },
+            appearance: def.appearance,
+            powerups: def.powerups,
+        })
     }
 }
 
@@ -123,6 +230,41 @@ impl Default for Levels {
     }
 }
 
+impl Levels {
+    pub(crate) fn load(directory: &Path) -> Result<Self, String> {
+        let entries = std::fs::read_dir(directory)
+            .map_err(|err| format!("{}: {err}", directory.display()))?;
+        let mut levels = Vec::new();
+        for entry in entries {
+            let path = entry.map_err(|err| err.to_string())?.path();
+            if path.extension().is_none_or(|ext| ext != "toml") {
+                continue;
+            }
+            let source = std::fs::read_to_string(&path)
+                .map_err(|err| format!("{}: {err}", path.display()))?;
+            levels.push((
+                path.clone(),
+                Level::parse(&source, &path.display().to_string())?,
+            ));
+        }
+        if levels.is_empty() {
+            return Err(format!("{}: no TOML levels found", directory.display()));
+        }
+        levels.sort_by_key(|(_, level)| level.number);
+        for (index, (path, level)) in levels.iter().enumerate() {
+            if level.number != index + 1 {
+                return Err(format!(
+                    "{}: expected level number {}, found {}",
+                    path.display(),
+                    index + 1,
+                    level.number
+                ));
+            }
+        }
+        Ok(Self(levels.into_iter().map(|(_, level)| level).collect()))
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum LoadReason {
     Restart,
@@ -132,3 +274,70 @@ pub(crate) enum LoadReason {
 
 #[derive(Component, Default)]
 pub(crate) struct LevelActor;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn original_levels_have_the_expected_geometry_and_wave_settings() {
+        let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+        assert_eq!(levels.0.len(), 2);
+        let first = &levels.0[0];
+        let second = &levels.0[1];
+        assert_eq!(
+            (
+                first.flippers.count,
+                first.flippers.first_spawn_ticks,
+                first.flippers.spawn_interval_ticks
+            ),
+            (25, 61, 121)
+        );
+        assert_eq!(
+            (
+                second.flippers.count,
+                second.flippers.first_spawn_ticks,
+                second.flippers.spawn_interval_ticks
+            ),
+            (25, 51, 101)
+        );
+        assert_eq!(second.flippers.climb_speed, 0xa000);
+        assert_eq!(second.web.lanes(), 16);
+        assert_eq!(
+            second.web.glider_transform(second.web.start()).translation,
+            Vec3::new(-2.0 / 3.0, -8.0 / 3.0, 0.12)
+        );
+        for lane in 0..16 {
+            let next = (lane + 1) % 16;
+            assert_eq!(
+                second.web.flip_angle(lane, next, 1),
+                if lane % 4 == 3 { 64 } else { 128 }
+            );
+            assert_eq!(
+                second.web.flip_angle(next, lane, -1),
+                if lane % 4 == 3 { 64 } else { 128 }
+            );
+            assert_eq!(first.web.flip_angle(lane, next, 1), 112);
+        }
+    }
+
+    #[test]
+    fn invalid_tweaks_report_the_file_and_reject_unknown_fields() {
+        let source = include_str!("../levels/01.toml");
+        for (old, new) in [
+            ("start_lane = 7", "start_lane = 99"),
+            ("depth = 160", "depth = 0"),
+            ("first_spawn_ticks = 61", "first_spawn_ticks = 0"),
+            ("climb_speed = 0.625", "climb_speed = nan"),
+            ("flip_speed = 4", "flip_speed = 0"),
+            ("kill_interval = 5", "kill_interval = 0"),
+            ("spawn_interval_ticks = 121", "spawn_interva_ticks = 121"),
+            ("[9, 2]", "[7, 2]"),
+        ] {
+            let error = Level::parse(&source.replace(old, new), "bad-level.toml")
+                .err()
+                .expect("invalid definition must fail");
+            assert!(error.starts_with("bad-level.toml:"), "{error}");
+        }
+    }
+}

@@ -184,6 +184,9 @@ struct WebAssets {
 struct LevelLabel;
 
 #[derive(Resource)]
+struct StartingLevel(usize);
+
+#[derive(Resource)]
 struct CapturePath(String);
 
 #[derive(Resource)]
@@ -206,53 +209,91 @@ enum CapturePreview {
 
 fn main() {
     let mut app = App::new();
-    let mut args = std::env::args().skip(1);
-    match args.next().as_deref() {
-        Some("--screenshot") => {
-            app.insert_resource(CapturePath(
-                args.next().expect("--screenshot requires a file path"),
-            ))
-            .add_systems(Update, capture_frame);
-        }
-        Some(mode @ ("--record-motion" | "--record-exit" | "--record-shot-hit")) => {
-            let directory = args.next().expect("recording requires an output directory");
-            let seconds = args
-                .next()
-                .map(|value| {
-                    value
-                        .parse::<u32>()
-                        .expect("capture duration must be whole seconds")
+    let mut args = std::env::args().skip(1).peekable();
+    let mut starting_level = 1usize;
+    let mut directory = std::path::PathBuf::from("levels");
+    while let Some(argument) = args.next() {
+        match argument.as_str() {
+            "--level" => {
+                starting_level = args
+                    .next()
+                    .expect("--level requires a number")
+                    .parse()
+                    .expect("level must be a positive integer");
+            }
+            "--levels" => {
+                directory = args.next().expect("--levels requires a directory").into();
+            }
+            "--screenshot" => {
+                app.insert_resource(CapturePath(
+                    args.next().expect("--screenshot requires a file path"),
+                ))
+                .add_systems(Update, capture_frame);
+            }
+            mode @ ("--record-motion" | "--record-exit" | "--record-shot-hit") => {
+                let directory = args.next().expect("recording requires an output directory");
+                let seconds = args
+                    .peek()
+                    .filter(|arg| !arg.starts_with("--"))
+                    .cloned()
+                    .map(|value| {
+                        args.next();
+                        value
+                            .parse::<u32>()
+                            .expect("capture duration must be whole seconds")
+                    })
+                    .unwrap_or(match mode {
+                        "--record-exit" => 14,
+                        "--record-shot-hit" => 15,
+                        _ => 6,
+                    });
+                std::fs::create_dir_all(&directory)
+                    .expect("could not create motion capture directory");
+                app.insert_resource(MotionCapture {
+                    directory,
+                    tick: 0,
+                    next_capture: 0,
+                    frame: 0,
+                    finished: false,
+                    end_tick: seconds * 60,
+                    preview: match mode {
+                        "--record-exit" => CapturePreview::Exit,
+                        "--record-shot-hit" => CapturePreview::ShotHit,
+                        _ => CapturePreview::Motion,
+                    },
                 })
-                .unwrap_or(match mode {
-                    "--record-exit" => 14,
-                    "--record-shot-hit" => 15,
-                    _ => 6,
-                });
-            std::fs::create_dir_all(&directory).expect("could not create motion capture directory");
-            app.insert_resource(MotionCapture {
-                directory,
-                tick: 0,
-                next_capture: 0,
-                frame: 0,
-                finished: false,
-                end_tick: seconds * 60,
-                preview: match mode {
-                    "--record-exit" => CapturePreview::Exit,
-                    "--record-shot-hit" => CapturePreview::ShotHit,
-                    _ => CapturePreview::Motion,
-                },
-            })
-            .add_systems(FixedUpdate, preview_input.before(move_glider))
-            .add_systems(Update, capture_motion);
+                .add_systems(FixedUpdate, preview_input.before(move_glider))
+                .add_systems(Update, capture_motion);
+            }
+            _ => panic!("unknown argument: {argument}"),
         }
-        None => {}
-        Some(argument) => panic!("unknown argument: {argument}"),
     }
+    let levels = match Levels::load(&directory) {
+        Ok(levels) => levels,
+        Err(error) => {
+            eprintln!("Could not load levels: {error}");
+            std::process::exit(1);
+        }
+    };
+    let initial = levels
+        .0
+        .get(starting_level.wrapping_sub(1))
+        .unwrap_or_else(|| {
+            eprintln!(
+                "Level {starting_level} does not exist; choose 1 through {}",
+                levels.0.len()
+            );
+            std::process::exit(1);
+        })
+        .clone();
+    app.insert_resource(initial)
+        .insert_resource(levels)
+        .insert_resource(StartingLevel(starting_level - 1));
     app.insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "T2K | Level 1".into(),
+                title: format!("T2K | Level {starting_level}"),
                 resolution: (1100, 850).into(),
                 ..default()
             }),
@@ -304,7 +345,7 @@ fn colored_mesh(triangles: impl IntoIterator<Item = [(Vec3, Color); 3]>) -> Mesh
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
 }
 
-fn tunnel_mesh(web: &level::Web) -> Mesh {
+fn tunnel_mesh(web: &level::Web, color: [f32; 3]) -> Mesh {
     let mut triangles = Vec::new();
     for lane in 0..web.lanes() {
         let lane = lane as f32;
@@ -324,7 +365,7 @@ fn tunnel_mesh(web: &level::Web) -> Mesh {
                 let blue = (0.08 + left * 0.5) * (1.0 - progress).powf(1.4) + 0.012;
                 quad[vertex] = (
                     web.vertex(edge, FRONT_RADIUS, -web.world_depth() * progress),
-                    Color::srgb(0.0, 0.0, blue),
+                    Color::srgb(color[0] * blue, color[1] * blue, color[2] * blue),
                 );
             }
             triangles.extend([[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]);
@@ -465,7 +506,7 @@ fn setup(
     level: Res<Level>,
 ) {
     let web = &level.web;
-    enemies::setup(&mut commands, &mut meshes, &mut materials);
+    enemies::setup(&mut commands, &mut meshes, &mut materials, &level);
     // Original actors render over the web rather than being clipped by its faces.
     for layer in 0..=1 {
         commands.spawn((
@@ -493,8 +534,9 @@ fn setup(
     }
 
     let beam = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    let [r, g, b] = level.appearance.lines;
     let blue = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.015, 0.01, 0.78),
+        base_color: Color::srgb(r, g, b),
         unlit: true,
         ..default()
     });
@@ -526,7 +568,14 @@ fn setup(
         yellow,
         surface,
     };
-    spawn_web(&mut commands, &mut meshes, root, web, &assets);
+    spawn_web(
+        &mut commands,
+        &mut meshes,
+        root,
+        web,
+        &assets,
+        level.appearance.surface,
+    );
     commands.insert_resource(assets);
     let frames = ClawFrames(std::array::from_fn(|frame| meshes.add(claw_mesh(frame))));
     commands.spawn((
@@ -582,9 +631,10 @@ fn spawn_web(
     root: Entity,
     web: &level::Web,
     assets: &WebAssets,
+    color: [f32; 3],
 ) {
     commands.spawn((
-        Mesh3d(meshes.add(tunnel_mesh(web))),
+        Mesh3d(meshes.add(tunnel_mesh(web, color))),
         MeshMaterial3d(assets.surface.clone()),
         ChildOf(root),
     ));
@@ -625,20 +675,37 @@ fn spawn_web(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sync_web(
     mut commands: Commands,
     level: Res<Level>,
     assets: Res<WebAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     root: Single<Entity, With<enemies::entry::WebRoot>>,
     mut label: Single<&mut Text, With<LevelLabel>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if !level.is_changed() {
         return;
     }
     commands.entity(*root).despawn_related::<Children>();
-    spawn_web(&mut commands, &mut meshes, *root, &level.web, &assets);
+    spawn_web(
+        &mut commands,
+        &mut meshes,
+        *root,
+        &level.web,
+        &assets,
+        level.appearance.surface,
+    );
+    if let Some(material) = materials.get_mut(&assets.blue) {
+        let [r, g, b] = level.appearance.lines;
+        material.base_color = Color::srgb(r, g, b);
+    }
     label.0 = format!("LEVEL {:02}", level.number);
+    for mut window in &mut windows {
+        window.title = format!("T2K | Level {}", level.number);
+    }
 }
 
 fn claw_frame(progress: i32) -> usize {

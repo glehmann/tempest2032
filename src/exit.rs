@@ -258,6 +258,7 @@ mod tests {
                 move_glider.run_if(controlling),
                 fire_bullets.run_if(controlling),
                 entry::advance,
+                shot_death::animate,
                 animate,
                 check_game,
                 load_level,
@@ -389,6 +390,51 @@ mod tests {
                 camera_position(glider_transform(START_PROGRESS).translation)
             );
         }
+    }
+
+    #[test]
+    fn exits_advance_one_to_two_and_back_to_one_and_death_retries_two() {
+        let mut app = app();
+        let catalog =
+            Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+        app.insert_resource(catalog);
+        ticks(&mut app, 377);
+        assert_eq!(app.world().resource::<Level>().number, 2);
+        assert_eq!(
+            app.world_mut()
+                .query::<&Glider>()
+                .single(app.world())
+                .unwrap()
+                .progress,
+            10 * LANE_UNIT
+        );
+        ticks(&mut app, 320);
+        let progress = app
+            .world_mut()
+            .query::<&Glider>()
+            .single(app.world())
+            .unwrap()
+            .progress;
+        let lane = app.world().resource::<Level>().web.selected_lane(progress) as usize;
+        app.world_mut().spawn((
+            EnemyShot {
+                lane,
+                depth: LANE_UNIT,
+                angle: 0,
+            },
+            Transform::default(),
+        ));
+        ticks(&mut app, 1);
+        assert!(app.world().resource::<Game>().status == Status::ShotHit);
+        ticks(&mut app, 163);
+        assert_eq!(app.world().resource::<Level>().number, 2);
+        assert_eq!(app.world().resource::<Game>().lives, 1);
+        ticks(&mut app, 320);
+        app.world_mut().resource_mut::<Game>().remaining = 0;
+        ticks(&mut app, 377);
+        assert_eq!(app.world().resource::<Level>().number, 1);
+        assert_eq!(app.world().resource::<Game>().score, 9000);
+        assert_eq!(app.world().resource::<Game>().lives, 1);
     }
 
     #[test]

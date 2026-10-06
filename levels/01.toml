@@ -1,0 +1,31 @@
+# web5, in the prototype's clockwise lane order. Preserve its current spawn.
+number = 1
+
+[web]
+start_lane = 7
+depth = 160
+vertices = [
+  [7, 2], [9, 2], [11, 3], [13, 5],
+  [14, 7], [14, 9], [13, 11], [11, 13],
+  [9, 14], [7, 14], [5, 13], [3, 11],
+  [2, 9], [2, 7], [3, 5], [5, 3],
+]
+# Jaguar angle units: 256 is a full turn. Negative angles turn clockwise.
+orientations = [0, -16, -32, -48, -64, -80, -96, -112, -128, -144, -160, -176, -192, -208, -224, -240]
+
+[flippers]
+count = 25
+first_spawn_ticks = 61
+spawn_interval_ticks = 121
+climb_speed = 0.625 # Depth units per 60 Hz tick, the original 0xA000.
+flip_speed = 4     # Jaguar angle units per tick.
+pause_ticks = 8    # Original counter, which advances to the next flip on underflow.
+max_active = 11
+
+[appearance]
+surface = [0.0, 0.0, 1.0]
+lines = [0.015, 0.01, 0.78]
+flipper = [240, 0, 0]
+
+[powerups]
+kill_interval = 5 # First kill, then every fifth kill.

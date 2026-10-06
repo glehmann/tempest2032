@@ -48,9 +48,9 @@ enum Reward {
 }
 
 impl Upgrades {
-    pub(super) fn drop_due(&mut self) -> bool {
+    pub(super) fn drop_due(&mut self, interval: u8) -> bool {
         if self.delay == 0 {
-            self.delay = 4;
+            self.delay = interval - 1;
             true
         } else {
             self.delay -= 1;
@@ -116,6 +116,10 @@ impl Upgrades {
         self.jump_height = 0;
         self.jump_velocity = 0;
         self.jump_queued = false;
+    }
+
+    pub(super) fn begin_level(&mut self) {
+        self.delay = 0;
     }
 }
 
@@ -615,9 +619,26 @@ mod tests {
     }
 
     #[test]
+    fn configurable_drops_restart_the_counter_but_preserve_rewards_between_levels() {
+        let mut upgrades = Upgrades::default();
+        let drops = (1..=10)
+            .filter(|_| upgrades.drop_due(3))
+            .collect::<Vec<_>>();
+        assert_eq!(drops, [1, 4, 7, 10]);
+        upgrades.laser = true;
+        upgrades.stage = 2;
+        upgrades.begin_level();
+        assert!(upgrades.drop_due(5));
+        assert!(upgrades.laser);
+        assert_eq!(upgrades.stage, 2);
+    }
+
+    #[test]
     fn first_kill_then_every_fifth_kill_drops_a_powerup() {
         let mut upgrades = Upgrades::default();
-        let drops = (1..=25).filter(|_| upgrades.drop_due()).collect::<Vec<_>>();
+        let drops = (1..=25)
+            .filter(|_| upgrades.drop_due(5))
+            .collect::<Vec<_>>();
         assert_eq!(drops, [1, 6, 11, 16, 21]);
         assert_eq!(
             upgrades.stage, 0,

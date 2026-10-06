@@ -165,11 +165,23 @@ struct FlipperAssets {
 struct GameHud;
 
 pub(super) fn add_systems(app: &mut App) {
+    let initial = app
+        .world()
+        .get_resource::<Level>()
+        .cloned()
+        .unwrap_or_default();
+    let index = app
+        .world()
+        .get_resource::<StartingLevel>()
+        .map_or(0, |start| start.0);
     app.init_resource::<Level>()
         .init_resource::<Levels>()
         .insert_resource(Game {
             status: Status::Entering,
             entry: Some(0),
+            remaining: initial.flippers.count,
+            spawn_timer: initial.flippers.first_spawn_ticks - 1,
+            level_index: index,
             ..default()
         })
         .init_resource::<powerups::Upgrades>()
@@ -231,6 +243,7 @@ pub(super) fn add_systems(app: &mut App) {
                 .chain(),
         )
         .add_systems(Update, sync_web.after(load_level))
+        .add_systems(Update, update_enemy_colors.after(load_level))
         .add_systems(Update, draw_approaching_flippers.after(fit_camera))
         .add_systems(Update, draw_particle_shots.after(fit_camera))
         .add_systems(
@@ -305,9 +318,10 @@ fn controlling(game: Res<Game>) -> bool {
         || playing(game)
 }
 
+#[cfg(test)]
 const BRIGHTEST_RED: u8 = 240;
 
-fn flipper_mesh() -> Mesh {
+fn flipper_mesh(color: [u8; 3]) -> Mesh {
     // A Flipper's four tips sit on the corners of its bounding box, so that box
     // decides the whole look. `fverts` uses 16 by 18, which is nearly square, so
     // the X closes towards a plus sign. Sampling both references gives a much
@@ -342,7 +356,8 @@ fn flipper_mesh() -> Mesh {
     // pure-red facets: no green channel, and no gradient along an arm.
     colored_mesh(faces.map(|(face, intensity)| {
         let red = intensity.iter().copied().max().unwrap();
-        let color = Color::srgb_u8((red * u16::from(BRIGHTEST_RED) / 255) as u8, 0, 0);
+        let [r, g, b] = color.map(|channel| (red * u16::from(channel) / 255) as u8);
+        let color = Color::srgb_u8(r, g, b);
         face.map(|vertex| (vertices[vertex], color))
     }))
 }
@@ -377,13 +392,14 @@ pub(super) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    level: &Level,
 ) {
     explosion::setup(commands, meshes, materials);
     powerups::setup(commands, meshes, materials);
     exit::setup(commands);
     shot_death::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
-        body: meshes.add(flipper_mesh()),
+        body: meshes.add(flipper_mesh(level.appearance.flipper)),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
         shot: meshes.add(enemy_shot_mesh()),
         shaded: materials.add(StandardMaterial {
@@ -394,7 +410,7 @@ pub(super) fn setup(
         point_shades: (0..=255u16)
             .map(|intensity| {
                 materials.add(StandardMaterial {
-                    base_color: Color::srgb_u8((254 * intensity / 256) as u8, 0, 0),
+                    base_color: flipper_dot_color(level.appearance.flipper, intensity),
                     unlit: true,
                     cull_mode: None,
                     ..default()
@@ -417,6 +433,32 @@ pub(super) fn setup(
             ..default()
         },
     ));
+}
+
+fn flipper_dot_color(color: [u8; 3], intensity: u16) -> Color {
+    let [r, g, b] = color.map(|channel| {
+        (u32::from(channel) * 254 * u32::from(intensity) / (240 * 256)).min(255) as u8
+    });
+    Color::srgb_u8(r, g, b)
+}
+
+fn update_enemy_colors(
+    level: Res<Level>,
+    assets: Res<FlipperAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if !level.is_changed() {
+        return;
+    }
+    if let Some(body) = meshes.get_mut(&assets.body) {
+        *body = flipper_mesh(level.appearance.flipper);
+    }
+    for (intensity, handle) in assets.point_shades.iter().enumerate() {
+        if let Some(material) = materials.get_mut(handle) {
+            material.base_color = flipper_dot_color(level.appearance.flipper, intensity as u16);
+        }
+    }
 }
 
 fn flipper_transform(flipper: &Flipper, web: &level::Web) -> Transform {
@@ -712,7 +754,7 @@ fn resolve_hits(
             killed.insert(entity);
             game.score += points;
             if let Some((lane, centre)) = centre {
-                if upgrades.drop_due() {
+                if upgrades.drop_due(level.powerups.kill_interval) {
                     powerups::spawn_drop(
                         &mut commands,
                         &mut upgrades,
@@ -932,6 +974,7 @@ fn load_level(
         commands.entity(entity).despawn();
     }
     *level = levels.0[game.level_index].clone();
+    upgrades.begin_level();
     game.capture = None;
     game.death = None;
     game.exit = None;
@@ -1152,9 +1195,10 @@ mod tests {
             motion,
             pause: 0,
         };
+        let transform = flipper_transform(&flipper, &app.world().resource::<Level>().web);
         app.world_mut()
             .spawn((
-                flipper_transform(&flipper, &Level::default().web),
+                transform,
                 flipper,
                 Mesh3d::default(),
                 MeshMaterial3d::<StandardMaterial>::default(),
@@ -1220,6 +1264,95 @@ mod tests {
         let flipper = app.world().get::<Flipper>(id).unwrap();
         assert_eq!(flipper.depth, 0);
         assert!(matches!(flipper.motion, Motion::Flip { .. }));
+    }
+
+    #[test]
+    fn square_flippers_fold_along_sides_and_turn_correctly_at_corners() {
+        for (from, to, duration) in [(0, 1, 32), (3, 4, 16), (4, 3, 16), (15, 0, 16)] {
+            let mut app = app();
+            let level = Level::parse(include_str!("../levels/02.toml"), "level2").unwrap();
+            let mut flipper = Flipper {
+                lane: from,
+                depth: 0,
+                motion: Motion::Pause(0),
+                pause: 8,
+            };
+            start_flip(&mut flipper, to, &level.web);
+            app.insert_resource(level.clone())
+                .add_systems(FixedUpdate, move_enemies);
+            let id = enemy(&mut app, to, 0, flipper.motion);
+            ticks(&mut app, duration - 1);
+            assert!(matches!(
+                app.world().get::<Flipper>(id).unwrap().motion,
+                Motion::Flip { .. }
+            ));
+            ticks(&mut app, 1);
+            assert!(matches!(
+                app.world().get::<Flipper>(id).unwrap().motion,
+                Motion::Pause(_)
+            ));
+            let transform = app.world().get::<Transform>(id).unwrap();
+            assert_eq!(
+                transform.translation.truncate(),
+                level
+                    .web
+                    .glider_transform(to as i32 * LANE_UNIT)
+                    .translation
+                    .truncate()
+            );
+            assert!(transform.rotation.dot(level.web.orientation(to)).abs() > 1.0 - 1e-6);
+        }
+    }
+
+    #[test]
+    fn edited_toml_values_control_population_and_climbing() {
+        let source = include_str!("../levels/02.toml")
+            .replace("count = 25", "count = 3")
+            .replace("first_spawn_ticks = 51", "first_spawn_ticks = 2")
+            .replace("spawn_interval_ticks = 101", "spawn_interval_ticks = 4")
+            .replace("climb_speed = 0.625", "climb_speed = 1.5")
+            .replace("max_active = 11", "max_active = 1");
+        let level = Level::parse(&source, "tweaked-level.toml").unwrap();
+        let mut app = app();
+        reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+        app.world_mut().resource_mut::<Game>().status = Status::Playing;
+        app.world_mut().resource_mut::<Game>().entry = None;
+        app.insert_resource(level)
+            .add_systems(FixedUpdate, (spawn_enemies, move_enemies).chain());
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Game>().remaining, 3);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Game>().remaining, 2);
+        ticks(&mut app, 149);
+        let (entity, flipper) = app
+            .world_mut()
+            .query::<(Entity, &Flipper)>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(flipper.depth, REAR - 0x18000);
+        assert_eq!(app.world().resource::<Game>().remaining, 2);
+        app.world_mut().despawn(entity);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Game>().remaining, 1);
+    }
+
+    #[test]
+    fn square_wave_uses_its_own_initial_and_repeat_spawn_intervals() {
+        let mut app = app();
+        let level = Level::parse(include_str!("../levels/02.toml"), "level2").unwrap();
+        reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+        app.world_mut().resource_mut::<Game>().status = Status::Playing;
+        app.world_mut().resource_mut::<Game>().entry = None;
+        app.insert_resource(level)
+            .add_systems(FixedUpdate, spawn_enemies);
+        ticks(&mut app, 50);
+        assert_eq!(app.world().resource::<Game>().remaining, 25);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Game>().remaining, 24);
+        ticks(&mut app, 100);
+        assert_eq!(app.world().resource::<Game>().remaining, 24);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Game>().remaining, 23);
     }
 
     #[test]
@@ -1816,7 +1949,7 @@ mod tests {
 
     #[test]
     fn flipper_geometry_and_colors_match_the_measured_original_render() {
-        let mesh = flipper_mesh();
+        let mesh = flipper_mesh([240, 0, 0]);
         let positions = mesh
             .attribute(Mesh::ATTRIBUTE_POSITION)
             .and_then(|attribute| attribute.as_float3())

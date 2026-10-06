@@ -11,8 +11,8 @@ vertex ordering. It holds its pose when stopped.
 
 An offset perspective camera follows half the claw's displacement at a capped
 speed, so it continues settling after the claw stops. A sparse colored
-starfield fills the background. All geometry is generated in code, and no
-external assets are needed.
+starfield fills the background. Geometry is generated in code from editable
+level definitions; no external models or textures are needed.
 
 ## Run
 
@@ -31,6 +31,56 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 `libxkbcommon-dev`, and `libwayland-dev`. Running needs a graphical desktop
 and a Vulkan-capable graphics driver. Windows and macOS use their native
 window backends.
+
+## Editable levels
+
+Levels load from `levels/*.toml` at startup. Edit the files and relaunch the app;
+no Rust changes are needed. The supplied levels are:
+
+- `levels/01.toml`: the existing `web5` level, with 25 Flippers, first spawn after
+  61 gameplay ticks, and subsequent spawns every 121 ticks.
+- `levels/02.toml`: the original `_nw2` on the square `web11`, with 16 lanes,
+  25 Flippers, first spawn after 51 ticks, and subsequent spawns every 101 ticks.
+  The Flippers climb at the same `0xA000` speed as level one. They fold through
+  180 degrees on straight sides and 90 degrees around corners, using the
+  original per-lane orientations.
+
+Clearing a level advances after the exit animation. Level two loops back to
+level one, carrying score, lives, and upgrades. A death retries the current
+level and removes upgrades. R starts a fresh run from level one.
+
+Start directly on the second level with:
+
+```sh
+cargo run -- --level 2
+```
+
+Use `--levels path/to/levels` to load another directory. These options can be
+combined with screenshot and recording options, for example:
+`cargo run -- --level 2 --record-exit target/square-exit`.
+
+The TOML fields use these conventions:
+
+- `number`: levels are loaded in numerical order, numbered consecutively from 1.
+- `web.vertices`: unique vertices of a closed outline, clockwise in screen
+  order, on the original coordinate grid. Do not repeat the first vertex.
+- `web.orientations`: one Jaguar angle per lane. A full turn is 256 units;
+  negative values turn clockwise. These also determine Flipper flip targets.
+- `web.start_lane`: a zero-based index in this clockwise order. Original
+  `web11` lane 5 is lane 10 here. Level one's existing prototype spawn is kept.
+- `web.depth`: depth in game units, 160 for both supplied webs.
+- `flippers`: count, first and repeat spawn times in 60 Hz ticks, climbing speed
+  in depth units per tick, flip speed in angle units per tick, pause counter,
+  and maximum simultaneous Flippers. Climbing speed converts to 16:16 once
+  when the file is loaded.
+- `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.
+  `appearance.flipper` uses integer RGB channels between 0 and 255.
+- `powerups.kill_interval`: first kill drops a pickup, then every Nth kill.
+  Each new level starts a fresh drop counter while retaining collected rewards.
+
+Invalid geometry, out-of-range values, numbering errors, and unknown fields
+are rejected with the offending file's name. Shared player, weapon, palette,
+and animation behavior stays in Rust.
 
 ## Level entry
 
@@ -62,8 +112,9 @@ adds further acceleration to the claw. The starfield uses `starfield1`'s four
 depth-spaced samples per star, with separation growing by a quarter unit per
 tick. Reaching the source's 2,000-unit claw depth triggers the warp flash.
 
-After the flash, this prototype automatically replays level one with score,
-lives, and upgrades preserved. R cancels the exit and starts a fresh game.
+After the flash, the next configured level begins with score, lives, and
+upgrades preserved. The last level loops back to the first. R cancels the exit
+and starts a fresh game.
 
 ## Controls
 
@@ -202,8 +253,8 @@ and firing are locked during the sequence; R cancels it and restarts.
 
 You start with three lives. Losing a life resets the wave and gives two seconds
 of invulnerability.
-Press **R** to restart. The level-clear exit replays level one automatically
-rather than advancing to another web.
+Press **R** to restart on level one. After a level-clear exit, the next web loads
+automatically.
 
 ## Power-ups
 
@@ -249,9 +300,9 @@ power-ups. The wave waits for remaining pickups to be collected or missed
 before displaying level clear.
 
 The original enters a bonus round after accumulating three warp tokens across
-waves. Token tracking is included here, but this prototype still replays level
-one and has no bonus-round transition. Level one's 25 enemies normally provide
-at most five drops.
+waves. Token tracking is included here, but this prototype cycles through its
+configured levels without a bonus-round transition. Each supplied level's 25
+enemies normally provide at most five drops.
 
 ## Development
 
@@ -280,6 +331,9 @@ contains the moving background star field. `src/powerups.rs`, a child module of
 `src/exit.rs` contains the accelerating fly-through, claw warp, flash, and replay.
 `src/shot_death.rs` contains the glider's starburst and camera retreat after an
 enemy-shot hit.
+`src/level.rs` contains TOML definitions, validation, web geometry calculations,
+and the level catalog. The game uses one loader for advancement, death retries,
+and restarts, rebuilding the web and clearing level-owned actors each time.
 The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
