@@ -100,6 +100,10 @@ In `fverts` they sit halfway between the centre and a tip, which makes each arm
 about a quarter as wide as it is long. The reference measures the same ratio,
 so here they move to `(8, 8)` and `(24, 8)`, again halfway out.
 Flippers first approach as small red points from beyond the rear opening.
+The point is a camera-facing square, kept at two original framebuffer pixels
+across. This matches `draw_pel` and `snglpix`, which draw a 2-by-2 block with
+depth-cued intensity rather than a shrinking, full-brightness sphere. It starts
+dim and brightens as it approaches the web.
 Their approach takes 150 ticks, then they climb their lane at the original
 `0xA000` depth speed. At the rim they pivot about a lane boundary toward the
 player, taking the shortest route around the closed web. A pivot advances

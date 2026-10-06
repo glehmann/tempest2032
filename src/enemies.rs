@@ -96,7 +96,7 @@ struct FlipperAssets {
     body: Handle<Mesh>,
     point: Handle<Mesh>,
     shaded: Handle<StandardMaterial>,
-    red: Handle<StandardMaterial>,
+    point_shades: Vec<Handle<StandardMaterial>>,
     shot: Handle<Mesh>,
 }
 
@@ -126,7 +126,8 @@ pub(super) fn add_systems(app: &mut App) {
         .add_systems(
             Update,
             (fit_camera, quit_on_escape, restart_game, update_hud).chain(),
-        );
+        )
+        .add_systems(Update, draw_approaching_flippers.after(fit_camera));
 }
 
 fn playing(game: Res<Game>) -> bool {
@@ -209,18 +210,23 @@ pub(super) fn setup(
     explosion::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh()),
-        point: meshes.add(Sphere::new(0.08)),
+        point: meshes.add(Rectangle::new(1.0, 1.0)),
         shot: meshes.add(enemy_shot_mesh()),
         shaded: materials.add(StandardMaterial {
             unlit: true,
             cull_mode: None,
             ..default()
         }),
-        red: materials.add(StandardMaterial {
-            base_color: Color::srgb_u8(254, 0, 0),
-            unlit: true,
-            ..default()
-        }),
+        point_shades: (0..=255u16)
+            .map(|intensity| {
+                materials.add(StandardMaterial {
+                    base_color: Color::srgb_u8((254 * intensity / 256) as u8, 0, 0),
+                    unlit: true,
+                    cull_mode: None,
+                    ..default()
+                })
+            })
+            .collect(),
     });
     commands.spawn((
         GameHud,
@@ -297,7 +303,7 @@ fn spawn_enemies(
         flipper,
         RenderLayers::layer(1),
         Mesh3d(assets.point.clone()),
-        MeshMaterial3d(assets.red.clone()),
+        MeshMaterial3d(assets.point_shades.first().cloned().unwrap_or_default()),
     ));
     game.remaining -= 1;
     game.spawn_timer = 120;
@@ -374,6 +380,45 @@ fn move_enemies(
             Motion::Pause(ticks) => flipper.motion = Motion::Pause(ticks - 1),
         }
         *transform = flipper_transform(&flipper);
+    }
+}
+
+fn approach_dot_style(
+    position: Vec3,
+    camera: &Transform,
+    projection: &PerspectiveProjection,
+) -> (f32, usize) {
+    let distance = -(camera.rotation.inverse() * (position - camera.translation)).z;
+    let width =
+        4.0 * distance.max(0.01) * (projection.fov * 0.5).tan() * projection.aspect_ratio / 384.0;
+    // snglpix doubles z_max=1300, in quarter-units, for its depth cue.
+    let source_depth = (camera.translation.z - position.z).max(0.0) / WORLD_UNIT;
+    let intensity = (255.0 * (1.0 - source_depth / 650.0).clamp(0.0, 1.0)) as usize;
+    (width, intensity)
+}
+
+#[allow(clippy::type_complexity)]
+fn draw_approaching_flippers(
+    assets: Res<FlipperAssets>,
+    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Flipper>)>,
+    mut enemies: Query<(
+        &Flipper,
+        &mut Transform,
+        &mut MeshMaterial3d<StandardMaterial>,
+    )>,
+) {
+    let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() else {
+        return;
+    };
+    for (flipper, mut transform, mut material) in &mut enemies {
+        if matches!(flipper.motion, Motion::Approach) {
+            let (width, intensity) = approach_dot_style(transform.translation, camera, projection);
+            transform.rotation = camera.rotation;
+            transform.scale = Vec3::splat(width);
+            if let Some(shade) = assets.point_shades.get(intensity) {
+                material.0 = shade.clone();
+            }
+        }
     }
 }
 
@@ -590,6 +635,34 @@ fn update_hud(game: Res<Game>, mut hud: Single<&mut Text, With<GameHud>>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn approach_dots_stay_two_pixels_wide_and_brighten_with_proximity() {
+        let camera = Transform::from_translation(Vec3::new(0.0, 0.0, 5.3));
+        let projection = PerspectiveProjection {
+            fov: 1.2,
+            aspect_ratio: 1100.0 / 850.0,
+            ..default()
+        };
+        let style = |depth: f32| {
+            let position = Vec3::new(2.0, 1.0, -depth * WORLD_UNIT);
+            let (width, intensity) = approach_dot_style(position, &camera, &projection);
+            let screen_width = width * 384.0
+                / (2.0
+                    * (camera.translation.z - position.z)
+                    * (projection.fov * 0.5).tan()
+                    * projection.aspect_ratio);
+            assert!((screen_width - 2.0).abs() < 1e-5);
+            (width, intensity)
+        };
+        let far = style(460.0);
+        let near = style(160.0);
+        assert!(far.0 > near.0, "distant dots need larger world geometry");
+        assert!(far.1 < near.1);
+        assert!((60..=65).contains(&far.1));
+        assert!((175..=185).contains(&near.1));
+        assert_eq!(style(700.0).1, 0);
+    }
 
     fn app() -> App {
         let mut app = App::new();
