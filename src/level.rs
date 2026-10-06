@@ -103,6 +103,7 @@ pub(crate) struct Level {
     pub(crate) powerups: PowerUps,
     pub(crate) tankers: Option<Generator>,
     pub(crate) spikers: Option<Generator>,
+    pub(crate) enemy_shots: usize,
 }
 
 fn closed_web() -> bool {
@@ -203,6 +204,8 @@ struct Definition {
     number: usize,
     #[serde(default)]
     enemy_count: Option<u16>,
+    #[serde(default)]
+    enemy_shots: Option<usize>,
     web: Web,
     flippers: FlipperDefinition,
     #[serde(default)]
@@ -235,6 +238,10 @@ impl Level {
         let web = &def.web;
         if def.number == 0 {
             return fail("number must be positive");
+        }
+        let enemy_shots = def.enemy_shots.unwrap_or(((def.number - 1) / 8).min(3) + 1);
+        if !(1..=16).contains(&enemy_shots) {
+            return fail("enemy_shots must be between 1 and 16");
         }
         if !(if web.closed { 3 } else { 1 }..=128).contains(&web.lanes()) {
             return fail("web must have 1 to 128 lanes, at least 3 when closed");
@@ -320,6 +327,7 @@ impl Level {
                 .spikers
                 .map(|generator| generator.compile(name))
                 .transpose()?,
+            enemy_shots,
         })
     }
 }
@@ -459,13 +467,25 @@ mod tests {
             (326, 651)
         );
         assert_eq!(eight.tankers.as_ref().unwrap().super_chance, 28);
-        assert_eq!(
+        assert!(
             Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels"))
                 .unwrap()
                 .0
-                .len(),
-            8
+                .len()
+                >= 8
         );
+    }
+
+    #[test]
+    fn original_level_nine_has_the_sine_wave_and_two_enemy_shots() {
+        let level = Level::parse(include_str!("../levels/09.toml"), "level9").unwrap();
+        assert!(!level.web.closed);
+        assert_eq!(level.web.lanes(), 14);
+        assert_eq!(level.enemy_shots, 2);
+        assert_eq!(level.flippers.climb_speed, 0xa800);
+        assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0x10000);
+        assert_eq!(level.tankers.as_ref().unwrap().spawn_interval_ticks, 231);
+        assert_eq!(level.powerups.kill_interval, 7);
     }
 
     #[test]

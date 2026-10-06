@@ -459,12 +459,13 @@ mod tests {
     }
 
     #[test]
-    fn all_eight_levels_advance_through_the_exit_and_wrap_to_one() {
+    fn all_configured_levels_advance_through_the_exit_and_wrap_to_one() {
         let mut app = app();
         app.insert_resource(
             Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap(),
         );
-        for next in [2, 3, 4, 5, 6, 7, 8, 1] {
+        let count = app.world().resource::<Levels>().0.len();
+        for next in (2..=count).chain(std::iter::once(1)) {
             app.world_mut().resource_mut::<Game>().remaining = 0;
             ticks(&mut app, 377);
             assert_eq!(app.world().resource::<Level>().number, next);

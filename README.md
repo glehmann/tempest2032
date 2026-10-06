@@ -79,7 +79,11 @@ no Rust changes are needed. The supplied levels are:
   Flippers repeat every 91 ticks, Tankers every 251, and Spikers every 751.
 - `levels/08.toml`: the same T2K lemon and 31-spawn budget, with Tankers every
   241 ticks and Spikers every 651 ticks. Its Tanker-child mutation threshold
-  rises to 28 out of 256. Clearing it currently loops back to level one.
+  rises to 28 out of 256.
+- `levels/09.toml`: the open fourteen-lane sine-wave `web13`, with a 31-spawn
+  budget, `0xA800` Flippers, and `0x10000` Spikers. Two alien shots can now be
+  active at once, following the original `ashots` table calculation. Tankers
+  repeat every 231 ticks and pickups every seventh kill after the first.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current

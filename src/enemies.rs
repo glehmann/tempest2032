@@ -737,7 +737,7 @@ fn fire_enemy_shots(
             continue;
         }
         game.fire_timer = 112;
-        if depth <= 60 * LANE_UNIT || !shots.is_empty() {
+        if depth <= 60 * LANE_UNIT || shots.iter().count() >= level.enemy_shots {
             continue;
         }
         let shot = EnemyShot {

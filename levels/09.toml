@@ -1,0 +1,32 @@
+# Original _nw9 on the open sine-wave web13.
+number = 9
+enemy_count = 31
+
+[web]
+closed = false
+start_lane = 7
+depth = 160
+vertices = [[20,6],[20,8],[19,10],[17,12],[15,13],[13,13],[11,12],[9,10],[7,8],[5,7],[3,7],[1,8],[-1,10],[-2,12],[-2,14]]
+orientations = [-64,-80,-96,-112,-128,112,96,96,112,-128,-112,-96,-80,-64]
+
+[flippers]
+first_spawn_ticks = 43
+spawn_interval_ticks = 86
+climb_speed = 0.65625
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 116
+spawn_interval_ticks = 231
+climb_speed = 0.5625
+super_chance = 32
+
+[spikers]
+first_spawn_ticks = 301
+spawn_interval_ticks = 601
+climb_speed = 1.0
+
+[powerups]
+kill_interval = 7
