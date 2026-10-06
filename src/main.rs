@@ -7,7 +7,10 @@ use bevy::{
     render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk},
     window::PrimaryWindow,
 };
+use clap::Parser;
+use std::path::PathBuf;
 
+mod cli;
 mod cry;
 mod enemies;
 mod explosion;
@@ -187,11 +190,11 @@ struct LevelLabel;
 struct StartingLevel(usize);
 
 #[derive(Resource)]
-struct CapturePath(String);
+struct CapturePath(PathBuf);
 
 #[derive(Resource)]
 struct MotionCapture {
-    directory: String,
+    directory: PathBuf,
     tick: u32,
     next_capture: u32,
     frame: u32,
@@ -208,67 +211,39 @@ enum CapturePreview {
 }
 
 fn main() {
+    let args = cli::Cli::parse();
     let mut app = App::new();
-    let mut args = std::env::args().skip(1).peekable();
-    let mut starting_level = 1usize;
-    let mut directory = std::path::PathBuf::from("levels");
-    while let Some(argument) = args.next() {
-        match argument.as_str() {
-            "--level" => {
-                starting_level = args
-                    .next()
-                    .expect("--level requires a number")
-                    .parse()
-                    .expect("level must be a positive integer");
-            }
-            "--levels" => {
-                directory = args.next().expect("--levels requires a directory").into();
-            }
-            "--screenshot" => {
-                app.insert_resource(CapturePath(
-                    args.next().expect("--screenshot requires a file path"),
-                ))
-                .add_systems(Update, capture_frame);
-            }
-            mode @ ("--record-motion" | "--record-exit" | "--record-shot-hit") => {
-                let directory = args.next().expect("recording requires an output directory");
-                let seconds = args
-                    .peek()
-                    .filter(|arg| !arg.starts_with("--"))
-                    .cloned()
-                    .map(|value| {
-                        args.next();
-                        value
-                            .parse::<u32>()
-                            .expect("capture duration must be whole seconds")
-                    })
-                    .unwrap_or(match mode {
-                        "--record-exit" => 14,
-                        "--record-shot-hit" => 15,
-                        _ => 6,
-                    });
-                std::fs::create_dir_all(&directory)
-                    .expect("could not create motion capture directory");
-                app.insert_resource(MotionCapture {
-                    directory,
-                    tick: 0,
-                    next_capture: 0,
-                    frame: 0,
-                    finished: false,
-                    end_tick: seconds * 60,
-                    preview: match mode {
-                        "--record-exit" => CapturePreview::Exit,
-                        "--record-shot-hit" => CapturePreview::ShotHit,
-                        _ => CapturePreview::Motion,
-                    },
-                })
-                .add_systems(FixedUpdate, preview_input.before(move_glider))
-                .add_systems(Update, capture_motion);
-            }
-            _ => panic!("unknown argument: {argument}"),
-        }
+    if let Some(path) = args.screenshot {
+        app.insert_resource(CapturePath(path))
+            .add_systems(Update, capture_frame);
     }
-    let levels = match Levels::load(&directory) {
+    let recording = args
+        .record_motion
+        .map(|directory| (directory, 6, CapturePreview::Motion))
+        .or_else(|| {
+            args.record_exit
+                .map(|directory| (directory, 14, CapturePreview::Exit))
+        })
+        .or_else(|| {
+            args.record_shot_hit
+                .map(|directory| (directory, 15, CapturePreview::ShotHit))
+        });
+    if let Some((directory, default_seconds, preview)) = recording {
+        std::fs::create_dir_all(&directory).expect("could not create motion capture directory");
+        app.insert_resource(MotionCapture {
+            directory,
+            tick: 0,
+            next_capture: 0,
+            frame: 0,
+            finished: false,
+            end_tick: args.seconds.unwrap_or(default_seconds) * 60,
+            preview,
+        })
+        .add_systems(FixedUpdate, preview_input.before(move_glider))
+        .add_systems(Update, capture_motion);
+    }
+    let starting_level = args.level as usize;
+    let levels = match Levels::load(&args.levels) {
         Ok(levels) => levels,
         Err(error) => {
             eprintln!("Could not load levels: {error}");
@@ -277,7 +252,7 @@ fn main() {
     };
     let initial = levels
         .0
-        .get(starting_level.wrapping_sub(1))
+        .get(starting_level - 1)
         .unwrap_or_else(|| {
             eprintln!(
                 "Level {starting_level} does not exist; choose 1 through {}",
@@ -844,10 +819,9 @@ fn capture_motion(mut commands: Commands, mut capture: ResMut<MotionCapture>) {
     let finished = capture.tick >= capture.end_tick;
     commands
         .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(format!(
-            "{}/{:04}.png",
-            capture.directory, capture.frame
-        )))
+        .observe(save_to_disk(
+            capture.directory.join(format!("{:04}.png", capture.frame)),
+        ))
         .observe(
             move |_: On<ScreenshotCaptured>, mut exit: MessageWriter<AppExit>| {
                 if finished {

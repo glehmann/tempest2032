@@ -5,6 +5,7 @@ edition = "2024"
 rust-version = "1.89"
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
 bevy = { version = "0.18", default-features = false, features = [
