@@ -10,6 +10,7 @@ use bevy::{
 
 mod enemies;
 mod explosion;
+mod stars;
 
 const LANES: usize = 16;
 const FRONT_RADIUS: f32 = 4.0;
@@ -188,6 +189,7 @@ fn main() {
         }))
         .add_systems(Startup, setup);
     enemies::add_systems(&mut app);
+    stars::add_systems(&mut app);
     app.run();
 }
 
@@ -502,36 +504,7 @@ fn setup(
     ));
     commands.insert_resource(frames);
 
-    let mut random = 0x2_000_u32;
-    let mut next = || {
-        random = random.wrapping_mul(1664525).wrapping_add(1013904223);
-        random as f32 / u32::MAX as f32
-    };
-    let star_colors = [
-        Color::srgb(0.22, 0.3, 0.35),
-        Color::srgb(0.3, 0.16, 0.08),
-        Color::srgb(0.26, 0.26, 0.12),
-        Color::srgb(0.3, 0.3, 0.3),
-    ]
-    .map(|color| {
-        materials.add(StandardMaterial {
-            base_color: color,
-            unlit: true,
-            ..default()
-        })
-    });
-    for star in 0..180 {
-        let position = Vec3::new(
-            (next() - 0.5) * 95.0,
-            (next() - 0.5) * 75.0,
-            -55.0 - next() * 20.0,
-        );
-        commands.spawn((
-            Mesh3d(beam.clone()),
-            MeshMaterial3d(star_colors[star % star_colors.len()].clone()),
-            Transform::from_translation(position).with_scale(Vec3::splat(0.08 + next() * 0.08)),
-        ));
-    }
+    stars::setup(&mut commands, &mut meshes, &mut materials);
 
     commands.spawn((
         Text::new("LEVEL 01"),

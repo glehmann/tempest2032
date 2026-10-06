@@ -133,6 +133,14 @@ replays level one rather than advancing to another web.
 
 ## Development
 
+The background stars move continuously toward the viewer. `gamefx` advances
+the original star-field viewpoint by two units per tick, and `starfield1` in
+`src/gpu/llama.gas` wraps relative depth over 512 units. Perspective makes the
+stars spread outward faster as they approach, while their brightness rises
+with proximity. Here 180 seeded stars use those motion and brightness rules,
+with screen-sized square dots drawn behind the web. Camera movement also
+shifts their projected positions.
+
 ```sh
 cargo fmt --check
 cargo check
@@ -143,7 +151,8 @@ cargo clippy -- -D warnings
 `src/main.rs` contains the scene setup, claw movement, and firing systems.
 `src/enemies.rs` contains the Flipper geometry, wave generator, enemy state
 machine, collisions, score, and lives. `src/explosion.rs` contains the death
-rings, the sine table, and the CRY palette lookup behind them. The prototype has no audio or power-ups.
+rings, the sine table, and the CRY palette lookup behind them. `src/stars.rs`
+contains the moving background star field. The prototype has no audio or power-ups.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
 
