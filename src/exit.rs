@@ -395,8 +395,9 @@ mod tests {
     #[test]
     fn exits_advance_one_to_two_and_back_to_one_and_death_retries_two() {
         let mut app = app();
-        let catalog =
+        let mut catalog =
             Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+        catalog.0.truncate(2);
         app.insert_resource(catalog);
         ticks(&mut app, 377);
         assert_eq!(app.world().resource::<Level>().number, 2);

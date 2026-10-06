@@ -334,6 +334,9 @@ pub(super) fn advance_powerups(
     mut pickups: Query<(Entity, &mut PowerUp)>,
     enemies: Query<(Entity, &Flipper, &Transform)>,
     shots: Query<Entity, With<EnemyShot>>,
+    tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
+    shells: Res<tankers::TankerAssets>,
+    flippers: Res<FlipperAssets>,
 ) {
     upgrades.frame = upgrades.frame.wrapping_add(1);
     upgrades.notice_ticks = upgrades.notice_ticks.saturating_sub(1);
@@ -347,6 +350,20 @@ pub(super) fn advance_powerups(
                     spawn_droid(&mut commands, &assets, &level.web);
                 }
                 reward @ (Reward::Zap | Reward::Skip) => {
+                    for (entity, tanker, transform) in &tankers {
+                        if reward == Reward::Zap {
+                            tankers::open(
+                                &mut commands,
+                                &mut game,
+                                &level,
+                                &flippers,
+                                &shells,
+                                tanker,
+                            );
+                        }
+                        commands.entity(entity).despawn();
+                        explosion::spawn_explosion(&mut commands, &bursts, transform.translation);
+                    }
                     for (enemy, _, transform) in &enemies {
                         commands.entity(enemy).despawn();
                         explosion::spawn_explosion(&mut commands, &bursts, transform.translation);
@@ -387,6 +404,7 @@ pub(super) fn move_droid(
     assets: Res<FlipperAssets>,
     shots: Res<ShotAssets>,
     enemies: Query<&Flipper>,
+    tankers: Query<&tankers::Tanker>,
     bullets: Query<&Bullet>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     power_assets: Res<PowerAssets>,
@@ -401,16 +419,23 @@ pub(super) fn move_droid(
     let target = enemies
         .iter()
         .filter(|flipper| !matches!(flipper.motion, Motion::Approach))
-        .min_by_key(|flipper| flipper.depth)
-        .map(|flipper| flipper.lane);
+        .map(|flipper| (flipper.lane, flipper.depth))
+        .chain(
+            tankers
+                .iter()
+                .filter(|t| !t.approach)
+                .map(|t| (t.lane, t.depth)),
+        )
+        .min_by_key(|(_, depth)| *depth)
+        .map(|(lane, _)| lane);
     for (mut droid, mut transform) in &mut droids {
         if let Some(target) = target {
-            let period = level.web.period();
-            let delta = (target as i32 * LANE_UNIT - droid.progress + period / 2)
-                .rem_euclid(period)
-                - period / 2;
-            droid.progress = (droid.progress + delta.clamp(-LANE_UNIT / 16, LANE_UNIT / 16))
-                .rem_euclid(level.web.period());
+            let delta = level
+                .web
+                .lane_delta(droid.progress, target as i32 * LANE_UNIT);
+            droid.progress = level
+                .web
+                .normalize(droid.progress + delta.clamp(-LANE_UNIT / 16, LANE_UNIT / 16));
         }
         let lane = droid.progress / LANE_UNIT;
         let fraction = (droid.progress % LANE_UNIT) as f32 / LANE_UNIT as f32;
@@ -779,6 +804,8 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<Game>()
             .init_resource::<Level>()
+            .init_resource::<tankers::TankerAssets>()
+            .init_resource::<FlipperAssets>()
             .init_resource::<Upgrades>()
             .init_resource::<PowerAssets>()
             .init_resource::<explosion::BurstAssets>()

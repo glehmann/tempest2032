@@ -5,6 +5,8 @@ use std::{path::Path, sync::LazyLock};
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Web {
+    #[serde(default = "closed_web")]
+    pub(crate) closed: bool,
     pub(crate) vertices: Vec<[f32; 2]>,
     pub(crate) orientations: Vec<i16>,
     pub(crate) start_lane: usize,
@@ -13,7 +15,9 @@ pub(crate) struct Web {
 
 impl Web {
     pub(crate) fn lanes(&self) -> usize {
-        self.vertices.len()
+        self.vertices
+            .len()
+            .saturating_sub(usize::from(!self.closed))
     }
     pub(crate) fn period(&self) -> i32 {
         self.lanes() as i32 * LANE_UNIT
@@ -28,10 +32,43 @@ impl Web {
         f32::from(self.depth) * WORLD_UNIT
     }
     pub(crate) fn selected_lane(&self, progress: i32) -> f32 {
-        ((progress + LANE_UNIT / 2).rem_euclid(self.period()) / LANE_UNIT) as f32
+        if self.closed {
+            ((progress + LANE_UNIT / 2).rem_euclid(self.period()) / LANE_UNIT) as f32
+        } else {
+            ((progress + LANE_UNIT / 2) / LANE_UNIT).clamp(0, self.lanes() as i32 - 1) as f32
+        }
+    }
+    pub(crate) fn normalize(&self, progress: i32) -> i32 {
+        if self.closed {
+            progress.rem_euclid(self.period())
+        } else {
+            progress.clamp(0, (self.lanes() as i32 - 1) * LANE_UNIT)
+        }
+    }
+    pub(crate) fn neighbor(&self, lane: usize, direction: i32) -> Option<usize> {
+        let next = lane as i32 + direction;
+        if self.closed {
+            Some(next.rem_euclid(self.lanes() as i32) as usize)
+        } else {
+            (0..self.lanes() as i32)
+                .contains(&next)
+                .then_some(next as usize)
+        }
+    }
+    pub(crate) fn lane_delta(&self, from: i32, to: i32) -> i32 {
+        if self.closed {
+            (to - from + self.period() / 2).rem_euclid(self.period()) - self.period() / 2
+        } else {
+            to - from
+        }
     }
     pub(crate) fn vertex(&self, index: f32, radius: f32, z: f32) -> Vec3 {
-        let [x, y] = self.vertices[index.rem_euclid(self.lanes() as f32) as usize];
+        let index = if self.closed {
+            index.rem_euclid(self.lanes() as f32)
+        } else {
+            index.clamp(0.0, self.lanes() as f32)
+        };
+        let [x, y] = self.vertices[index as usize];
         Vec3::new((x - 8.0) * radius / 6.0, (8.0 - y) * radius / 6.0, z)
     }
     pub(crate) fn glider_transform(&self, progress: i32) -> Transform {
@@ -64,6 +101,49 @@ pub(crate) struct Level {
     pub(crate) flippers: Flippers,
     pub(crate) appearance: Appearance,
     pub(crate) powerups: PowerUps,
+    pub(crate) tankers: Option<Generator>,
+}
+
+fn closed_web() -> bool {
+    true
+}
+
+#[derive(Clone)]
+pub(crate) struct Generator {
+    pub(crate) first_spawn_ticks: u16,
+    pub(crate) spawn_interval_ticks: u16,
+    pub(crate) climb_speed: i32,
+    pub(crate) super_chance: u8,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratorDefinition {
+    first_spawn_ticks: u16,
+    spawn_interval_ticks: u16,
+    climb_speed: f32,
+    #[serde(default)]
+    super_chance: u8,
+}
+
+impl GeneratorDefinition {
+    fn compile(self, name: &str) -> Result<Generator, String> {
+        if self.first_spawn_ticks == 0
+            || self.spawn_interval_ticks == 0
+            || !self.climb_speed.is_finite()
+            || !(1.0 / 65536.0..=16.0).contains(&self.climb_speed)
+        {
+            return Err(format!(
+                "{name}: enemy spawn times and climbing speed must be positive and finite"
+            ));
+        }
+        Ok(Generator {
+            first_spawn_ticks: self.first_spawn_ticks,
+            spawn_interval_ticks: self.spawn_interval_ticks,
+            climb_speed: (self.climb_speed * LANE_UNIT as f32).round() as i32,
+            super_chance: self.super_chance,
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -120,18 +200,23 @@ impl Default for PowerUps {
 #[serde(deny_unknown_fields)]
 struct Definition {
     number: usize,
+    #[serde(default)]
+    enemy_count: Option<u16>,
     web: Web,
     flippers: FlipperDefinition,
     #[serde(default)]
     appearance: Appearance,
     #[serde(default)]
     powerups: PowerUps,
+    #[serde(default)]
+    tankers: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FlipperDefinition {
-    count: u16,
+    #[serde(default)]
+    count: Option<u16>,
     first_spawn_ticks: u16,
     spawn_interval_ticks: u16,
     climb_speed: f32,
@@ -148,8 +233,8 @@ impl Level {
         if def.number == 0 {
             return fail("number must be positive");
         }
-        if !(3..=128).contains(&web.lanes()) {
-            return fail("web must have 3 to 128 vertices");
+        if !(if web.closed { 3 } else { 1 }..=128).contains(&web.lanes()) {
+            return fail("web must have 1 to 128 lanes, at least 3 when closed");
         }
         if web.start_lane >= web.lanes() {
             return fail("start_lane is outside the web");
@@ -168,17 +253,24 @@ impl Level {
         let mut area = 0.0;
         for index in 0..web.lanes() {
             let a = Vec2::from_array(web.vertices[index]);
-            let b = Vec2::from_array(web.vertices[(index + 1) % web.lanes()]);
+            let b = Vec2::from_array(web.vertices[(index + 1) % web.vertices.len()]);
             if !a.is_finite() || !b.is_finite() || a.distance_squared(b) < 1e-6 {
                 return fail("web vertices must be finite with nonzero lane lengths");
             }
             area += a.perp_dot(b);
         }
-        if !area.is_finite() || area <= 0.0 {
+        if !area.is_finite() || (web.closed && area <= 0.0) {
             return fail("web vertices must enclose an area in clockwise screen order");
         }
         let f = def.flippers;
-        if f.count == 0
+        if def.tankers.is_some() && web.lanes() < 3 {
+            return fail("Tankers require at least three lanes");
+        }
+        let count = def
+            .enemy_count
+            .or(f.count)
+            .ok_or_else(|| format!("{name}: enemy_count or flippers.count is required"))?;
+        if count == 0
             || f.first_spawn_ticks == 0
             || f.spawn_interval_ticks == 0
             || f.max_active == 0
@@ -207,7 +299,7 @@ impl Level {
             number: def.number,
             web: def.web,
             flippers: Flippers {
-                count: f.count,
+                count,
                 first_spawn_ticks: f.first_spawn_ticks,
                 spawn_interval_ticks: f.spawn_interval_ticks,
                 climb_speed: (f.climb_speed * LANE_UNIT as f32).round() as i32,
@@ -217,6 +309,10 @@ impl Level {
             },
             appearance: def.appearance,
             powerups: def.powerups,
+            tankers: def
+                .tankers
+                .map(|generator| generator.compile(name))
+                .transpose()?,
         })
     }
 }
@@ -280,9 +376,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
+        let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
+        assert!(!level.web.closed);
+        assert_eq!(level.web.lanes(), 11);
+        assert_eq!(level.web.neighbor(0, -1), None);
+        assert_eq!(level.web.neighbor(10, 1), None);
+        assert_eq!(level.web.normalize(-LANE_UNIT), 0);
+        assert_eq!(level.web.normalize(20 * LANE_UNIT), 10 * LANE_UNIT);
+        assert_eq!(level.web.lane_delta(0, 10 * LANE_UNIT), 10 * LANE_UNIT);
+        assert_eq!(level.web.vertex(11., FRONT_RADIUS, 0.).x, -22.0 / 3.0);
+    }
+
+    #[test]
     fn original_levels_have_the_expected_geometry_and_wave_settings() {
         let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
-        assert_eq!(levels.0.len(), 2);
+        assert!(levels.0.len() >= 2);
         let first = &levels.0[0];
         let second = &levels.0[1];
         assert_eq!(

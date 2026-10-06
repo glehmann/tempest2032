@@ -47,8 +47,16 @@ no Rust changes are needed. The supplied levels are:
   The Flippers climb at the same `0xA000` speed as level one. They fold through
   180 degrees on straight sides and 90 degrees around corners, using the
   original per-lane orientations.
+- `levels/03.toml`: the original `_nw3` on the open, eleven-lane flat `web1`.
+  Flippers and Flipper Tankers share a 17-enemy generation budget. Tankers
+  arrive first after 223 gameplay ticks, then every 445 ticks. Their pink
+  `s_fliptank` shells use the original vertices and faces, with a Flipper motif
+  inside. Shooting one or letting it reach the rim awards 100 points and sends
+  two Flippers into neighboring lanes. They finish their initial flip before
+  climbing; the original 8-in-256 mutation chance produces fast blue Flippers
+  that scatter further before returning to normal pursuit.
 
-Clearing a level advances after the exit animation. Level two loops back to
+Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
 level and removes upgrades. R starts a fresh run from level one.
 
@@ -65,8 +73,11 @@ combined with screenshot and recording options, for example:
 The TOML fields use these conventions:
 
 - `number`: levels are loaded in numerical order, numbered consecutively from 1.
-- `web.vertices`: unique vertices of a closed outline, clockwise in screen
-  order, on the original coordinate grid. Do not repeat the first vertex.
+- `web.closed`: defaults to true. Open webs have one more vertex than lanes;
+  movement stops at their endpoints and enemies cannot wrap across them.
+- `web.vertices`: vertices in the prototype's screen order, on the original
+  coordinate grid. Closed outlines are clockwise; do not repeat their first
+  vertex. Open outlines list both endpoints and can be a straight line.
 - `web.orientations`: one Jaguar angle per lane. A full turn is 256 units;
   negative values turn clockwise. These also determine Flipper flip targets.
 - `web.start_lane`: a zero-based index in this clockwise order. Original
@@ -76,6 +87,10 @@ The TOML fields use these conventions:
   in depth units per tick, flip speed in angle units per tick, pause counter,
   and maximum simultaneous Flippers. Climbing speed converts to 16:16 once
   when the file is loaded.
+- `enemy_count`: shared generation budget for mixed waves. It replaces the
+  legacy `flippers.count` value when supplied. Released Tanker contents do not
+  consume this budget. Optional `tankers` tables specify spawn times, climbing
+  speed, and the fast-child probability out of 256.
 - `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.
   `appearance.flipper` uses integer RGB channels between 0 and 255.
 - `powerups.kill_interval`: first kill drops a pickup, then every Nth kill.

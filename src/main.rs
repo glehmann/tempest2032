@@ -324,7 +324,12 @@ fn tunnel_mesh(web: &level::Web, color: [f32; 3]) -> Mesh {
     let mut triangles = Vec::new();
     for lane in 0..web.lanes() {
         let lane = lane as f32;
-        let left = 0.5 - web.vertex(lane, FRONT_RADIUS, 0.0).x / (2.0 * FRONT_RADIUS);
+        let extent = web
+            .vertices
+            .iter()
+            .map(|[x, _]| ((x - 8.0) * FRONT_RADIUS / 6.0).abs())
+            .fold(FRONT_RADIUS, f32::max);
+        let left = 0.5 - web.vertex(lane, FRONT_RADIUS, 0.0).x / (2.0 * extent);
         for section in 0..12 {
             let mut quad = [(Vec3::ZERO, Color::BLACK); 4];
             for (vertex, (edge, depth)) in [
@@ -648,6 +653,18 @@ fn spawn_web(
             Transform::default(),
         ));
     }
+    if !web.closed {
+        commands.spawn((
+            ChildOf(root),
+            Mesh3d(assets.beam.clone()),
+            MeshMaterial3d(assets.blue.clone()),
+            segment_transform(
+                web.vertex(web.lanes() as f32, FRONT_RADIUS, 0.0),
+                web.vertex(web.lanes() as f32, BACK_RADIUS, -web.world_depth()),
+                0.024,
+            ),
+        ));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -728,13 +745,27 @@ fn follow_glider(
 }
 
 fn fit_camera(
+    level: Res<Level>,
     window: Single<&Window, With<PrimaryWindow>>,
     mut cameras: Query<&mut Projection, With<Camera3d>>,
 ) {
     for mut projection in &mut cameras {
         if let Projection::Perspective(perspective) = &mut *projection {
             let aspect = window.width() / window.height().max(1.0);
-            let half_height = 5.0 * (1.0_f32.max(1.294 / aspect));
+            let [width, height] =
+                level
+                    .web
+                    .vertices
+                    .iter()
+                    .fold([4.0_f32, 4.0_f32], |[w, h], [x, y]| {
+                        [
+                            w.max(((x - 8.0) * FRONT_RADIUS / 6.0).abs()),
+                            h.max(((y - 8.0) * FRONT_RADIUS / 6.0).abs()),
+                        ]
+                    });
+            let half_height = (5.0 * (1.0_f32.max(1.294 / aspect)))
+                .max(height + 1.0)
+                .max((width + 1.0) / aspect);
             perspective.fov = 2.0 * (half_height / 5.3).atan();
         }
     }
@@ -762,6 +793,7 @@ fn capture_frame(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn preview_input(
     level: Res<Level>,
     mut capture: ResMut<MotionCapture>,
@@ -769,6 +801,7 @@ fn preview_input(
     player: Single<&Glider>,
     pickups: Query<&enemies::powerups::PowerUp>,
     enemies: Query<&enemies::Flipper>,
+    tankers: Query<&enemies::tankers::Tanker>,
     upgrades: Res<Upgrades>,
 ) {
     keys.release(KeyCode::KeyD);
@@ -788,19 +821,33 @@ fn preview_input(
             enemies
                 .iter()
                 .filter_map(|enemy| enemy.preview_target(&level.web))
+                .chain(
+                    tankers
+                        .iter()
+                        .filter(|t| !t.approach)
+                        .map(|t| (t.lane, t.depth)),
+                )
                 .min_by_key(|(_, depth)| *depth)
                 .map(|(lane, _)| lane)
         });
     if let Some(target) = target {
         let lane = level.web.selected_lane(player.progress) as usize;
         let lanes = level.web.lanes();
-        let clockwise = (target + lanes - lane) % lanes;
+        let clockwise = if level.web.closed {
+            (target + lanes - lane) % lanes
+        } else {
+            target.abs_diff(lane)
+        };
         if clockwise > 0 {
-            keys.press(if clockwise < lanes / 2 {
-                KeyCode::KeyA
-            } else {
-                KeyCode::KeyD
-            });
+            keys.press(
+                if (level.web.closed && clockwise < lanes / 2)
+                    || (!level.web.closed && target > lane)
+                {
+                    KeyCode::KeyA
+                } else {
+                    KeyCode::KeyD
+                },
+            );
         }
     } else {
         match capture.tick % 360 {
@@ -850,7 +897,11 @@ fn move_glider(
             glider.velocity =
                 (glider.velocity + direction * ACCELERATION).clamp(-MAX_VELOCITY, MAX_VELOCITY);
         }
-        glider.progress = (glider.progress + glider.velocity).rem_euclid(level.web.period());
+        let progress = glider.progress + glider.velocity;
+        glider.progress = level.web.normalize(progress);
+        if glider.progress != progress && !level.web.closed {
+            glider.velocity = 0;
+        }
         let z = transform.translation.z;
         *transform = level.web.glider_transform(glider.progress);
         transform.translation.z = z;
@@ -972,6 +1023,17 @@ mod tests {
     fn ticks(app: &mut App, count: usize) {
         for _ in 0..count {
             app.world_mut().run_schedule(FixedUpdate);
+        }
+    }
+
+    #[test]
+    fn movement_stops_at_both_open_web_endpoints() {
+        let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
+        for (progress, key) in [(0, KeyCode::KeyD), (10 * LANE_UNIT, KeyCode::KeyA)] {
+            let mut app = movement_app(progress, &[key]);
+            app.insert_resource(level.clone());
+            ticks(&mut app, 30);
+            assert_eq!(state(&mut app), (progress, 0));
         }
     }
 

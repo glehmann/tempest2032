@@ -16,6 +16,12 @@ mod exit;
 #[path = "shot_death.rs"]
 mod shot_death;
 
+#[path = "tankers.rs"]
+pub(crate) mod tankers;
+
+#[derive(Component, Default)]
+struct Enemy;
+
 #[cfg(test)]
 const REAR: i32 = 160 * LANE_UNIT;
 const RETREAT_END: f32 = (110.0 - 80.0 + 400.0) * WORLD_UNIT;
@@ -56,6 +62,7 @@ struct Game {
     death: Option<shot_death::Death>,
     level_index: usize,
     load: Option<LoadReason>,
+    tanker_timer: u16,
 }
 
 impl Default for Game {
@@ -76,6 +83,7 @@ impl Default for Game {
             death: None,
             level_index: 0,
             load: None,
+            tanker_timer: 0,
         }
     }
 }
@@ -93,7 +101,7 @@ enum Motion {
 }
 
 #[derive(Component, Debug)]
-#[require(LevelActor)]
+#[require(LevelActor, Enemy)]
 pub(crate) struct Flipper {
     lane: usize,
     depth: i32,
@@ -133,6 +141,9 @@ impl Flipper {
     }
 
     fn danger_lane(&self, web: &level::Web) -> Option<usize> {
+        if self.depth > 2 * LANE_UNIT {
+            return None;
+        }
         match self.motion {
             Motion::Pause(_) => Some(self.lane),
             Motion::Flip {
@@ -182,6 +193,10 @@ pub(super) fn add_systems(app: &mut App) {
             remaining: initial.flippers.count,
             spawn_timer: initial.flippers.first_spawn_ticks - 1,
             level_index: index,
+            tanker_timer: initial
+                .tankers
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             ..default()
         })
         .init_resource::<powerups::Upgrades>()
@@ -210,9 +225,11 @@ pub(super) fn add_systems(app: &mut App) {
                     move_bullets,
                     fire_bullets.run_if(controlling),
                     spawn_enemies,
+                    tankers::spawn,
                     move_enemies,
                     move_enemy_shots,
                     resolve_hits,
+                    tankers::move_tankers,
                     fire_enemy_shots,
                     powerups::advance_powerups,
                     powerups::move_droid,
@@ -245,6 +262,7 @@ pub(super) fn add_systems(app: &mut App) {
         .add_systems(Update, sync_web.after(load_level))
         .add_systems(Update, update_enemy_colors.after(load_level))
         .add_systems(Update, draw_approaching_flippers.after(fit_camera))
+        .add_systems(Update, tankers::draw_points.after(fit_camera))
         .add_systems(Update, draw_particle_shots.after(fit_camera))
         .add_systems(
             Update,
@@ -398,6 +416,7 @@ pub(super) fn setup(
     powerups::setup(commands, meshes, materials);
     exit::setup(commands);
     shot_death::setup(commands, meshes, materials);
+    tankers::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh(level.appearance.flipper)),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
@@ -493,6 +512,7 @@ fn spawn_enemies(
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
     enemies: Query<&Flipper>,
+    tankers: Query<&tankers::Tanker>,
 ) {
     if game.status != Status::Playing || game.remaining == 0 {
         return;
@@ -501,7 +521,7 @@ fn spawn_enemies(
         game.spawn_timer -= 1;
         return;
     }
-    if enemies.iter().count() >= level.flippers.max_active {
+    if enemies.iter().count() + tankers.iter().count() * 3 >= level.flippers.max_active {
         return;
     }
     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -529,9 +549,14 @@ fn start_flip(flipper: &mut Flipper, player_lane: usize, web: &level::Web) {
     }
     let lanes = web.lanes();
     let clockwise = (player_lane + lanes - flipper.lane) % lanes;
-    let direction = if clockwise < lanes / 2 { 1 } else { -1 };
+    let direction =
+        if (!web.closed && player_lane > flipper.lane) || (web.closed && clockwise < lanes / 2) {
+            1
+        } else {
+            -1
+        };
     let from = flipper.lane;
-    flipper.lane = (from as i32 + direction).rem_euclid(lanes as i32) as usize;
+    flipper.lane = web.neighbor(from, direction).unwrap();
     flipper.motion = Motion::Flip {
         from,
         direction,
@@ -539,6 +564,7 @@ fn start_flip(flipper: &mut Flipper, player_lane: usize, web: &level::Web) {
     };
 }
 
+#[allow(clippy::type_complexity)]
 fn move_enemies(
     level: Res<Level>,
     game: Res<Game>,
@@ -549,13 +575,14 @@ fn move_enemies(
         &mut Transform,
         &mut Mesh3d,
         &mut MeshMaterial3d<StandardMaterial>,
+        Option<&mut tankers::Released>,
     )>,
 ) {
     if game.status != Status::Playing {
         return;
     }
     let player_lane = level.web.selected_lane(player.progress) as usize;
-    for (mut flipper, mut transform, mut mesh, mut material) in &mut enemies {
+    for (mut flipper, mut transform, mut mesh, mut material, mut released) in &mut enemies {
         match flipper.motion {
             Motion::Approach => {
                 flipper.depth -= 2 * LANE_UNIT;
@@ -577,9 +604,19 @@ fn move_enemies(
                 direction,
                 angle,
             } => {
-                let angle = angle + level.flippers.flip_speed;
+                let angle = angle
+                    + level.flippers.flip_speed
+                        * if released.as_ref().is_some_and(|r| r.fast) {
+                            2
+                        } else {
+                            1
+                        };
                 flipper.motion = if angle >= level.web.flip_angle(from, flipper.lane, direction) {
-                    Motion::Pause(flipper.pause)
+                    Motion::Pause(if released.as_ref().is_some_and(|r| r.burst) {
+                        0
+                    } else {
+                        flipper.pause
+                    })
                 } else {
                     Motion::Flip {
                         from,
@@ -589,7 +626,30 @@ fn move_enemies(
                 };
             }
             Motion::Pause(0) => {
-                start_flip(&mut flipper, player_lane, &level.web);
+                if let Some(released) = &mut released
+                    && released.burst
+                {
+                    if released.remaining == 0 {
+                        released.burst = false;
+                        flipper.motion = Motion::Climb;
+                    } else {
+                        released.remaining -= 1;
+                        let from = flipper.lane;
+                        let direction = if level.web.neighbor(from, released.direction).is_none() {
+                            -released.direction
+                        } else {
+                            released.direction
+                        };
+                        flipper.lane = level.web.neighbor(from, direction).unwrap();
+                        flipper.motion = Motion::Flip {
+                            from,
+                            direction,
+                            angle: 0,
+                        };
+                    }
+                } else {
+                    start_flip(&mut flipper, player_lane, &level.web);
+                }
             }
             Motion::Pause(ticks) => flipper.motion = Motion::Pause(ticks - 1),
         }
@@ -705,6 +765,9 @@ fn resolve_hits(
     bullets: Query<(Entity, &Bullet, &Transform, Option<&ParticleShot>)>,
     enemies: Query<(Entity, &Flipper, &Transform)>,
     enemy_shots: Query<(Entity, &EnemyShot)>,
+    tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
+    shells: Res<tankers::TankerAssets>,
+    flipper_assets: Res<FlipperAssets>,
 ) {
     if game.status != Status::Playing {
         return;
@@ -731,6 +794,16 @@ fn resolve_hits(
                 )
             })
             .chain(
+                tankers
+                    .iter()
+                    .filter(|(entity, tanker, _)| {
+                        !killed.contains(entity)
+                            && !tanker.approach
+                            && intersects(tanker.lane, tanker.depth)
+                    })
+                    .map(|(entity, tanker, _)| (entity, tanker.depth, 0, None)),
+            )
+            .chain(
                 enemy_shots
                     .iter()
                     .filter(|(entity, shot)| {
@@ -753,6 +826,17 @@ fn resolve_hits(
             commands.entity(entity).despawn();
             killed.insert(entity);
             game.score += points;
+            if let Ok((_, tanker, pose)) = tankers.get(entity) {
+                tankers::open(
+                    &mut commands,
+                    &mut game,
+                    &level,
+                    &flipper_assets,
+                    &shells,
+                    tanker,
+                );
+                explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+            }
             if let Some((lane, centre)) = centre {
                 if upgrades.drop_due(level.powerups.kill_interval) {
                     powerups::spawn_drop(
@@ -777,6 +861,10 @@ fn reset_wave(game: &mut Game, level: &Level) {
     game.status = Status::Entering;
     game.entry = Some(0);
     game.fire_timer = 112;
+    game.tanker_timer = level
+        .tankers
+        .as_ref()
+        .map_or(0, |g| g.first_spawn_ticks - 1);
 }
 
 #[allow(clippy::type_complexity)]
@@ -829,7 +917,8 @@ fn check_game(
     mut upgrades: ResMut<powerups::Upgrades>,
     bursts: Res<explosion::BurstAssets>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
-    enemies: Query<(Entity, &Flipper)>,
+    enemies: Query<(Entity, &Flipper, Option<&tankers::Released>)>,
+    living: Query<(), With<Enemy>>,
     bullets: Query<Entity, With<Bullet>>,
     enemy_shots: Query<(Entity, &EnemyShot)>,
     pickups: Query<(Entity, &powerups::PowerUp)>,
@@ -844,13 +933,14 @@ fn check_game(
     let (glider, weapon, transform, visibility) = &mut *player;
     let grabber = (!weapon.firing)
         .then(|| {
-            enemies.iter().find(|(_, flipper)| {
-                flipper.danger_lane(&level.web)
-                    == Some(level.web.selected_lane(glider.progress) as usize)
+            enemies.iter().find(|(_, flipper, released)| {
+                released.is_none_or(|released| !released.burst)
+                    && flipper.danger_lane(&level.web)
+                        == Some(level.web.selected_lane(glider.progress) as usize)
             })
         })
         .flatten()
-        .map(|(entity, _)| entity);
+        .map(|(entity, _, _)| entity);
     if game.status == Status::Playing && game.invulnerable > 0 {
         game.invulnerable -= 1;
         **visibility = if game.invulnerable > 0 && (game.invulnerable / 6).is_multiple_of(2) {
@@ -918,7 +1008,7 @@ fn check_game(
         return;
     }
     if game.remaining == 0
-        && enemies.is_empty()
+        && living.is_empty()
         && enemy_shots.is_empty()
         && pickups.iter().all(|(_, pickup)| pickup.captured)
     {
@@ -1144,7 +1234,7 @@ mod tests {
         assert_eq!(app.world().resource::<Game>().lives, 2);
     }
 
-    fn app() -> App {
+    pub(super) fn app() -> App {
         let mut app = App::new();
         app.init_resource::<Game>()
             .init_resource::<Level>()
@@ -1152,6 +1242,7 @@ mod tests {
             .init_resource::<powerups::Upgrades>()
             .init_resource::<powerups::PowerAssets>()
             .init_resource::<FlipperAssets>()
+            .init_resource::<tankers::TankerAssets>()
             .init_resource::<explosion::BurstAssets>()
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(
