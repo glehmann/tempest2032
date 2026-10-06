@@ -397,6 +397,26 @@ mod tests {
     }
 
     #[test]
+    fn original_level_six_has_an_open_u_and_the_thirty_one_spawn_budget() {
+        let level = Level::parse(include_str!("../levels/06.toml"), "level6").unwrap();
+        assert!(!level.web.closed);
+        assert_eq!(level.web.lanes(), 15);
+        assert_eq!(level.flippers.count, 31);
+        assert_eq!(
+            (
+                level.flippers.first_spawn_ticks,
+                level.flippers.spawn_interval_ticks
+            ),
+            (48, 96)
+        );
+        assert_eq!(level.tankers.as_ref().unwrap().spawn_interval_ticks, 261);
+        assert_eq!(level.web.neighbor(14, 1), None);
+        assert_eq!(level.web.neighbor(0, -1), None);
+        assert_eq!(level.web.flip_angle(6, 7, 1), 128);
+        assert_eq!(level.web.flip_angle(2, 3, 1), 112);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);

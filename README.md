@@ -70,6 +70,9 @@ no Rust changes are needed. The supplied levels are:
   `0xA400` Flippers, `0x8800` Tankers, and `0xE000` Spikers. Tankers repeat
   every 281 ticks. Pickups drop on the first kill and then every sixth kill,
   matching the next `pup_stuff` group.
+- `levels/06.toml`: the open fifteen-lane U-shaped `web3`, with a 31-spawn
+  budget. Flippers repeat every 96 ticks and Tankers every 261 ticks, retaining
+  level five's climbing speeds. Spikers repeat every 801 ticks.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
