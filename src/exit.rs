@@ -459,6 +459,24 @@ mod tests {
     }
 
     #[test]
+    fn all_eight_levels_advance_through_the_exit_and_wrap_to_one() {
+        let mut app = app();
+        app.insert_resource(
+            Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap(),
+        );
+        for next in [2, 3, 4, 5, 6, 7, 8, 1] {
+            app.world_mut().resource_mut::<Game>().remaining = 0;
+            ticks(&mut app, 377);
+            assert_eq!(app.world().resource::<Level>().number, next);
+            assert_eq!(app.world().resource::<Game>().lives, 2);
+            assert_eq!(app.world().resource::<Game>().score, 9000);
+            assert!(app.world().resource::<Game>().status == Status::Entering);
+            ticks(&mut app, 320);
+            assert!(app.world().resource::<Game>().status == Status::Playing);
+        }
+    }
+
+    #[test]
     fn restart_cancels_the_flight_and_restores_normal_stars() {
         let mut app = app();
         app.add_systems(Update, restart_game.before(entry::draw).before(draw));

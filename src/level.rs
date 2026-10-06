@@ -438,6 +438,37 @@ mod tests {
     }
 
     #[test]
+    fn original_level_eight_reuses_the_lemon_with_denser_tankers_and_spikers() {
+        let seven = Level::parse(include_str!("../levels/07.toml"), "level7").unwrap();
+        let eight = Level::parse(include_str!("../levels/08.toml"), "level8").unwrap();
+        assert_eq!(seven.web.vertices, eight.web.vertices);
+        assert_eq!(seven.web.orientations, eight.web.orientations);
+        assert_eq!(eight.flippers.count, 31);
+        assert_eq!(
+            (
+                eight.tankers.as_ref().unwrap().first_spawn_ticks,
+                eight.tankers.as_ref().unwrap().spawn_interval_ticks
+            ),
+            (121, 241)
+        );
+        assert_eq!(
+            (
+                eight.spikers.as_ref().unwrap().first_spawn_ticks,
+                eight.spikers.as_ref().unwrap().spawn_interval_ticks
+            ),
+            (326, 651)
+        );
+        assert_eq!(eight.tankers.as_ref().unwrap().super_chance, 28);
+        assert_eq!(
+            Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels"))
+                .unwrap()
+                .0
+                .len(),
+            8
+        );
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);

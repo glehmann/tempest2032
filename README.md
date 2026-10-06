@@ -77,6 +77,9 @@ no Rust changes are needed. The supplied levels are:
   31-spawn budget, `0xA600` Flippers, and `0xF000` Spikers. The T2K mode adds
   16 to the web-table index, so this is `web18`, not classic mode's `web12`.
   Flippers repeat every 91 ticks, Tankers every 251, and Spikers every 751.
+- `levels/08.toml`: the same T2K lemon and 31-spawn budget, with Tankers every
+  241 ticks and Spikers every 651 ticks. Its Tanker-child mutation threshold
+  rises to 28 out of 256. Clearing it currently loops back to level one.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
@@ -171,7 +174,8 @@ and starts a fresh game.
 Hold a movement key to accelerate around the rim. The 60 Hz simulation uses
 the original 16:16 movement values, acceleration `0x400` per tick and maximum
 velocity `0x6000`. That reaches 22.5 lanes per second after 24 ticks.
-Movement wraps around all 16 lanes and stops when the key is released.
+Movement wraps around closed webs and stops at the endpoints of open webs.
+Releasing the movement key stops the claw.
 Changing direction stops the claw for one tick before accelerating backwards.
 Opposite directions held together cancel each other.
 
@@ -342,8 +346,9 @@ before displaying level clear.
 
 The original enters a bonus round after accumulating three warp tokens across
 waves. Token tracking is included here, but this prototype cycles through its
-configured levels without a bonus-round transition. Each supplied level's 25
-enemies normally provide at most five drops.
+configured levels without a bonus-round transition. Level one normally provides
+at most five drops; mixed waves can provide more pickup-eligible kills through
+released Tanker contents.
 
 ## Development
 
@@ -375,6 +380,8 @@ enemy-shot hit.
 `src/level.rs` contains TOML definitions, validation, web geometry calculations,
 and the level catalog. The game uses one loader for advancement, death retries,
 and restarts, rebuilding the web and clearing level-owned actors each time.
+`src/tankers.rs` and `src/spikers.rs` are child modules of `enemies` and contain
+shell splitting, fast released Flippers, spiral builders, and persistent spikes.
 The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.

@@ -303,15 +303,7 @@ fn preview_transition(
     mut commands: Commands,
     capture: Option<Res<MotionCapture>>,
     mut game: ResMut<Game>,
-    actors: Query<
-        Entity,
-        Or<(
-            With<Flipper>,
-            With<EnemyShot>,
-            With<powerups::PowerUp>,
-            With<Bullet>,
-        )>,
-    >,
+    actors: Query<Entity, With<LevelActor>>,
     player: Single<&Glider>,
     assets: Res<FlipperAssets>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
