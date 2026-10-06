@@ -36,8 +36,8 @@ window backends.
 
 | Key | Action |
 | --- | --- |
-| Left arrow or A | Move counterclockwise |
-| Right arrow or D | Move clockwise |
+| Left arrow or A | Move clockwise |
+| Right arrow or D | Move counterclockwise |
 | Enter, numpad Enter, or Space | Fire, hold for repeat fire |
 | J | Jump, after collecting the jump upgrade |
 | R | Restart level one |
@@ -49,6 +49,10 @@ velocity `0x6000`. That reaches 22.5 lanes per second after 24 ticks.
 Movement wraps around all 16 lanes and stops when the key is released.
 Changing direction stops the claw for one tick before accelerating backwards.
 Opposite directions held together cancel each other.
+
+These directions follow the original `claw_right` and `domove`: Right adds to
+the original web's counterclockwise lane order. This renderer reverses the
+vertex order, so it also reverses the input sign.
 
 Shots launch from the current lane and travel straight down the tunnel.
 They stay in their launch lane as the claw moves. The normal weapon fires
