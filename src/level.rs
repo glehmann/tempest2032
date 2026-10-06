@@ -524,6 +524,17 @@ mod tests {
     }
 
     #[test]
+    fn original_level_thirteen_selects_the_t2k_giraffe_and_next_speed_group() {
+        let level = Level::parse(include_str!("../levels/13.toml"), "level13").unwrap();
+        assert!(!level.web.closed);
+        assert_eq!(level.web.lanes(), 13);
+        assert_eq!(level.web.vertices[0], [14., -3.]);
+        assert_eq!(level.flippers.climb_speed, 0xac00);
+        assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0x12000);
+        assert_eq!(level.fuseballs.as_ref().unwrap().climb_speed, 0x8800);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);

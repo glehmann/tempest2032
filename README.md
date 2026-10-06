@@ -98,6 +98,9 @@ no Rust changes are needed. The supplied levels are:
   Kills award the original random 250, 500, or 750 points without a pickup drop.
 - `levels/12.toml`: the closed cross `web10`, including the original inward
   corner orientations. Flippers repeat every 81 ticks and Fuseballs every 701.
+- `levels/13.toml`: T2K's open giraffe-neck `web20`, with thirteen lanes and
+  `0xAC00` Flippers. This mode-specific selection differs from classic `web15`.
+  Fuseballs climb at `0x8800` and repeat every 601 ticks.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
