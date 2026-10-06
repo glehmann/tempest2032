@@ -102,6 +102,7 @@ pub(crate) struct Level {
     pub(crate) appearance: Appearance,
     pub(crate) powerups: PowerUps,
     pub(crate) tankers: Option<Generator>,
+    pub(crate) spikers: Option<Generator>,
 }
 
 fn closed_web() -> bool {
@@ -210,6 +211,8 @@ struct Definition {
     powerups: PowerUps,
     #[serde(default)]
     tankers: Option<GeneratorDefinition>,
+    #[serde(default)]
+    spikers: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -311,6 +314,10 @@ impl Level {
             powerups: def.powerups,
             tankers: def
                 .tankers
+                .map(|generator| generator.compile(name))
+                .transpose()?,
+            spikers: def
+                .spikers
                 .map(|generator| generator.compile(name))
                 .transpose()?,
         })

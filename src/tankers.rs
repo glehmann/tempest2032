@@ -128,6 +128,7 @@ pub(super) fn spawn(
     assets: Res<TankerAssets>,
     flippers: Query<&Flipper>,
     tankers: Query<&Tanker>,
+    spikers: Query<&spikers::Spiker>,
 ) {
     let Some(generator) = &level.tankers else {
         return;
@@ -139,7 +140,9 @@ pub(super) fn spawn(
         game.tanker_timer -= 1;
         return;
     }
-    if flippers.iter().count() + tankers.iter().count() * 3 >= level.flippers.max_active {
+    if flippers.iter().count() + tankers.iter().count() * 3 + spikers.iter().count()
+        >= level.flippers.max_active
+    {
         return;
     }
     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);

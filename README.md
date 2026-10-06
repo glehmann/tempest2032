@@ -55,6 +55,17 @@ no Rust changes are needed. The supplied levels are:
   two Flippers into neighboring lanes. They finish their initial flip before
   climbing; the original 8-in-256 mutation chance produces fast blue Flippers
   that scatter further before returning to normal pursuit.
+- `levels/04.toml`: the open fifteen-lane V, `web2`, with a shared 25-spawn
+  budget for Flippers, Tankers, and Spikers. A Spiker uses the original rotating
+  spiral outline and creates a 30-unit spike in a free lane, or extends the
+  shortest existing spike when every lane is occupied. It makes 51 extensions
+  at `0xD000` speed, retreats, and picks another spike. Only one Spiker is
+  active at a time. Shooting a spike removes three units and scores three
+  points; particle shots continue through it. Destroying the final segment
+  scores another three points. Spikes remain after their builder dies and do
+  not block level completion, but can kill the glider during the exit flight.
+  The exit displays "AVOID THE SPIKES" and still permits movement and firing
+  until the rear. A spike collision pulls the camera back before losing a life.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
@@ -91,6 +102,7 @@ The TOML fields use these conventions:
   legacy `flippers.count` value when supplied. Released Tanker contents do not
   consume this budget. Optional `tankers` tables specify spawn times, climbing
   speed, and the fast-child probability out of 256.
+  Optional `spikers` tables specify their spawn times and climbing speed.
 - `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.
   `appearance.flipper` uses integer RGB channels between 0 and 255.
 - `powerups.kill_interval`: first kill drops a pickup, then every Nth kill.

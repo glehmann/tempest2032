@@ -19,6 +19,9 @@ mod shot_death;
 #[path = "tankers.rs"]
 pub(crate) mod tankers;
 
+#[path = "spikers.rs"]
+pub(crate) mod spikers;
+
 #[derive(Component, Default)]
 struct Enemy;
 
@@ -34,6 +37,7 @@ enum Status {
     Playing,
     Captured,
     ShotHit,
+    Spiked,
     Respawning,
     Exiting,
     GameOver,
@@ -63,6 +67,7 @@ struct Game {
     level_index: usize,
     load: Option<LoadReason>,
     tanker_timer: u16,
+    spiker_timer: u16,
 }
 
 impl Default for Game {
@@ -84,6 +89,7 @@ impl Default for Game {
             level_index: 0,
             load: None,
             tanker_timer: 0,
+            spiker_timer: 0,
         }
     }
 }
@@ -197,6 +203,10 @@ pub(super) fn add_systems(app: &mut App) {
                 .tankers
                 .as_ref()
                 .map_or(0, |g| g.first_spawn_ticks - 1),
+            spiker_timer: initial
+                .spikers
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             ..default()
         })
         .init_resource::<powerups::Upgrades>()
@@ -219,17 +229,23 @@ pub(super) fn add_systems(app: &mut App) {
                     follow_glider.run_if(|game: Res<Game>| {
                         !matches!(
                             game.status,
-                            Status::Entering | Status::Captured | Status::ShotHit | Status::Exiting
+                            Status::Entering
+                                | Status::Captured
+                                | Status::ShotHit
+                                | Status::Spiked
+                                | Status::Exiting
                         )
                     }),
                     move_bullets,
                     fire_bullets.run_if(controlling),
                     spawn_enemies,
                     tankers::spawn,
+                    spikers::spawn,
                     move_enemies,
                     move_enemy_shots,
                     resolve_hits,
                     tankers::move_tankers,
+                    spikers::advance,
                     fire_enemy_shots,
                     powerups::advance_powerups,
                     powerups::move_droid,
@@ -271,6 +287,7 @@ pub(super) fn add_systems(app: &mut App) {
                 entry::draw.after(restart_game),
                 exit::draw.after(restart_game),
                 shot_death::draw.after(restart_game),
+                spikers::draw.after(restart_game),
                 powerups::update_notice,
             ),
         );
@@ -417,6 +434,7 @@ pub(super) fn setup(
     exit::setup(commands);
     shot_death::setup(commands, meshes, materials);
     tankers::setup(commands, meshes, materials);
+    spikers::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh(level.appearance.flipper)),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
@@ -513,6 +531,7 @@ fn spawn_enemies(
     assets: Res<FlipperAssets>,
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
+    spikers: Query<&spikers::Spiker>,
 ) {
     if game.status != Status::Playing || game.remaining == 0 {
         return;
@@ -521,7 +540,9 @@ fn spawn_enemies(
         game.spawn_timer -= 1;
         return;
     }
-    if enemies.iter().count() + tankers.iter().count() * 3 >= level.flippers.max_active {
+    if enemies.iter().count() + tankers.iter().count() * 3 + spikers.iter().count()
+        >= level.flippers.max_active
+    {
         return;
     }
     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -703,29 +724,44 @@ fn fire_enemy_shots(
     assets: Res<FlipperAssets>,
     enemies: Query<&Flipper>,
     shots: Query<&EnemyShot>,
+    spikers: Query<&spikers::Spiker>,
 ) {
     if game.status != Status::Playing {
         return;
     }
-    for flipper in &enemies {
-        if !matches!(flipper.motion, Motion::Climb) {
-            continue;
-        }
+    let sources = enemies
+        .iter()
+        .filter(|f| matches!(f.motion, Motion::Climb))
+        .map(|f| (f.lane, f.depth))
+        .chain(
+            spikers
+                .iter()
+                .filter(|s| s.firing())
+                .map(|s| (s.lane, s.depth)),
+        );
+    for (lane, depth) in sources {
         if game.fire_timer > 0 {
             game.fire_timer -= 1;
             continue;
         }
         game.fire_timer = 112;
-        if flipper.depth <= 60 * LANE_UNIT || !shots.is_empty() {
+        if depth <= 60 * LANE_UNIT || !shots.is_empty() {
             continue;
         }
         let shot = EnemyShot {
-            lane: flipper.lane,
-            depth: flipper.depth,
+            lane,
+            depth,
             angle: 0,
         };
         commands.spawn((
-            Transform::from_translation(flipper_transform(flipper, &level.web).translation),
+            Transform::from_translation({
+                let mut p = level
+                    .web
+                    .glider_transform(lane as i32 * LANE_UNIT)
+                    .translation;
+                p.z = -(depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
+                p
+            }),
             shot,
             RenderLayers::layer(1),
             Mesh3d(assets.shot.clone()),
@@ -768,8 +804,10 @@ fn resolve_hits(
     tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
     shells: Res<tankers::TankerAssets>,
     flipper_assets: Res<FlipperAssets>,
+    spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
+    mut spikes: Query<(Entity, &mut spikers::Spike)>,
 ) {
-    if game.status != Status::Playing {
+    if !matches!(game.status, Status::Playing | Status::Exiting) {
         return;
     }
     let mut killed = HashSet::new();
@@ -804,6 +842,24 @@ fn resolve_hits(
                     .map(|(entity, tanker, _)| (entity, tanker.depth, 0, None)),
             )
             .chain(
+                spikers
+                    .iter()
+                    .filter(|(entity, s, _)| {
+                        !killed.contains(entity) && intersects(s.lane, s.depth)
+                    })
+                    .map(|(entity, s, pose)| {
+                        (entity, s.depth, 150, Some((s.lane, pose.translation)))
+                    }),
+            )
+            .chain(
+                spikes
+                    .iter()
+                    .filter(|(entity, s)| {
+                        !killed.contains(entity) && intersects(s.lane, level.web.rear() - s.length)
+                    })
+                    .map(|(entity, s)| (entity, level.web.rear() - s.length, 0, None)),
+            )
+            .chain(
                 enemy_shots
                     .iter()
                     .filter(|(entity, shot)| {
@@ -822,6 +878,16 @@ fn resolve_hits(
             }
             if particle.is_none() {
                 commands.entity(shot).despawn();
+            }
+            if let Ok((_, mut spike)) = spikes.get_mut(entity) {
+                game.score += 3;
+                spike.length -= 3 * LANE_UNIT;
+                if spike.length < 0 {
+                    commands.entity(entity).despawn();
+                    killed.insert(entity);
+                    game.score += 3;
+                }
+                continue;
             }
             commands.entity(entity).despawn();
             killed.insert(entity);
@@ -863,6 +929,10 @@ fn reset_wave(game: &mut Game, level: &Level) {
     game.fire_timer = 112;
     game.tanker_timer = level
         .tankers
+        .as_ref()
+        .map_or(0, |g| g.first_spawn_ticks - 1);
+    game.spiker_timer = level
+        .spikers
         .as_ref()
         .map_or(0, |g| g.first_spawn_ticks - 1);
 }
@@ -1093,7 +1163,7 @@ fn load_level(
     }
 }
 
-fn update_hud(game: Res<Game>, mut hud: Single<&mut Text, With<GameHud>>) {
+fn update_hud(game: Res<Game>, level: Res<Level>, mut hud: Single<&mut Text, With<GameHud>>) {
     if !game.is_changed() {
         return;
     }
@@ -1101,6 +1171,8 @@ fn update_hud(game: Res<Game>, mut hud: Single<&mut Text, With<GameHud>>) {
         Status::Entering | Status::Playing => "",
         Status::Captured | Status::Respawning => "\nCAUGHT YOU",
         Status::ShotHit => "\nSHOT YOU!",
+        Status::Spiked => "\nSPIKED!",
+        Status::Exiting if level.spikers.is_some() => "\nLEVEL CLEAR\nAVOID THE SPIKES",
         Status::Exiting => "\nLEVEL CLEAR",
         Status::GameOver => "\nGAME OVER   R to restart",
     };

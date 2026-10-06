@@ -116,6 +116,7 @@ pub(super) fn animate(
         )>,
     >,
     mut warp: Option<ResMut<stars::Warp>>,
+    spikes: Query<&spikers::Spike>,
 ) {
     let Some(mut exit) = game.exit else {
         if let Some(warp) = &mut warp {
@@ -157,6 +158,25 @@ pub(super) fn animate(
         camera.translation.x += delta.x;
         camera.translation.y += delta.y;
         camera.translation.z = exit.camera_z - exit.distance as f32 / LANE_UNIT as f32 * WORLD_UNIT;
+    }
+    if !exit.wireframe
+        && exit.depth >= 0
+        && spikes.iter().any(|spike| {
+            spike.lane == level.web.selected_lane(glider.progress) as usize
+                && exit.depth >= level.web.rear() - spike.length
+        })
+    {
+        game.status = Status::Spiked;
+        game.exit = None;
+        game.death = Some(shot_death::Death::retreat(
+            exit.camera_z - exit.distance as f32 / LANE_UNIT as f32 * WORLD_UNIT,
+        ));
+        glider.velocity = 0;
+        **weapon = Weapon::default();
+        if let Some(warp) = &mut warp {
+            **warp = stars::Warp::default();
+        }
+        return;
     }
     if let Some(warp) = &mut warp {
         warp.distance = exit.distance;

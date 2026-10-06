@@ -244,7 +244,9 @@ pub(super) fn draw(
         }));
     }
     let (glider, transform, visibility) = &mut *player;
-    if game.entry.is_some() || game.exit.is_some_and(|exit| exit.wireframe) || game.death.is_some()
+    if game.entry.is_some()
+        || game.exit.is_some_and(|exit| exit.wireframe)
+        || (game.death.is_some() && game.status != Status::Spiked)
     {
         **visibility = Visibility::Hidden;
     }

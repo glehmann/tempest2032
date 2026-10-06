@@ -8,6 +8,13 @@ pub(super) struct Death {
 }
 
 impl Death {
+    pub(super) fn retreat(camera_z: f32) -> Self {
+        Self {
+            tick: 121,
+            visible: false,
+            camera_z,
+        }
+    }
     pub(super) fn new(position: Vec3, web: &level::Web) -> Self {
         Self {
             tick: 0,

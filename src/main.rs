@@ -802,6 +802,7 @@ fn preview_input(
     pickups: Query<&enemies::powerups::PowerUp>,
     enemies: Query<&enemies::Flipper>,
     tankers: Query<&enemies::tankers::Tanker>,
+    spikers: Query<&enemies::spikers::Spiker>,
     upgrades: Res<Upgrades>,
 ) {
     keys.release(KeyCode::KeyD);
@@ -827,6 +828,7 @@ fn preview_input(
                         .filter(|t| !t.approach)
                         .map(|t| (t.lane, t.depth)),
                 )
+                .chain(spikers.iter().map(|s| (s.lane, s.depth)))
                 .min_by_key(|(_, depth)| *depth)
                 .map(|(lane, _)| lane)
         });
