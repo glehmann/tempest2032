@@ -96,6 +96,8 @@ no Rust changes are needed. The supplied levels are:
   of a crossing is shootable. A crossing at the rim can fry the glider even
   during active firing, using the original "FRIED YOU!" death sequence.
   Kills award the original random 250, 500, or 750 points without a pickup drop.
+- `levels/12.toml`: the closed cross `web10`, including the original inward
+  corner orientations. Flippers repeat every 81 ticks and Fuseballs every 701.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current

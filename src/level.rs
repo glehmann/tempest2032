@@ -513,6 +513,17 @@ mod tests {
     }
 
     #[test]
+    fn original_level_twelve_has_the_cross_and_faster_fuseball_generator() {
+        let level = Level::parse(include_str!("../levels/12.toml"), "level12").unwrap();
+        assert!(level.web.closed);
+        assert_eq!(level.web.lanes(), 16);
+        assert_eq!(level.web.vertices[0], [7., 3.]);
+        assert_eq!(level.flippers.climb_speed, 0xaa00);
+        assert_eq!(level.fuseballs.as_ref().unwrap().spawn_interval_ticks, 701);
+        assert_eq!(level.web.flip_angle(1, 2, 1), 160);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);
