@@ -546,6 +546,17 @@ mod tests {
     }
 
     #[test]
+    fn original_level_fifteen_uses_web16_and_the_last_early_speed_group() {
+        let level = Level::parse(include_str!("../levels/15.toml"), "level15").unwrap();
+        assert!(!level.web.closed);
+        assert_eq!(level.web.lanes(), 15);
+        assert_eq!(level.flippers.climb_speed, 0xae00);
+        assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0x13000);
+        assert_eq!(level.fuseballs.as_ref().unwrap().climb_speed, 0x9000);
+        assert_eq!(level.fuseballs.as_ref().unwrap().spawn_interval_ticks, 501);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);

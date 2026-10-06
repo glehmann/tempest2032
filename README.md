@@ -103,6 +103,8 @@ no Rust changes are needed. The supplied levels are:
   Fuseballs climb at `0x8800` and repeat every 601 ticks.
 - `levels/14.toml`: the open distorted-W `web6`, with fifteen lanes and
   Flippers every 76 ticks. The local flat sections retain their source angles.
+- `levels/15.toml`: open `web16`, with `0xAE00` Flippers and `0x13000` Spikers.
+  Fuseballs climb at `0x9000` and repeat every 501 ticks.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
