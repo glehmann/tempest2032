@@ -39,7 +39,7 @@ window backends.
 | Left arrow or A | Move clockwise |
 | Right arrow or D | Move counterclockwise |
 | Enter, numpad Enter, or Space | Fire, hold for repeat fire |
-| J | Jump, after collecting the jump upgrade |
+| J or Shift | Jump, after collecting the jump upgrade |
 | R | Restart level one |
 | Escape | Quit |
 
@@ -57,7 +57,8 @@ vertex order, so it also reverses the input sign.
 Shots launch from the current lane and travel straight down the tunnel.
 They stay in their launch lane as the claw moves. The normal weapon fires
 every four simulation ticks, with up to eight shots in flight, and removes
-each shot at the rear opening.
+each shot at the rear opening. A full magazine skips that firing opportunity
+and waits for the next one. Releasing Fire pauses the cooldown.
 
 A shot is not a flat green dot. Sampling a reference screenshot shows three
 layers: a near-white core in the shape of the original's `shot` vector, a
@@ -112,8 +113,18 @@ dim and brightens as it approaches the web.
 Their approach takes 150 ticks, then they climb their lane at the original
 `0xA000` depth speed. At the rim they pivot about a lane boundary toward the
 player, taking the shortest route around the closed web. A pivot advances
-four of the Jaguar's 256 angle units per tick. They pause between flips and
-can be shot in the destination lane during the latter part of a flip.
+four of the Jaguar's 256 angle units per tick. Their between-flip pause counter
+starts at eight and advances to the next flip on underflow. They
+can be shot in the destination lane during the latter part of a flip. During
+the first part they can grab a player in the departure lane. Once shootable,
+they also threaten the destination lane. Shot hits resolve before grabs, so a
+shot can save the player, but firing gaps leave the player exposed. Shot
+collisions use the original strict six-unit depth range
+at the current shot position, so the gaps between shots remain intact.
+The weapon tracks active firing across the normal delay between shots, blocking
+Flipper grabs until Fire is released or a firing attempt hits a full magazine.
+After a magazine gap, the next emitted shot restores that protection. Enemy
+shots still need to be intercepted or avoided.
 
 The first spawn is after 61 ticks, with further spawns every 121 ticks when
 there is room. The source's duration counter yields 25 enemies. Clearing all
@@ -164,14 +175,19 @@ reward sequence unchanged.
 
 | Collection | Reward |
 | --- | --- |
-| 1 | Particle laser: four-wing `pshot` bolts, shot speed 4.5 instead of 3.5 units per tick, and a three-tick firing interval instead of four |
+| 1 | Particle laser: rotating rings of four color-cycling dots, shot speed 4.5 instead of 3.5 units per tick, a three-tick firing interval instead of four, and shots that pass through enemies |
 | 2 | Surprise: normally 2,000 points; a 9-in-256 chance of 3,000 points and a level skip |
-| 3 | Jump enabled: J lifts the claw off the rim, avoiding enemies and shots until landing |
+| 3 | Jump enabled: J or Shift lifts the claw off the rim, avoiding enemies and shots until landing |
 | 4 | Another surprise bonus |
 | 5 | AI droid: a rotating, colour-cycling wireframe cube that seeks the closest enemy, crosses one lane in 16 ticks, fires every six ticks, and adds eight bullet slots |
 | 6 | Superzap plus a warp token |
 | 7 onward | Surprise bonuses |
 
+The particle laser uses `draw_pring` and the GPU's `pring`, not the four-wing
+`pshot` polygon. Its dots stay two original framebuffer pixels wide, rotate
+with camera-relative depth, and use `pulser` for their color sweep.
+
+Jump presses are buffered between simulation ticks and work while firing.
 The jump uses `sclawr`'s initial velocity of two units per tick and acceleration
 `0xc11`; the camera follows its height. Losing a life removes the laser, jump,
 and droid and restarts the collection sequence. Restarting with R clears all

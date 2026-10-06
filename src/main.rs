@@ -58,12 +58,12 @@ struct Glider {
 #[derive(Component, Default)]
 struct Weapon {
     cooldown: u8,
+    firing: bool,
 }
 
 #[derive(Component)]
 struct Bullet {
     lane: usize,
-    previous_z: f32,
 }
 
 /// A player shot reads as a white-hot core inside a cyan-green glow. The
@@ -121,32 +121,60 @@ fn shot_mesh() -> Mesh {
 #[derive(Resource, Default)]
 struct ShotAssets {
     mesh: Handle<Mesh>,
-    particle: Handle<Mesh>,
     material: Handle<StandardMaterial>,
 }
 
-fn particle_shot_mesh() -> Mesh {
-    // pshot's four diagonal wings, with a bright centre and dim tips.
-    let vertices = [
-        (9., 9.),
-        (5., 7.),
-        (7., 5.),
-        (11., 5.),
-        (13., 7.),
-        (13., 11.),
-        (11., 13.),
-        (7., 13.),
-        (5., 11.),
-    ]
-    .map(|(x, y)| Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, 0.0));
-    colored_mesh([[1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0]].map(|face| {
-        std::array::from_fn(|index| {
+#[derive(Component, Default)]
+struct ParticleShot(Option<Handle<Mesh>>);
+
+fn particle_shot_mesh(
+    position: Vec3,
+    camera: &Transform,
+    projection: &PerspectiveProjection,
+) -> Mesh {
+    let relative = camera.rotation.inverse() * (position - camera.translation);
+    let distance = (-relative.z).max(0.01);
+    let depth = (camera.translation.z - position.z) / (FRONT_RADIUS / 24.0);
+    let phase = depth as i32 as u8;
+    let color = cry::color(
+        explosion::pulse_hue(phase),
+        (255.0 * (1.0 - depth / 325.0).clamp(0.0, 1.0)) as u8,
+    );
+    let dot = 4.0 * distance * (projection.fov * 0.5).tan() * projection.aspect_ratio / 384.0;
+    // draw_pring supplies radius 8; pring's sine multiplication halves it.
+    colored_mesh((0..4).flat_map(|index| {
+        let angle = (phase as f32 + index as f32 * 64.0) * std::f32::consts::TAU / 256.0;
+        let center = Vec3::new(angle.sin(), angle.cos(), 0.0) * (4.0 * FRONT_RADIUS / 24.0);
+        let quad = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].map(|(x, y)| {
             (
-                vertices[face[index]],
-                cry::color(0xaa, [96, 32, 255][index]),
+                camera.rotation * (center + Vec3::new(x * dot * 0.5, y * dot * 0.5, 0.0)),
+                color,
             )
-        })
+        });
+        [[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
     }))
+}
+
+#[allow(clippy::type_complexity)]
+fn draw_particle_shots(
+    mut meshes: ResMut<Assets<Mesh>>,
+    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<ParticleShot>)>,
+    mut shots: Query<(&mut ParticleShot, &mut Mesh3d, &Transform)>,
+) {
+    let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() else {
+        return;
+    };
+    for (mut particle, mut mesh, transform) in &mut shots {
+        let geometry = particle_shot_mesh(transform.translation, camera, projection);
+        if let Some(handle) = &particle.0 {
+            if let Some(existing) = meshes.get_mut(handle) {
+                *existing = geometry;
+            }
+        } else {
+            particle.0 = Some(meshes.add(geometry));
+        }
+        mesh.0 = particle.0.as_ref().unwrap().clone();
+    }
 }
 
 #[derive(Resource)]
@@ -473,7 +501,6 @@ fn setup(
     });
     commands.insert_resource(ShotAssets {
         mesh: meshes.add(shot_mesh()),
-        particle: meshes.add(particle_shot_mesh()),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             unlit: true,
@@ -550,7 +577,7 @@ fn setup(
         },
     ));
     commands.spawn((
-        Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J  Jump    R  Restart    ESC  Quit"),
+        Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit"),
         TextFont {
             font_size: 14.0,
             ..default()
@@ -730,55 +757,57 @@ fn fire_bullets(
     upgrades: Option<Res<Upgrades>>,
 ) {
     let (glider, weapon) = &mut *glider;
-    weapon.cooldown = weapon.cooldown.saturating_sub(1);
-    if !keys.any_pressed([KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space])
-        || weapon.cooldown != 0
-        || bullets.iter().count()
-            >= MAX_BULLETS
-                + if upgrades.as_ref().is_some_and(|u| u.droid) {
-                    8
-                } else {
-                    0
-                }
-    {
+    if !keys.any_pressed([KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space]) {
+        weapon.firing = false;
         return;
     }
-    let lane = selected_lane(glider.progress) as usize;
-    let height = upgrades.as_ref().map_or(0, |u| u.jump_height) as f32 / LANE_UNIT as f32
-        * FRONT_RADIUS
-        / 24.0;
-    let position = glider_transform(glider.progress).translation + Vec3::Z * (height - 0.18);
-    commands.spawn((
-        Bullet {
-            lane,
-            previous_z: position.z,
-        },
-        RenderLayers::layer(1),
-        Mesh3d(if upgrades.as_ref().is_some_and(|u| u.laser) {
-            assets.particle.clone()
-        } else {
-            assets.mesh.clone()
-        }),
-        MeshMaterial3d(assets.material.clone()),
-        Transform::from_translation(position),
-    ));
+    weapon.cooldown = weapon.cooldown.saturating_sub(1);
+    if weapon.cooldown != 0 {
+        return;
+    }
     weapon.cooldown = if upgrades.as_ref().is_some_and(|u| u.laser) {
         3
     } else {
         FIRE_INTERVAL
     };
+    if bullets.iter().count()
+        >= MAX_BULLETS
+            + if upgrades.as_ref().is_some_and(|u| u.droid) {
+                8
+            } else {
+                0
+            }
+    {
+        weapon.firing = false;
+        return;
+    }
+    weapon.firing = true;
+    let lane = selected_lane(glider.progress) as usize;
+    let height = upgrades.as_ref().map_or(0, |u| u.jump_height) as f32 / LANE_UNIT as f32
+        * FRONT_RADIUS
+        / 24.0;
+    let position = glider_transform(glider.progress).translation + Vec3::Z * (height - 0.18);
+    let mut shot = commands.spawn((
+        Bullet { lane },
+        RenderLayers::layer(1),
+        Mesh3d(assets.mesh.clone()),
+        MeshMaterial3d(assets.material.clone()),
+        Transform::from_translation(position),
+    ));
+    if upgrades.as_ref().is_some_and(|u| u.laser) {
+        shot.insert(ParticleShot::default());
+    }
 }
 
 fn move_bullets(
     mut commands: Commands,
-    mut bullets: Query<(Entity, &mut Bullet, &mut Transform)>,
+    mut bullets: Query<(Entity, &Bullet, &mut Transform)>,
     upgrades: Option<Res<Upgrades>>,
 ) {
-    for (entity, mut bullet, mut transform) in &mut bullets {
+    for (entity, bullet, mut transform) in &mut bullets {
         let center = glider_transform(bullet.lane as i32 * LANE_UNIT).translation;
         transform.translation.x = center.x;
         transform.translation.y = center.y;
-        bullet.previous_z = transform.translation.z;
         transform.translation.z -= if upgrades.as_ref().is_some_and(|u| u.laser) {
             4.5 * FRONT_RADIUS / 24.0
         } else {
@@ -1061,6 +1090,45 @@ mod tests {
     }
 
     #[test]
+    fn particle_rings_have_four_separate_screen_sized_dots_and_change_color_with_depth() {
+        let camera = Transform::from_translation(Vec3::new(0.0, 0.0, 5.3))
+            .with_rotation(Quat::from_rotation_y(0.1));
+        let projection = PerspectiveProjection {
+            fov: 1.2,
+            aspect_ratio: 1.294,
+            ..default()
+        };
+        let mut shades = Vec::new();
+        for z in [0.0, -10.0] {
+            let position = Vec3::new(0.0, 0.0, z);
+            let mesh = particle_shot_mesh(position, &camera, &projection);
+            let vertices = mesh
+                .attribute(Mesh::ATTRIBUTE_POSITION)
+                .unwrap()
+                .as_float3()
+                .unwrap();
+            assert_eq!(vertices.len(), 24);
+            for dot in vertices.chunks_exact(6) {
+                let local = |index| camera.rotation.inverse() * Vec3::from_array(dot[index]);
+                let width = (local(1) - local(0)).length();
+                let distance = -(camera.rotation.inverse() * (position - camera.translation)).z;
+                let pixels = width * 384.0
+                    / (2.0 * distance * (projection.fov * 0.5).tan() * projection.aspect_ratio);
+                assert!((pixels - 2.0).abs() < 1e-4);
+                let center = (local(0) + local(2)) * 0.5;
+                assert!((center.length() - 4.0 * FRONT_RADIUS / 24.0).abs() < 1e-5);
+            }
+            let Some(bevy::mesh::VertexAttributeValues::Float32x4(colors)) =
+                mesh.attribute(Mesh::ATTRIBUTE_COLOR)
+            else {
+                panic!("missing particle colors");
+            };
+            shades.push(colors[0]);
+        }
+        assert_ne!(shades[0], shades[1]);
+    }
+
+    #[test]
     fn shot_has_a_white_core_inside_a_cyan_green_glow() {
         let mesh = shot_mesh();
         let colors = match mesh.attribute(Mesh::ATTRIBUTE_COLOR) {
@@ -1135,6 +1203,45 @@ mod tests {
             .release(KeyCode::Enter);
         ticks(&mut app, 8);
         assert_eq!(bullet_count(&mut app), 2);
+        assert!(
+            !app.world_mut()
+                .query::<&Weapon>()
+                .single(app.world())
+                .unwrap()
+                .firing
+        );
+    }
+
+    #[test]
+    fn a_full_magazine_skips_a_shot_instead_of_firing_as_soon_as_a_slot_frees() {
+        let mut app = firing_app(START_PROGRESS, &[KeyCode::Enter]);
+        let slots: Vec<_> = (0..MAX_BULLETS)
+            .map(|_| {
+                app.world_mut()
+                    .spawn((Bullet { lane: 7 }, Transform::default()))
+                    .id()
+            })
+            .collect();
+        ticks(&mut app, 1);
+        app.world_mut().despawn(slots[0]);
+        ticks(&mut app, 3);
+        assert_eq!(bullet_count(&mut app), MAX_BULLETS - 1);
+        assert!(
+            !app.world_mut()
+                .query::<&Weapon>()
+                .single(app.world())
+                .unwrap()
+                .firing
+        );
+        ticks(&mut app, 1);
+        assert_eq!(bullet_count(&mut app), MAX_BULLETS);
+        assert!(
+            app.world_mut()
+                .query::<&Weapon>()
+                .single(app.world())
+                .unwrap()
+                .firing
+        );
     }
 
     #[test]

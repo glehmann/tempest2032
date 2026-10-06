@@ -8,6 +8,7 @@ pub(crate) struct Upgrades {
     pub(crate) jump_enabled: bool,
     pub(crate) jump_height: i32,
     jump_velocity: i32,
+    jump_queued: bool,
     pub(crate) droid: bool,
     warp_tokens: u8,
     frame: u32,
@@ -25,6 +26,7 @@ impl Default for Upgrades {
             jump_enabled: false,
             jump_height: 0,
             jump_velocity: 0,
+            jump_queued: false,
             droid: false,
             warp_tokens: 0,
             frame: 0,
@@ -70,7 +72,7 @@ impl Upgrades {
             }
             2 => {
                 self.jump_enabled = true;
-                self.message("JUMP ENABLED!  J to jump");
+                self.message("JUMP ENABLED!  J / SHIFT to jump");
                 Reward::Jump
             }
             4 if !self.droid => {
@@ -263,6 +265,11 @@ pub(super) fn spawn_drop(
     ));
 }
 
+pub(super) fn queue_jump(keys: Res<ButtonInput<KeyCode>>, mut upgrades: ResMut<Upgrades>) {
+    upgrades.jump_queued |= upgrades.jump_enabled
+        && keys.any_just_pressed([KeyCode::KeyJ, KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+}
+
 pub(super) fn update_jump(
     game: Res<Game>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -272,7 +279,9 @@ pub(super) fn update_jump(
     if game.status != Status::Playing {
         return;
     }
-    if upgrades.jump_velocity == 0 && upgrades.jump_enabled && keys.pressed(KeyCode::KeyJ) {
+    let requested = std::mem::take(&mut upgrades.jump_queued)
+        || keys.any_pressed([KeyCode::KeyJ, KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    if upgrades.jump_height == 0 && upgrades.jump_enabled && requested {
         upgrades.jump_velocity = 2 * LANE_UNIT;
     }
     if upgrades.jump_velocity != 0 {
@@ -393,10 +402,7 @@ pub(super) fn move_droid(
             let mut position = glider_transform(lane as i32 * LANE_UNIT).translation;
             position.z = transform.translation.z;
             commands.spawn((
-                Bullet {
-                    lane,
-                    previous_z: position.z,
-                },
+                Bullet { lane },
                 RenderLayers::layer(1),
                 Mesh3d(assets.shot.clone()),
                 MeshMaterial3d(shots.material.clone()),
@@ -545,7 +551,7 @@ pub(super) fn update_notice(upgrades: Res<Upgrades>, mut hud: Single<&mut Text, 
         "{}{}{}",
         if upgrades.laser { "LASER  " } else { "" },
         if upgrades.jump_enabled {
-            "JUMP [J]  "
+            "JUMP [J / SHIFT]  "
         } else {
             ""
         },
@@ -643,6 +649,47 @@ mod tests {
         assert!(!upgrades.laser && !upgrades.jump_enabled && !upgrades.droid);
         assert_eq!(upgrades.stage, 0);
         assert_eq!(upgrades.warp_tokens, 1);
+    }
+
+    #[test]
+    fn a_jump_tap_between_ticks_is_preserved_while_enter_is_held() {
+        let mut app = App::new();
+        app.insert_resource(Upgrades {
+            jump_enabled: true,
+            laser: true,
+            ..default()
+        })
+        .init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<Game>()
+        .init_resource::<ShotAssets>()
+        .add_systems(PreUpdate, queue_jump)
+        .add_systems(
+            FixedUpdate,
+            (move_glider, update_jump, fire_bullets).chain(),
+        );
+        app.world_mut()
+            .spawn((Glider::default(), Weapon::default(), Transform::default()));
+        for key in [KeyCode::KeyJ, KeyCode::ShiftLeft] {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.press(KeyCode::Enter);
+            keys.press(key);
+            app.world_mut().run_schedule(PreUpdate);
+            app.world_mut()
+                .resource_mut::<ButtonInput<KeyCode>>()
+                .release(key);
+            app.world_mut().run_schedule(FixedUpdate);
+            assert!(app.world().resource::<Upgrades>().jump_height > 0);
+            assert!(
+                app.world_mut()
+                    .query::<&Bullet>()
+                    .iter(app.world())
+                    .next()
+                    .is_some()
+            );
+            let mut upgrades = app.world_mut().resource_mut::<Upgrades>();
+            upgrades.jump_height = 0;
+            upgrades.jump_velocity = 0;
+        }
     }
 
     #[test]
