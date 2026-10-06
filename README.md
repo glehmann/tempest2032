@@ -39,6 +39,7 @@ window backends.
 | Left arrow or A | Move counterclockwise |
 | Right arrow or D | Move clockwise |
 | Enter, numpad Enter, or Space | Fire, hold for repeat fire |
+| J | Jump, after collecting the jump upgrade |
 | R | Restart level one |
 | Escape | Quit |
 
@@ -135,6 +136,49 @@ of invulnerability.
 Press **R** to restart, or replay after clearing the level. This prototype
 replays level one rather than advancing to another web.
 
+## Power-ups
+
+Level one's `pup_stuff` entry is `$0404`, but `stdinit` clears the active byte.
+`changex` decrements it and drops a power-up on underflow. The first kill drops
+one, then kills 6, 11, 16, and 21. A drop replaces that enemy's normal explosion;
+intercepted enemy shots and superzap kills do not advance the drop counter.
+
+`draw_pup1` first shows the `opupring` formation animation: a contracting
+20-dot ring and four expanding 24-dot rings. The pickup stays at the kill's
+lane and depth for 76 ticks while `run_pup` reduces its formation radius from
+300 by four each tick. It then travels toward the rim at `0x18000` depth units
+per tick. Its body uses `pwrlaser`'s two lightning-bolt triangles, hue `$8a`,
+and vertex intensities 128, 192, and 255. Four 12-dot rings trail it at eight-unit
+depth intervals, rotating and changing colour through `pulser`. `src/cry.rs`
+decodes these colours with all three Jaguar TOM channel tables.
+
+Collection requires the player to be grounded in the same lane, with the
+pickup between zero and 32 depth units ahead. The bolt disappears, and the
+four rings expand at five radius units per tick for 49 ticks. A missed pickup
+passes the player and expires 80 units beyond the rim. Missing one leaves the
+reward sequence unchanged.
+
+| Collection | Reward |
+| --- | --- |
+| 1 | Particle laser: four-wing `pshot` bolts, shot speed 4.5 instead of 3.5 units per tick, and a three-tick firing interval instead of four |
+| 2 | Surprise: normally 2,000 points; a 9-in-256 chance of 3,000 points and a level skip |
+| 3 | Jump enabled: J lifts the claw off the rim, avoiding enemies and shots until landing |
+| 4 | Another surprise bonus |
+| 5 | AI droid: a rotating, colour-cycling wireframe cube that seeks the closest enemy, crosses one lane in 16 ticks, fires every six ticks, and adds eight bullet slots |
+| 6 | Superzap plus a warp token |
+| 7 onward | Surprise bonuses |
+
+The jump uses `sclawr`'s initial velocity of two units per tick and acceleration
+`0xc11`; the camera follows its height. Losing a life removes the laser, jump,
+and droid and restarts the collection sequence. Restarting with R clears all
+power-ups. The wave waits for remaining pickups to be collected or missed
+before displaying level clear.
+
+The original enters a bonus round after accumulating three warp tokens across
+waves. Token tracking is included here, but this prototype still replays level
+one and has no bonus-round transition. Level one's 25 enemies normally provide
+at most five drops.
+
 ## Development
 
 The background stars move continuously toward the viewer. `gamefx` advances
@@ -156,7 +200,9 @@ cargo clippy -- -D warnings
 `src/enemies.rs` contains the Flipper geometry, wave generator, enemy state
 machine, collisions, score, and lives. `src/explosion.rs` contains the death
 rings, the sine table, and the CRY palette lookup behind them. `src/stars.rs`
-contains the moving background star field. The prototype has no audio or power-ups.
+contains the moving background star field. `src/powerups.rs`, a child module of
+`enemies`, contains drops, collection effects, rewards, jumping, and the droid.
+The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
 
@@ -209,6 +255,10 @@ The source references used for this prototype are in the original game's
 - `dpring`, `draw_prex`, and `run_prex` build, draw, and age the ring explosion.
 - `pulser` reads `dat/sines.dat` to pick each ring's colour.
 - `pring2` in `src/gpu/xcamel.gas` plots a ring a pixel at a time.
+- `pup_stuff`, `changex`, and `run_pup` control drops and collection.
+- `draw_pup1`, `opupring`, `pupring`, and `pwrlaser` define the pickup visuals.
+- `pupvex`, `hilaser`, `suprise`, `jenab`, `addroid`, and `sprzap` define rewards.
+- `sclawr`, `mkdroid`, and `rundroid` implement jumping and droid assistance.
 
 `pring2` also computes `255 - radius >> 16` as a ring's intensity, which looks
 like a fade as the ring grows. It cannot be one: by that point it has already

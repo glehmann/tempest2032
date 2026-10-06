@@ -4,6 +4,9 @@ use super::*;
 
 use crate::explosion;
 
+#[path = "powerups.rs"]
+pub(crate) mod powerups;
+
 const WORLD_UNIT: f32 = FRONT_RADIUS / 24.0;
 const REAR: i32 = 160 * LANE_UNIT;
 const FLIPPER_SPEED: i32 = 0xa000;
@@ -59,7 +62,7 @@ enum Motion {
 }
 
 #[derive(Component, Debug)]
-struct Flipper {
+pub(crate) struct Flipper {
     lane: usize,
     depth: i32,
     motion: Motion,
@@ -74,6 +77,10 @@ struct EnemyShot {
 }
 
 impl Flipper {
+    pub(crate) fn preview_target(&self) -> Option<(usize, i32)> {
+        self.hit_lane().map(|lane| (lane, self.depth))
+    }
+
     fn hit_lane(&self) -> Option<usize> {
         match self.motion {
             Motion::Approach => None,
@@ -105,10 +112,12 @@ struct GameHud;
 
 pub(super) fn add_systems(app: &mut App) {
     app.init_resource::<Game>()
+        .init_resource::<powerups::Upgrades>()
         .add_systems(
             FixedUpdate,
             (
                 move_glider.run_if(playing),
+                powerups::update_jump,
                 animate_glider,
                 update_lane,
                 follow_glider,
@@ -117,17 +126,27 @@ pub(super) fn add_systems(app: &mut App) {
                 spawn_enemies,
                 move_enemies,
                 move_enemy_shots,
+                resolve_hits,
+                fire_enemy_shots,
+                powerups::advance_powerups,
+                powerups::move_droid,
+                explosion::age_explosions,
+                check_game,
             )
                 .chain(),
         )
-        .add_systems(FixedUpdate, (resolve_hits, fire_enemy_shots).chain())
-        .add_systems(FixedUpdate, explosion::age_explosions)
-        .add_systems(FixedUpdate, check_game)
         .add_systems(
             Update,
             (fit_camera, quit_on_escape, restart_game, update_hud).chain(),
         )
-        .add_systems(Update, draw_approaching_flippers.after(fit_camera));
+        .add_systems(Update, draw_approaching_flippers.after(fit_camera))
+        .add_systems(
+            Update,
+            (
+                powerups::draw_powerups.after(fit_camera),
+                powerups::update_notice,
+            ),
+        );
 }
 
 fn playing(game: Res<Game>) -> bool {
@@ -208,6 +227,7 @@ pub(super) fn setup(
     materials: &mut Assets<StandardMaterial>,
 ) {
     explosion::setup(commands, meshes, materials);
+    powerups::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh()),
         point: meshes.add(Rectangle::new(1.0, 1.0)),
@@ -479,10 +499,13 @@ fn move_enemy_shots(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn resolve_hits(
     mut commands: Commands,
     mut game: ResMut<Game>,
     bursts: Res<explosion::BurstAssets>,
+    mut upgrades: ResMut<powerups::Upgrades>,
+    power_assets: Res<powerups::PowerAssets>,
     bullets: Query<(Entity, &Bullet, &Transform)>,
     enemies: Query<(Entity, &Flipper, &Transform)>,
     enemy_shots: Query<(Entity, &EnemyShot)>,
@@ -506,7 +529,12 @@ fn resolve_hits(
                     && intersects(flipper.lane, flipper.depth)
             })
             .map(|(entity, flipper, transform)| {
-                (entity, flipper.depth, 150, Some(transform.translation))
+                (
+                    entity,
+                    flipper.depth,
+                    150,
+                    Some((flipper.lane, transform.translation)),
+                )
             })
             .chain(
                 enemy_shots
@@ -514,16 +542,20 @@ fn resolve_hits(
                     .filter(|(entity, shot)| {
                         !killed.contains(entity) && intersects(shot.lane, shot.depth)
                     })
-                    .map(|(entity, shot)| (entity, shot.depth, 0, None::<Vec3>)),
+                    .map(|(entity, shot)| (entity, shot.depth, 0, None)),
             )
             .min_by_key(|(_, depth, _, _)| *depth);
-        if let Some((entity, _, points, centre)) = hit {
+        if let Some((entity, depth, points, centre)) = hit {
             commands.entity(shot).despawn();
             commands.entity(entity).despawn();
             killed.insert(entity);
             game.score += points;
-            if let Some(centre) = centre {
-                explosion::spawn_explosion(&mut commands, &bursts, centre);
+            if let Some((lane, centre)) = centre {
+                if upgrades.drop_due() {
+                    powerups::spawn_drop(&mut commands, &mut upgrades, &power_assets, lane, depth);
+                } else {
+                    explosion::spawn_explosion(&mut commands, &bursts, centre);
+                }
             }
         }
     }
@@ -536,13 +568,17 @@ fn reset_wave(game: &mut Game) {
     game.fire_timer = 112;
 }
 
+#[allow(clippy::too_many_arguments)]
 fn check_game(
     mut commands: Commands,
     mut game: ResMut<Game>,
+    mut upgrades: ResMut<powerups::Upgrades>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
     enemies: Query<(Entity, &Flipper)>,
     bullets: Query<Entity, With<Bullet>>,
     enemy_shots: Query<(Entity, &EnemyShot)>,
+    pickups: Query<(Entity, &powerups::PowerUp)>,
+    droids: Query<Entity, With<powerups::Droid>>,
 ) {
     if game.status != Status::Playing {
         return;
@@ -555,14 +591,21 @@ fn check_game(
         } else {
             Visibility::Visible
         };
-    } else if enemies
-        .iter()
-        .any(|(_, flipper)| flipper.danger_lane() == Some(selected_lane(glider.progress) as usize))
-        || enemy_shots.iter().any(|(_, shot)| {
+    } else if upgrades.jump_height == 0
+        && (enemies.iter().any(|(_, flipper)| {
+            flipper.danger_lane() == Some(selected_lane(glider.progress) as usize)
+        }) || enemy_shots.iter().any(|(_, shot)| {
             shot.lane == selected_lane(glider.progress) as usize && shot.depth <= 2 * LANE_UNIT
-        })
+        }))
     {
         game.lives -= 1;
+        upgrades.lose_life();
+        for (entity, _) in &pickups {
+            commands.entity(entity).despawn();
+        }
+        for entity in &droids {
+            commands.entity(entity).despawn();
+        }
         for (entity, _) in &enemies {
             commands.entity(entity).despawn();
         }
@@ -584,19 +627,26 @@ fn check_game(
         }
         return;
     }
-    if game.remaining == 0 && enemies.is_empty() && enemy_shots.is_empty() {
+    if game.remaining == 0
+        && enemies.is_empty()
+        && enemy_shots.is_empty()
+        && pickups.iter().all(|(_, pickup)| pickup.captured)
+    {
         game.status = Status::Clear;
     }
 }
 
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn restart_game(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut game: ResMut<Game>,
+    mut upgrades: ResMut<powerups::Upgrades>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
     enemies: Query<Entity, With<Flipper>>,
     bullets: Query<Entity, With<Bullet>>,
     enemy_shots: Query<Entity, With<EnemyShot>>,
+    powers: Query<Entity, Or<(With<powerups::PowerUp>, With<powerups::Droid>)>>,
 ) {
     if !keys.just_pressed(KeyCode::KeyR) {
         return;
@@ -605,10 +655,12 @@ fn restart_game(
         .iter()
         .chain(bullets.iter())
         .chain(enemy_shots.iter())
+        .chain(powers.iter())
     {
         commands.entity(entity).despawn();
     }
     *game = Game::default();
+    *upgrades = powerups::Upgrades::default();
     let (glider, weapon, transform, visibility) = &mut *player;
     glider.progress = START_PROGRESS;
     glider.velocity = 0;
@@ -664,9 +716,33 @@ mod tests {
         assert_eq!(style(700.0).1, 0);
     }
 
+    #[test]
+    fn jumping_avoids_rim_contact_but_landing_restores_the_collision() {
+        let mut app = app();
+        app.add_systems(FixedUpdate, check_game);
+        app.world_mut()
+            .resource_mut::<powerups::Upgrades>()
+            .jump_height = LANE_UNIT;
+        app.world_mut().spawn(Flipper {
+            lane: selected_lane(START_PROGRESS) as usize,
+            depth: 0,
+            motion: Motion::Pause(1),
+            pause: 0,
+        });
+        app.world_mut().run_schedule(FixedUpdate);
+        assert_eq!(app.world().resource::<Game>().lives, 3);
+        app.world_mut()
+            .resource_mut::<powerups::Upgrades>()
+            .jump_height = 0;
+        app.world_mut().run_schedule(FixedUpdate);
+        assert_eq!(app.world().resource::<Game>().lives, 2);
+    }
+
     fn app() -> App {
         let mut app = App::new();
         app.init_resource::<Game>()
+            .init_resource::<powerups::Upgrades>()
+            .init_resource::<powerups::PowerAssets>()
             .init_resource::<FlipperAssets>()
             .init_resource::<explosion::BurstAssets>()
             .init_resource::<ButtonInput<KeyCode>>();
@@ -848,6 +924,17 @@ mod tests {
         ticks(&mut app, 1);
         assert_eq!(app.world().resource::<Game>().score, 150);
         assert_eq!(
+            app.world_mut()
+                .query::<&powerups::PowerUp>()
+                .iter(app.world())
+                .count(),
+            1
+        );
+        assert!(
+            !app.world().resource::<powerups::Upgrades>().laser,
+            "a drop must be collected first"
+        );
+        assert_eq!(
             app.world_mut().query::<&Bullet>().iter(app.world()).count(),
             1
         );
@@ -884,6 +971,22 @@ mod tests {
         ticks(&mut app, 1);
         assert!(app.world().resource::<Game>().status == Status::Playing);
         app.world_mut().despawn(id);
+        powerups::spawn_drop(
+            &mut app.world_mut().commands(),
+            &mut powerups::Upgrades::default(),
+            &powerups::PowerAssets::default(),
+            1,
+            REAR,
+        );
+        app.world_mut().flush();
+        ticks(&mut app, 1);
+        assert!(app.world().resource::<Game>().status == Status::Playing);
+        let pickup = app
+            .world_mut()
+            .query_filtered::<Entity, With<powerups::PowerUp>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut().despawn(pickup);
         ticks(&mut app, 1);
         assert!(app.world().resource::<Game>().status == Status::Clear);
     }
@@ -895,6 +998,15 @@ mod tests {
         app.world_mut().resource_mut::<Game>().status = Status::GameOver;
         app.world_mut().resource_mut::<Game>().score = 150;
         enemy(&mut app, 3, REAR, Motion::Climb);
+        app.world_mut().resource_mut::<powerups::Upgrades>().laser = true;
+        powerups::spawn_drop(
+            &mut app.world_mut().commands(),
+            &mut powerups::Upgrades::default(),
+            &powerups::PowerAssets::default(),
+            3,
+            REAR,
+        );
+        app.world_mut().flush();
         app.world_mut().spawn(Bullet {
             lane: 2,
             previous_z: 0.0,
@@ -905,6 +1017,14 @@ mod tests {
         ticks(&mut app, 1);
         assert_eq!(app.world().resource::<Game>().score, 0);
         assert_eq!(app.world().resource::<Game>().lives, 3);
+        assert!(!app.world().resource::<powerups::Upgrades>().laser);
+        assert_eq!(
+            app.world_mut()
+                .query::<&powerups::PowerUp>()
+                .iter(app.world())
+                .count(),
+            0
+        );
         assert!(app.world().resource::<Game>().status == Status::Playing);
         assert!(
             app.world_mut()

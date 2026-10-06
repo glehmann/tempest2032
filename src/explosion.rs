@@ -81,7 +81,7 @@ const GREEN: [[u8; 16]; 16] = [
 
 /// `pulser`: the hue's cyan nibble comes from the sine table at the radius, and
 /// its red nibble from the table a quarter turn ahead.
-fn pulse_hue(counter: u8) -> u8 {
+pub(super) fn pulse_hue(counter: u8) -> u8 {
     let cyan = (SINES[counter as usize] as i32 + 0x80) & 0xf0;
     let red = (SINES[(counter.wrapping_add(0x40)) as usize] as i32 + 0x80) >> 4 & 0x0f;
     (cyan | red) as u8

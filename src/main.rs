@@ -8,9 +8,12 @@ use bevy::{
     window::PrimaryWindow,
 };
 
+mod cry;
 mod enemies;
 mod explosion;
 mod stars;
+
+use enemies::powerups::Upgrades;
 
 const LANES: usize = 16;
 const FRONT_RADIUS: f32 = 4.0;
@@ -118,7 +121,32 @@ fn shot_mesh() -> Mesh {
 #[derive(Resource, Default)]
 struct ShotAssets {
     mesh: Handle<Mesh>,
+    particle: Handle<Mesh>,
     material: Handle<StandardMaterial>,
+}
+
+fn particle_shot_mesh() -> Mesh {
+    // pshot's four diagonal wings, with a bright centre and dim tips.
+    let vertices = [
+        (9., 9.),
+        (5., 7.),
+        (7., 5.),
+        (11., 5.),
+        (13., 7.),
+        (13., 11.),
+        (11., 13.),
+        (7., 13.),
+        (5., 11.),
+    ]
+    .map(|(x, y)| Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, 0.0));
+    colored_mesh([[1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0]].map(|face| {
+        std::array::from_fn(|index| {
+            (
+                vertices[face[index]],
+                cry::color(0xaa, [96, 32, 255][index]),
+            )
+        })
+    }))
 }
 
 #[derive(Resource)]
@@ -214,7 +242,7 @@ fn glider_transform(progress: i32) -> Transform {
 fn camera_position(glider: Vec3) -> Vec3 {
     let initial = glider_transform(START_PROGRESS).translation;
     Vec3::new(-0.3 + initial.x * 0.15, -0.95 + initial.y * 0.15, 5.3)
-        + (glider - initial) * Vec3::new(0.5, 0.5, 0.0)
+        + (glider - initial) * Vec3::new(0.5, 0.5, 1.0)
 }
 
 fn colored_mesh(triangles: impl IntoIterator<Item = [(Vec3, Color); 3]>) -> Mesh {
@@ -445,6 +473,7 @@ fn setup(
     });
     commands.insert_resource(ShotAssets {
         mesh: meshes.add(shot_mesh()),
+        particle: meshes.add(particle_shot_mesh()),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             unlit: true,
@@ -521,7 +550,7 @@ fn setup(
         },
     ));
     commands.spawn((
-        Text::new("LEFT / RIGHT or A / D    Move     ENTER / SPACE    Fire     R    Restart     ESC    Quit"),
+        Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J  Jump    R  Restart    ESC  Quit"),
         TextFont {
             font_size: 14.0,
             ..default()
@@ -570,8 +599,10 @@ fn follow_glider(
     mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
 ) {
     for mut transform in &mut cameras {
-        let delta = camera_position(glider.translation) - transform.translation;
+        let target = camera_position(glider.translation);
+        let delta = target - transform.translation;
         transform.translation += delta.clamp(Vec3::splat(-CAMERA_STEP), Vec3::splat(CAMERA_STEP));
+        transform.translation.z = target.z;
     }
 }
 
@@ -602,17 +633,50 @@ fn capture_frame(mut commands: Commands, path: Res<CapturePath>, mut frames: Loc
     }
 }
 
-fn preview_input(mut capture: ResMut<MotionCapture>, mut keys: ResMut<ButtonInput<KeyCode>>) {
+fn preview_input(
+    mut capture: ResMut<MotionCapture>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+    player: Single<&Glider>,
+    pickups: Query<&enemies::powerups::PowerUp>,
+    enemies: Query<&enemies::Flipper>,
+    upgrades: Res<Upgrades>,
+) {
     keys.release(KeyCode::KeyD);
     keys.release(KeyCode::KeyA);
     keys.release(KeyCode::Space);
+    keys.release(KeyCode::KeyJ);
+    if upgrades.jump_enabled && pickups.is_empty() && capture.tick.is_multiple_of(120) {
+        keys.press(KeyCode::KeyJ);
+    }
     if (30..capture.end_tick.saturating_sub(30)).contains(&capture.tick) {
         keys.press(KeyCode::Space);
     }
-    match capture.tick % 360 {
-        60..90 | 240..300 => keys.press(KeyCode::KeyD),
-        150..180 => keys.press(KeyCode::KeyA),
-        _ => {}
+    let target = pickups
+        .iter()
+        .find_map(|pickup| pickup.preview_lane())
+        .or_else(|| {
+            enemies
+                .iter()
+                .filter_map(|enemy| enemy.preview_target())
+                .min_by_key(|(_, depth)| *depth)
+                .map(|(lane, _)| lane)
+        });
+    if let Some(target) = target {
+        let lane = selected_lane(player.progress) as usize;
+        let clockwise = (target + LANES - lane) % LANES;
+        if clockwise > 0 {
+            keys.press(if clockwise < LANES / 2 {
+                KeyCode::KeyD
+            } else {
+                KeyCode::KeyA
+            });
+        }
+    } else {
+        match capture.tick % 360 {
+            60..90 | 240..300 => keys.press(KeyCode::KeyD),
+            150..180 => keys.press(KeyCode::KeyA),
+            _ => {}
+        }
     }
     capture.tick += 1;
 }
@@ -662,37 +726,63 @@ fn fire_bullets(
     assets: Res<ShotAssets>,
     mut glider: Single<(&Glider, &mut Weapon)>,
     bullets: Query<&Bullet>,
+    upgrades: Option<Res<Upgrades>>,
 ) {
     let (glider, weapon) = &mut *glider;
     weapon.cooldown = weapon.cooldown.saturating_sub(1);
     if !keys.any_pressed([KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space])
         || weapon.cooldown != 0
-        || bullets.iter().count() >= MAX_BULLETS
+        || bullets.iter().count()
+            >= MAX_BULLETS
+                + if upgrades.as_ref().is_some_and(|u| u.droid) {
+                    8
+                } else {
+                    0
+                }
     {
         return;
     }
     let lane = selected_lane(glider.progress) as usize;
-    let position = glider_transform(glider.progress).translation - Vec3::Z * 0.18;
+    let height = upgrades.as_ref().map_or(0, |u| u.jump_height) as f32 / LANE_UNIT as f32
+        * FRONT_RADIUS
+        / 24.0;
+    let position = glider_transform(glider.progress).translation + Vec3::Z * (height - 0.18);
     commands.spawn((
         Bullet {
             lane,
             previous_z: position.z,
         },
         RenderLayers::layer(1),
-        Mesh3d(assets.mesh.clone()),
+        Mesh3d(if upgrades.as_ref().is_some_and(|u| u.laser) {
+            assets.particle.clone()
+        } else {
+            assets.mesh.clone()
+        }),
         MeshMaterial3d(assets.material.clone()),
         Transform::from_translation(position),
     ));
-    weapon.cooldown = FIRE_INTERVAL;
+    weapon.cooldown = if upgrades.as_ref().is_some_and(|u| u.laser) {
+        3
+    } else {
+        FIRE_INTERVAL
+    };
 }
 
-fn move_bullets(mut commands: Commands, mut bullets: Query<(Entity, &mut Bullet, &mut Transform)>) {
+fn move_bullets(
+    mut commands: Commands,
+    mut bullets: Query<(Entity, &mut Bullet, &mut Transform)>,
+    upgrades: Option<Res<Upgrades>>,
+) {
     for (entity, mut bullet, mut transform) in &mut bullets {
         let center = glider_transform(bullet.lane as i32 * LANE_UNIT).translation;
         transform.translation.x = center.x;
         transform.translation.y = center.y;
         bullet.previous_z = transform.translation.z;
-        transform.translation.z -= BULLET_STEP;
+        transform.translation.z -= if upgrades.as_ref().is_some_and(|u| u.laser) {
+            4.5 * FRONT_RADIUS / 24.0
+        } else {
+            BULLET_STEP
+        };
         if transform.translation.z <= -DEPTH {
             commands.entity(entity).despawn();
         }
@@ -1020,6 +1110,25 @@ mod tests {
             .release(KeyCode::Enter);
         ticks(&mut app, 8);
         assert_eq!(bullet_count(&mut app), 2);
+    }
+
+    #[test]
+    fn particle_laser_increases_fire_rate_and_shot_speed() {
+        let mut app = firing_app(START_PROGRESS, &[KeyCode::Space]);
+        let mut upgrades = Upgrades::default();
+        upgrades.laser = true;
+        app.insert_resource(upgrades);
+        ticks(&mut app, 1);
+        let shot = app
+            .world_mut()
+            .query_filtered::<Entity, With<Bullet>>()
+            .single(app.world())
+            .unwrap();
+        let start = app.world().get::<Transform>(shot).unwrap().translation.z;
+        ticks(&mut app, 3);
+        assert_eq!(bullet_count(&mut app), 2);
+        let position = app.world().get::<Transform>(shot).unwrap().translation.z;
+        assert!((start - position - 3.0 * 4.5 * FRONT_RADIUS / 24.0).abs() < 1e-5);
     }
 
     #[test]
