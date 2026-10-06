@@ -101,6 +101,8 @@ no Rust changes are needed. The supplied levels are:
 - `levels/13.toml`: T2K's open giraffe-neck `web20`, with thirteen lanes and
   `0xAC00` Flippers. This mode-specific selection differs from classic `web15`.
   Fuseballs climb at `0x8800` and repeat every 601 ticks.
+- `levels/14.toml`: the open distorted-W `web6`, with fifteen lanes and
+  Flippers every 76 ticks. The local flat sections retain their source angles.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current

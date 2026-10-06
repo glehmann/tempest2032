@@ -535,6 +535,17 @@ mod tests {
     }
 
     #[test]
+    fn original_level_fourteen_has_the_distorted_w_and_shorter_flipper_interval() {
+        let level = Level::parse(include_str!("../levels/14.toml"), "level14").unwrap();
+        assert!(!level.web.closed);
+        assert_eq!(level.web.lanes(), 15);
+        assert_eq!(level.web.start_lane, 8);
+        assert_eq!(level.flippers.spawn_interval_ticks, 76);
+        assert_eq!(level.web.vertices[5], [13., 11.]);
+        assert_eq!(level.tankers.as_ref().unwrap().super_chance, 52);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);
