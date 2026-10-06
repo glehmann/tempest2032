@@ -32,6 +32,23 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 and a Vulkan-capable graphics driver. Windows and macOS use their native
 window backends.
 
+## Level entry
+
+The level begins with the original `setweb` and `rotate_web` sequence: a
+wireframe web approaches from 256 depth units away at one unit per tick. Over
+256 ticks its XZ rotation makes a full turn, while its YZ rotation advances
+from half a turn to a full turn. It rotates around the tunnel's centre, leaving
+the camera and stars independent of the web.
+
+Once the web settles, its blue faces fade in by eight intensity steps per tick
+to 248. The claw rezzes over 64 ticks using `srezclaw`, `dsclaw2`, and `draw_z`:
+the original `claw1` through `claw8` outlines draw at four coloured depths,
+with the spacing contracting from 16 depth units to zero. Movement and firing
+are available during this effect; the enemy wave starts counting down as soon
+as the web settles. The solid claw replaces the outlines when rezzing ends.
+
+Restarting with R and re-entering after a lost life replay this sequence.
+
 ## Controls
 
 | Key | Action |
@@ -230,6 +247,7 @@ machine, collisions, score, and lives. `src/explosion.rs` contains the death
 rings, the sine table, and the CRY palette lookup behind them. `src/stars.rs`
 contains the moving background star field. `src/powerups.rs`, a child module of
 `enemies`, contains drops, collection effects, rewards, jumping, and the droid.
+`src/entry.rs` contains the approaching web and wireframe claw entry animation.
 The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
@@ -240,8 +258,8 @@ To capture the level for visual comparisons, run:
 cargo run -- --screenshot target/level-01.png
 ```
 
-The app saves the window after 60 frames and exits. The output directory
-must already exist.
+The app saves the window 60 visible-claw frames after the entry animation and
+exits. The output directory must already exist.
 
 To record a scripted movement comparison, run:
 
@@ -250,8 +268,9 @@ cargo run -- --record-motion target/motion
 ffmpeg -framerate 30 -i target/motion/%04d.png -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -pix_fmt yuv420p target/motion.mp4
 ```
 
-The six-second sequence includes firing, acceleration in both directions,
-stopping, wrapping, and camera settling. It saves screenshots roughly every two
+The recording starts with level entry, then scripted movement and firing.
+Its default duration is six seconds, including the 4.27-second web approach.
+It saves screenshots roughly every two
 simulation ticks, then exits. Use a fresh output directory for each recording.
 The encoded video is a visual preview; screenshot timing can vary with GPU load.
 An optional duration extends the capture, for example
@@ -269,6 +288,8 @@ The source references used for this prototype are in the original game's
 - `clawcon` accelerates the claw and stops it before reversing direction.
 - `domove` positions the claw at the selected lane's midpoint.
 - `sclaw0` through `sclaw7` define the solid claw's movement poses.
+- `setweb`, `rotate_web`, `srezclaw`, `dsclaw2`, and `draw_z` define level entry
+  and the contracting wireframe claw trails.
 - `dsclaw` selects one of those eight poses from the fractional lane position.
 - `sclawr`, `frab`, and `player_shot` control repeat firing and shot travel.
 - `_nw1`, `setnewgen`, and `newgen` define level-one enemies and spawn timing.

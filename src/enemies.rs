@@ -7,6 +7,9 @@ use crate::explosion;
 #[path = "powerups.rs"]
 pub(crate) mod powerups;
 
+#[path = "entry.rs"]
+pub(crate) mod entry;
+
 const WORLD_UNIT: f32 = FRONT_RADIUS / 24.0;
 const REAR: i32 = 160 * LANE_UNIT;
 const FLIPPER_SPEED: i32 = 0xa000;
@@ -18,6 +21,7 @@ const MAX_FLIPPERS: usize = 11;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Status {
+    Entering,
     Playing,
     Captured,
     Respawning,
@@ -43,6 +47,7 @@ struct Game {
     random: u32,
     fire_timer: u8,
     capture: Option<Capture>,
+    entry: Option<u16>,
 }
 
 impl Default for Game {
@@ -58,6 +63,7 @@ impl Default for Game {
             random: 0x2000,
             fire_timer: 112,
             capture: None,
+            entry: None,
         }
     }
 }
@@ -125,48 +131,56 @@ struct FlipperAssets {
 struct GameHud;
 
 pub(super) fn add_systems(app: &mut App) {
-    app.init_resource::<Game>()
-        .init_resource::<powerups::Upgrades>()
-        .add_systems(
-            PreUpdate,
-            powerups::queue_jump.after(bevy::input::InputSystems),
+    app.insert_resource(Game {
+        status: Status::Entering,
+        entry: Some(0),
+        ..default()
+    })
+    .init_resource::<powerups::Upgrades>()
+    .add_systems(
+        PreUpdate,
+        powerups::queue_jump.after(bevy::input::InputSystems),
+    )
+    .add_systems(
+        FixedUpdate,
+        (
+            move_glider.run_if(playing),
+            powerups::update_jump,
+            animate_glider,
+            update_lane,
+            follow_glider.run_if(|game: Res<Game>| {
+                !matches!(game.status, Status::Entering | Status::Captured)
+            }),
+            move_bullets,
+            fire_bullets.run_if(playing),
+            spawn_enemies,
+            move_enemies,
+            move_enemy_shots,
+            resolve_hits,
+            fire_enemy_shots,
+            powerups::advance_powerups,
+            powerups::move_droid,
+            explosion::age_explosions,
+            entry::advance,
+            animate_capture,
+            check_game,
         )
-        .add_systems(
-            FixedUpdate,
-            (
-                move_glider.run_if(playing),
-                powerups::update_jump,
-                animate_glider,
-                update_lane,
-                follow_glider.run_if(|game: Res<Game>| game.status != Status::Captured),
-                move_bullets,
-                fire_bullets.run_if(playing),
-                spawn_enemies,
-                move_enemies,
-                move_enemy_shots,
-                resolve_hits,
-                fire_enemy_shots,
-                powerups::advance_powerups,
-                powerups::move_droid,
-                explosion::age_explosions,
-                animate_capture,
-                check_game,
-            )
-                .chain(),
-        )
-        .add_systems(
-            Update,
-            (fit_camera, quit_on_escape, restart_game, update_hud).chain(),
-        )
-        .add_systems(Update, draw_approaching_flippers.after(fit_camera))
-        .add_systems(Update, draw_particle_shots.after(fit_camera))
-        .add_systems(
-            Update,
-            (
-                powerups::draw_powerups.after(fit_camera),
-                powerups::update_notice,
-            ),
-        );
+            .chain(),
+    )
+    .add_systems(
+        Update,
+        (fit_camera, quit_on_escape, restart_game, update_hud).chain(),
+    )
+    .add_systems(Update, draw_approaching_flippers.after(fit_camera))
+    .add_systems(Update, draw_particle_shots.after(fit_camera))
+    .add_systems(
+        Update,
+        (
+            powerups::draw_powerups.after(fit_camera),
+            entry::draw.after(restart_game),
+            powerups::update_notice,
+        ),
+    );
 }
 
 fn playing(game: Res<Game>) -> bool {
@@ -590,7 +604,8 @@ fn resolve_hits(
 fn reset_wave(game: &mut Game) {
     game.remaining = 25;
     game.spawn_timer = 60;
-    game.status = Status::Playing;
+    game.status = Status::Entering;
+    game.entry = Some(0);
     game.fire_timer = 112;
 }
 
@@ -645,6 +660,9 @@ fn check_game(
     droids: Query<Entity, With<powerups::Droid>>,
 ) {
     if !matches!(game.status, Status::Playing | Status::Respawning) {
+        return;
+    }
+    if game.entry.is_some_and(|tick| tick <= 256) {
         return;
     }
     let (glider, weapon, transform, visibility) = &mut *player;
@@ -749,6 +767,7 @@ fn restart_game(
         commands.entity(entity).despawn();
     }
     *game = Game::default();
+    reset_wave(&mut game);
     *upgrades = powerups::Upgrades::default();
     let (glider, weapon, transform, visibility) = &mut *player;
     glider.progress = START_PROGRESS;
@@ -766,7 +785,7 @@ fn update_hud(game: Res<Game>, mut hud: Single<&mut Text, With<GameHud>>) {
         return;
     }
     let status = match game.status {
-        Status::Playing => "",
+        Status::Entering | Status::Playing => "",
         Status::Captured | Status::Respawning => "\nCAUGHT YOU",
         Status::Clear => "\nLEVEL CLEAR   R to replay",
         Status::GameOver => "\nGAME OVER   R to restart",
@@ -841,7 +860,10 @@ mod tests {
             .init_resource::<FlipperAssets>()
             .init_resource::<explosion::BurstAssets>()
             .init_resource::<ButtonInput<KeyCode>>()
-            .add_systems(FixedUpdate, animate_capture.before(check_game));
+            .add_systems(
+                FixedUpdate,
+                (entry::advance, animate_capture).chain().before(check_game),
+            );
         app.world_mut().spawn((
             Glider {
                 progress: START_PROGRESS,
@@ -1373,7 +1395,7 @@ mod tests {
         assert_eq!(app.world().resource::<Game>().lives, 3);
         ticks(&mut app, 1);
         let game = app.world().resource::<Game>();
-        assert!(game.status == Status::Playing);
+        assert!(game.status == Status::Entering);
         assert_eq!(game.lives, 2);
         assert_eq!(game.invulnerable, 120);
         assert!(game.capture.is_none());
@@ -1408,7 +1430,7 @@ mod tests {
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(KeyCode::KeyR);
         ticks(&mut app, 1);
-        assert!(app.world().resource::<Game>().status == Status::Playing);
+        assert!(app.world().resource::<Game>().status == Status::Entering);
         assert!(app.world().resource::<Game>().capture.is_none());
         assert_eq!(app.world().resource::<Game>().lives, 3);
         assert_eq!(
@@ -1435,12 +1457,14 @@ mod tests {
         assert_eq!(game.lives, 2);
         assert_eq!(game.score, 300);
         assert_eq!(game.invulnerable, 120);
+        ticks(&mut app, 256);
         enemy(&mut app, 7, 0, Motion::Pause(4));
         ticks(&mut app, 120);
         assert_eq!(app.world().resource::<Game>().lives, 2);
         ticks(&mut app, 1);
         finish_capture(&mut app);
         assert_eq!(app.world().resource::<Game>().lives, 1);
+        ticks(&mut app, 256);
         app.world_mut().resource_mut::<Game>().invulnerable = 0;
         enemy(&mut app, 7, 0, Motion::Pause(4));
         ticks(&mut app, 1);
@@ -1508,7 +1532,7 @@ mod tests {
                 .count(),
             0
         );
-        assert!(app.world().resource::<Game>().status == Status::Playing);
+        assert!(app.world().resource::<Game>().status == Status::Entering);
         assert!(
             app.world_mut()
                 .query::<&Flipper>()

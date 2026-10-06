@@ -499,6 +499,7 @@ fn setup(
         unlit: true,
         ..default()
     });
+    let (web, surface) = enemies::entry::setup(&mut commands, &mut meshes, &mut materials);
     commands.insert_resource(ShotAssets {
         mesh: meshes.add(shot_mesh()),
         material: materials.add(StandardMaterial {
@@ -511,11 +512,13 @@ fn setup(
 
     commands.spawn((
         Mesh3d(meshes.add(tunnel_mesh())),
-        MeshMaterial3d(vertex_material.clone()),
+        MeshMaterial3d(surface),
+        ChildOf(web),
     ));
     for lane in 0..LANES {
         let lane = lane as f32;
         commands.spawn((
+            ChildOf(web),
             Mesh3d(beam.clone()),
             MeshMaterial3d(blue.clone()),
             segment_transform(
@@ -526,6 +529,7 @@ fn setup(
         ));
         for z in [0.0, -DEPTH] {
             commands.spawn((
+                ChildOf(web),
                 Mesh3d(beam.clone()),
                 MeshMaterial3d(blue.clone()),
                 segment_transform(
@@ -539,6 +543,7 @@ fn setup(
 
     for edge in 0..2 {
         commands.spawn((
+            ChildOf(web),
             LaneHighlight(edge),
             Mesh3d(beam.clone()),
             MeshMaterial3d(yellow.clone()),
@@ -552,7 +557,7 @@ fn setup(
             velocity: 0,
         },
         Weapon::default(),
-        Visibility::Visible,
+        Visibility::Hidden,
         RenderLayers::layer(1),
         glider_transform(START_PROGRESS),
         Mesh3d(frames.0[claw_frame(START_PROGRESS)].clone()),
@@ -646,7 +651,15 @@ fn fit_camera(
     }
 }
 
-fn capture_frame(mut commands: Commands, path: Res<CapturePath>, mut frames: Local<u32>) {
+fn capture_frame(
+    mut commands: Commands,
+    path: Res<CapturePath>,
+    mut frames: Local<u32>,
+    glider: Single<&Visibility, With<Glider>>,
+) {
+    if *glider != Visibility::Visible {
+        return;
+    }
     *frames += 1;
     if *frames == 60 {
         commands
