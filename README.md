@@ -216,6 +216,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/39.toml`: fourteen-lane T2K lemon `web18`, with `0xB600` Flippers,
   `0xF000` Spikers, and `0xB800` Fuseballs. Pulsar Tankers repeat every 401
   ticks and Flipper Tankers every 251.
+- `levels/40.toml`: the same T2K lemon, with Pulsar Tankers every 351 ticks,
+  Flipper Tankers every 241, and Spikers every 651. The Flipper Tanker
+  mutation threshold rises to 156 out of 256.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
