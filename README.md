@@ -150,6 +150,10 @@ no Rust changes are needed. The supplied levels are:
   Flippers repeat every 81 ticks, Tankers every 334, and Pulsars every 501.
   The Tanker-child mutation threshold rises to 76 out of 256. Climbing speeds
   stay in level nineteen's group, and Pulsar sparks bounce at the open ends.
+- `levels/21.toml`: compact eight-lane `web21`, with 33 shared spawns,
+  `0xAC00` Flippers, and Pulsars every 433 ticks. Their phase delay drops
+  to eight ticks. Tankers repeat every 281 ticks with an 80-in-256 mutation
+  threshold; Spikers climb at `0xE000` and Fuseballs at `0xA000`.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

@@ -353,3 +353,7 @@ pub(crate) struct LevelActor;
 #[cfg(test)]
 #[path = "tests/level.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/later_levels.rs"]
+mod later_levels;
