@@ -313,6 +313,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/66.toml`: square `web11`, with Super Flippers every 41 ticks,
   Mirrors every 751, and Alien Droids every 601. The source's primary
   dispatch remains type 7, despite its "Flippers3" comment.
+- `levels/67.toml`: open eleven-lane flat `web1`, adding Fuseballs every 501
+  ticks. Alien Droids climb at `0x16400`, twice the `0xB200` Super Flipper
+  speed; Mirrors and Fuseballs use `0xA800`.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
