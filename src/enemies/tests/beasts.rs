@@ -14,6 +14,54 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn horn_roots_meet_the_head_and_survive_as_identical_detached_parts() {
+    use crate::enemies::beasts::{BeastAssets, setup};
+    use bevy::mesh::VertexAttributeValues;
+    let mut app = App::new();
+    app.init_resource::<Assets<Mesh>>().add_systems(
+        Startup,
+        |mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>| {
+            setup(&mut commands, &mut meshes)
+        },
+    );
+    app.update();
+    let assets = app.world().resource::<BeastAssets>();
+    let meshes = app.world().resource::<Assets<Mesh>>();
+    let positions = |handle: &Handle<Mesh>| {
+        let Some(VertexAttributeValues::Float32x3(positions)) = meshes
+            .get(handle)
+            .unwrap()
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("Beastie meshes must have three-dimensional positions");
+        };
+        positions
+    };
+    let head = positions(&assets.frames[0]);
+    for (index, root) in [Vec2::new(-0.3, 0.6), Vec2::new(0.3, 0.6)]
+        .into_iter()
+        .enumerate()
+    {
+        let horn = positions(&assets.parts[index]);
+        let contains_root = |points: &[[f32; 3]]| {
+            points
+                .iter()
+                .any(|p| Vec2::new(p[0], p[1]).distance(root) < 1e-6)
+        };
+        assert!(contains_root(head), "head must reach horn root {index}");
+        assert!(contains_root(horn), "horn {index} must reach the head");
+        let assembled = positions(&assets.frames[index + 1]);
+        assert!(
+            assembled.ends_with(horn),
+            "detached horn must retain its assembled position"
+        );
+    }
+    assert_eq!(head.len(), 24);
+    assert_eq!(positions(&assets.frames[1]).len(), 36);
+    assert_eq!(positions(&assets.frames[2]).len(), 48);
+}
+
+#[test]
 fn level_49_generates_exactly_seventeen_armored_beasts_without_normal_flippers() {
     use crate::enemies::beasts::spawn;
     use crate::enemies::flippers::spawn_enemies;

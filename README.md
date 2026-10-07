@@ -105,7 +105,8 @@ no Rust changes are needed. The supplied levels are:
   repeat every 231 ticks and pickups every seventh kill after the first.
 - `levels/10.toml`: the closed clover `web4`, introducing Beasties every 2,001
   ticks. Their original `hornm1` core and two `hornm2`/`hornm3` armor layers are
-  drawn together. Rail hits strip horns before killing the core; stripped
+  drawn together, with the core scaled to meet the horn roots. Rail hits strip
+  horns before killing the core; stripped
   horns fly back at half shot speed, occupy their original player shot slots,
   and absorb ordinary shots. Beasties pursue without the normal rim pause.
 - `levels/11.toml`: the open parabolic `web14`, introducing Fuseballs. Their

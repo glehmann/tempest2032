@@ -39,6 +39,7 @@ pub(crate) struct BeastAssets {
 pub(crate) fn part(
     points: &[(f32, f32)],
     faces: &[(u8, [usize; 3], [u8; 3])],
+    scale: f32,
     z: f32,
 ) -> Vec<[(Vec3, Color); 3]> {
     faces
@@ -47,7 +48,7 @@ pub(crate) fn part(
             std::array::from_fn(|i| {
                 let (x, y) = points[face[i]];
                 (
-                    Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, z),
+                    Vec3::new((x - 9.) * 0.075 * scale, (9. - y) * 0.075 * scale, z),
                     cry::color(*hue, intensity[i]),
                 )
             })
@@ -56,6 +57,7 @@ pub(crate) fn part(
 }
 
 pub(crate) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
+    // Double the core so its upper corners meet the horn roots at (5, 1) and (13, 1).
     let body = part(
         &[
             (3., 7.),
@@ -83,6 +85,7 @@ pub(crate) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
             (0xf0, [8, 9, 10], [192, 240, 128]),
             (0xf0, [11, 12, 13], [192, 240, 128]),
         ],
+        2.,
         0.,
     );
     let faces = [
@@ -103,6 +106,7 @@ pub(crate) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
             (13., 25.),
         ],
         &faces,
+        1.,
         0.01,
     );
     let right = part(
@@ -117,6 +121,7 @@ pub(crate) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
             (5., 25.),
         ],
         &faces,
+        1.,
         0.02,
     );
     let frames = [
