@@ -18,6 +18,45 @@ use crate::web::LANE_UNIT;
 use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
+#[test]
+fn level_58_primary_dispatch_produces_spikers_and_counts_blocked_attempts() {
+    use crate::enemies::flippers::{Flipper, spawn_enemies};
+    let mut app = app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/58.toml")),
+        "level58",
+    )
+    .unwrap();
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, (spawn_enemies, spawn).chain());
+    ticks(&mut app, 25);
+    assert_eq!(
+        app.world_mut().query::<&Spiker>().iter(app.world()).count(),
+        0
+    );
+    ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut().query::<&Spiker>().iter(app.world()).count(),
+        1
+    );
+    assert_eq!(app.world().resource::<Game>().remaining, 40);
+    ticks(&mut app, 51);
+    assert_eq!(
+        app.world_mut().query::<&Spiker>().iter(app.world()).count(),
+        1
+    );
+    assert_eq!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    assert_eq!(app.world().resource::<Game>().remaining, 39);
+}
+
 fn app() -> App {
     let mut app = crate::test_support::app();
     app.insert_resource(

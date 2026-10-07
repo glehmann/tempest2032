@@ -278,6 +278,11 @@ no Rust changes are needed. The supplied levels are:
   hits push a Mirror backward by sixteen climbing steps and return the shot
   at full speed, retaining its magazine slot. Five hits or recoil beyond
   the rear destroys it for 250, 500, or 750 points without a pickup drop.
+- `levels/58.toml`: open seventeen-lane mouse-pointer `web31`, with 41 shared
+  generation attempts. The executable wave table selects Spikers every 51
+  ticks, despite its "Flippers" comment. Only one Spiker can be active;
+  blocked attempts still count against the budget, as in `launch1`.
+  Mirrors repeat every 401 ticks and Pulsars every 152, with five-tick phases.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
