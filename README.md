@@ -229,6 +229,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/43.toml`: open thirteen-lane parabolic `web14`, with `0xBA00`
   Flippers and `0xC800` Fuseballs. Fuseball Tankers repeat every 301 ticks,
   Fuseballs every 401, and Pulsar Tankers every 501.
+- `levels/44.toml`: sixteen-lane cross `web10`. Direct Pulsars and Pulsar
+  Tankers both repeat every 501 ticks; Fuseball Tankers remain on their
+  301-tick interval, and Flippers repeat every 81 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
