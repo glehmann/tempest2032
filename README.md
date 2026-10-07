@@ -310,6 +310,9 @@ no Rust changes are needed. The supplied levels are:
   invulnerability protect the player. Shots repel an ascending Droid by
   sixteen climbing steps; recoil beyond the rear or a hit in its rim phase
   destroys it for bonus points without a pickup drop.
+- `levels/66.toml`: square `web11`, with Super Flippers every 41 ticks,
+  Mirrors every 751, and Alien Droids every 601. The source's primary
+  dispatch remains type 7, despite its "Flippers3" comment.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
