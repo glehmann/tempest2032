@@ -293,6 +293,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/61.toml`: closed teardrop `web34`, retaining the retraced tip.
   Mirrors and Fuseballs climb at `0xD000`, Spikers at `0x12000`, and Pulsar
   phases drop to four ticks. Generator intervals remain those of level 60.
+- `levels/62.toml`: open fourteen-lane crinkly-L `web35`, replacing direct
+  Pulsars with Pulsar Tankers every 352 ticks. Both Spiker timers and the
+  Mirror and Fuseball generators retain their previous intervals.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
