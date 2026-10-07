@@ -126,7 +126,7 @@ pub(crate) fn spawn_enemies(
     fuses: Query<&fuseballs::Fuseball>,
     pulsars: Query<&Pulsar>,
 ) {
-    if game.status != Status::Playing || game.remaining == 0 {
+    if !level.flippers.enabled || game.status != Status::Playing || game.remaining == 0 {
         return;
     }
     if game.spawn_timer > 0 {

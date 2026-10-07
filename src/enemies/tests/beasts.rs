@@ -14,6 +14,60 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn level_49_generates_exactly_seventeen_armored_beasts_without_normal_flippers() {
+    use crate::enemies::beasts::spawn;
+    use crate::enemies::flippers::spawn_enemies;
+    use crate::game::{Status, reset_wave};
+    let mut app = crate::test_support::app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/49.toml")),
+        "level49",
+    )
+    .unwrap();
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, (spawn_enemies, spawn).chain());
+    crate::test_support::ticks(&mut app, 70);
+    assert_eq!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    for remaining in (0..17).rev() {
+        crate::test_support::ticks(&mut app, 1);
+        let (id, beast, flipper) = app
+            .world_mut()
+            .query::<(Entity, &Beast, &Flipper)>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(beast.stage, 2);
+        assert!(matches!(flipper.motion, Motion::Approach));
+        assert_eq!(app.world().resource::<Game>().remaining, remaining);
+        app.world_mut().despawn(id);
+        crate::test_support::ticks(&mut app, 140);
+        assert_eq!(
+            app.world_mut()
+                .query::<&Flipper>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+    }
+    crate::test_support::ticks(&mut app, 300);
+    assert_eq!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    assert_eq!(app.world().resource::<Game>().spawn_timer, 70);
+}
+
+#[test]
 fn three_rail_hits_strip_two_horns_then_kill_the_core() {
     let mut app = crate::test_support::app();
     app.insert_resource(

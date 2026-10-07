@@ -103,6 +103,7 @@ impl GeneratorDefinition {
 
 #[derive(Clone)]
 pub(crate) struct Flippers {
+    pub(crate) enabled: bool,
     pub(crate) count: u16,
     pub(crate) first_spawn_ticks: u16,
     pub(crate) spawn_interval_ticks: u16,
@@ -188,6 +189,8 @@ struct Definition {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FlipperDefinition {
+    #[serde(default = "flippers_enabled")]
+    enabled: bool,
     #[serde(default)]
     pub(crate) count: Option<u16>,
     pub(crate) first_spawn_ticks: u16,
@@ -196,6 +199,10 @@ struct FlipperDefinition {
     pub(crate) flip_speed: u16,
     pub(crate) pause_ticks: u8,
     pub(crate) max_active: usize,
+}
+
+fn flippers_enabled() -> bool {
+    true
 }
 
 impl Level {
@@ -244,6 +251,17 @@ impl Level {
             return fail("web vertices must enclose an area in clockwise screen order");
         }
         let f = def.flippers;
+        if !f.enabled
+            && def.tankers.is_none()
+            && def.fuse_tankers.is_none()
+            && def.pulsar_tankers.is_none()
+            && def.spikers.is_none()
+            && def.beasts.is_none()
+            && def.fuseballs.is_none()
+            && def.pulsars.is_none()
+        {
+            return fail("disabling Flippers requires another enemy generator");
+        }
         if (def.tankers.is_some() || def.fuse_tankers.is_some() || def.pulsar_tankers.is_some())
             && web.lanes() < 3
         {
@@ -291,6 +309,7 @@ impl Level {
             number: def.number,
             web: def.web,
             flippers: Flippers {
+                enabled: f.enabled,
                 count,
                 first_spawn_ticks: f.first_spawn_ticks,
                 spawn_interval_ticks: f.spawn_interval_ticks,
@@ -384,3 +403,7 @@ mod later_levels;
 #[cfg(test)]
 #[path = "tests/third_set.rs"]
 mod third_set;
+
+#[cfg(test)]
+#[path = "tests/fourth_set.rs"]
+mod fourth_set;

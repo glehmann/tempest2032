@@ -244,6 +244,11 @@ no Rust changes are needed. The supplied levels are:
 - `levels/48.toml`: compact eight-lane `web21`, finishing the third web set.
   Flipper Tankers repeat every 231 ticks, Pulsar Tankers every 301, and
   Fuseball Tankers every 401; the fast-child threshold reaches 188 out of 256.
+- `levels/49.toml`: eighteen-lane big oval `web24`, starting the fourth web
+  set with blue surfaces and pale-cyan Flipper colors. This wave consists
+  entirely of 17 armored Beasties: first spawn after 71 gameplay ticks,
+  then every 141 ticks, climbing at `0xB000`. Normal Flipper generation is
+  disabled, and there are no other enemy generators.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -277,6 +282,10 @@ The TOML fields use these conventions:
   in depth units per tick, flip speed in angle units per tick, pause counter,
   and maximum simultaneous Flippers. Climbing speed converts to 16:16 once
   when the file is loaded.
+  `flippers.enabled` defaults to true; set it to false to disable normal
+  Flipper generation. The table still supplies shared capacity and rim-motion
+  settings, including those used by Beasties and Tanker children. A disabled
+  Flipper generator requires another enemy generator in the level.
 - `enemy_count`: shared generation budget for mixed waves. It replaces the
   legacy `flippers.count` value when supplied. Released Tanker contents do not
   consume this budget. Optional `tankers` tables specify spawn times, climbing
