@@ -1,0 +1,46 @@
+# Original _nw55 on web26, retaining the tiny star's retraced tips.
+number = 55
+enemy_count = 51
+
+[web]
+start_lane = 9
+depth = 160
+vertices = [[8,3],[8,5],[9,7],[11,8],[13,8],[11,8],[9,9],[8,11],[8,13],[8,11],[7,9],[5,8],[3,8],[5,8],[7,7],[8,5]]
+orientations = [-64,-48,-16,0,-128,-112,-80,-64,64,80,112,-128,0,16,48,64]
+
+[flippers]
+first_spawn_ticks = 26
+spawn_interval_ticks = 51
+climb_speed = 0.7109375
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 126
+spawn_interval_ticks = 251
+climb_speed = 0.59375
+super_chance = 216
+
+[spikers]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.9375
+
+[beasts]
+first_spawn_ticks = 51
+spawn_interval_ticks = 101
+climb_speed = 0.7109375
+
+[fuseballs]
+first_spawn_ticks = 451
+spawn_interval_ticks = 901
+climb_speed = 0.71875
+
+[appearance]
+surface = [0.0, 0.06666667, 1.0]
+lines = [0.015, 0.052, 0.78]
+flipper = [68, 236, 255]
+
+[powerups]
+kill_interval = 9
