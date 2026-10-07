@@ -1,0 +1,53 @@
+# Original _nw63 on the kiss-of-death web36.
+number = 63
+enemy_count = 51
+
+[web]
+start_lane = 9
+depth = 160
+vertices = [[2,7],[4,6],[6,6],[8,7],[10,6],[12,6],[14,7],[13,9],[11,10],[9,11],[7,11],[5,10],[3,9]]
+orientations = [16,0,-16,16,0,-16,-80,-112,-112,-128,112,112,80]
+
+[flippers]
+enabled = false
+first_spawn_ticks = 26
+spawn_interval_ticks = 51
+climb_speed = 0.7421875
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[spikers]
+first_spawn_ticks = 26
+spawn_interval_ticks = 51
+climb_speed = 1.1875
+
+[extra_spikers]
+first_spawn_ticks = 751
+spawn_interval_ticks = 1501
+climb_speed = 1.1875
+
+[mirrors]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 0.84375
+
+[pulsar_tankers]
+first_spawn_ticks = 126
+spawn_interval_ticks = 252
+climb_speed = 0.71875
+phase_ticks = 4
+propagation_ticks = 5
+
+[fuseballs]
+first_spawn_ticks = 262
+spawn_interval_ticks = 524
+climb_speed = 0.84375
+
+[appearance]
+surface = [0.0, 0.06666667, 1.0]
+lines = [0.015, 0.052, 0.78]
+flipper = [68, 236, 255]
+
+[powerups]
+kill_interval = 9

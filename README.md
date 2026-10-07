@@ -296,6 +296,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/62.toml`: open fourteen-lane crinkly-L `web35`, replacing direct
   Pulsars with Pulsar Tankers every 352 ticks. Both Spiker timers and the
   Mirror and Fuseball generators retain their previous intervals.
+- `levels/63.toml`: closed thirteen-lane kiss-of-death `web36`, with Pulsar
+  Tankers every 252 ticks. Mirrors and Fuseballs climb at `0xD800`, while
+  Spikers use the final fourth-set `0x13000` speed group.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
