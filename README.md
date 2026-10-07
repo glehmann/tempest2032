@@ -223,6 +223,9 @@ no Rust changes are needed. The supplied levels are:
   spawns and all three Tanker types. Pulsar Tankers repeat every 351 ticks,
   Fuseball Tankers every 801, and direct Pulsars every 1,101. The shared
   Pulsar phase delay drops to five ticks.
+- `levels/42.toml`: sixteen-lane clover `web4`, retaining its inward corners.
+  Beasties repeat every 701 ticks, Spikers every 851, and Fuseball Tankers
+  every 2,001. Direct Pulsars still repeat every 1,101 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
