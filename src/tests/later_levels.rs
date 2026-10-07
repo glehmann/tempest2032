@@ -195,3 +195,19 @@ fn level_30_has_the_open_crinkly_l_and_more_frequent_fuse_tankers() {
     assert_eq!(tankers.spawn_interval_ticks, 1001);
     assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 351);
 }
+
+#[test]
+fn level_31_has_the_closed_kiss_of_death_and_the_last_second_set_speed_group() {
+    let level = level(31);
+    assert!(level.web.closed);
+    assert_eq!(level.web.lanes(), 13);
+    assert_eq!(level.web.start_lane, 9);
+    assert_eq!(level.web.vertices[0], [2., 7.]);
+    assert_eq!(level.web.vertices[3], [8., 7.]);
+    assert_eq!(&level.web.orientations[..6], &[16, 0, -16, 16, 0, -16]);
+    assert_eq!(level.flippers.climb_speed, 0xb600);
+    assert_eq!(level.flippers.spawn_interval_ticks, 96);
+    assert_eq!(level.spikers.unwrap().climb_speed, 0x13000);
+    assert_eq!(level.fuseballs.unwrap().climb_speed, 0xc800);
+    assert_eq!(level.tankers.unwrap().super_chance, 120);
+}

@@ -185,6 +185,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/30.toml`: open fourteen-lane crinkly-L `web35`, with alternating
   angles along its stem. Flippers repeat every 76 ticks, Pulsars every 351,
   and Fuseball Tankers every 1,001, twice their previous frequency.
+- `levels/31.toml`: closed thirteen-lane kiss-of-death `web36`, with the
+  original shallow inward corners. Flippers climb at `0xB600`, Spikers at
+  `0x13000`, and Fuseballs at `0xC800`; Flippers repeat every 96 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
