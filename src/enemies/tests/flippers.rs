@@ -23,6 +23,52 @@ use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn dedicated_super_flippers_appear_at_their_own_rate_and_flip_twice_as_fast() {
+    use crate::enemies::flippers::SuperFlipper;
+    use crate::game::{Status, reset_wave};
+    let mut app = app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/57.toml")),
+        "level57",
+    )
+    .unwrap();
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, spawn_enemies);
+    ticks(&mut app, 12);
+    assert_eq!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    ticks(&mut app, 1);
+    let id = app
+        .world_mut()
+        .query_filtered::<Entity, With<SuperFlipper>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(app.world().resource::<Game>().remaining, 60);
+    let mut flipper = app.world_mut().get_mut::<Flipper>(id).unwrap();
+    flipper.lane = 3;
+    flipper.depth = 0;
+    flipper.motion = Motion::Flip {
+        from: 2,
+        direction: 1,
+        angle: 0,
+    };
+    assert_eq!(flipper.pause, 0);
+    app.add_systems(FixedUpdate, move_enemies.after(spawn_enemies));
+    ticks(&mut app, 1);
+    assert!(matches!(
+        app.world().get::<Flipper>(id).unwrap().motion,
+        Motion::Flip { angle: 8, .. }
+    ));
+}
+
+#[test]
 fn approach_dots_stay_two_pixels_wide_and_brighten_with_proximity() {
     let camera = Transform::from_translation(Vec3::new(0.0, 0.0, 5.3));
     let projection = PerspectiveProjection {

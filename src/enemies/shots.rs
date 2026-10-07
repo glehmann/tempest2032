@@ -5,6 +5,7 @@ use crate::enemies::beasts;
 use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
+use crate::enemies::mirrors;
 use crate::enemies::spikers;
 use crate::game::Game;
 use crate::game::Status;
@@ -57,7 +58,7 @@ pub(crate) fn fire_enemy_shots(
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
     enemies: Query<&Flipper>,
-    shots: Query<(&EnemyShot, Option<&beasts::Reflected>)>,
+    shots: Query<&EnemyShot, (Without<beasts::Reflected>, Without<mirrors::ReturnedShot>)>,
     spikers: Query<&spikers::Spiker>,
 ) {
     if game.status != Status::Playing {
@@ -79,13 +80,7 @@ pub(crate) fn fire_enemy_shots(
             continue;
         }
         game.fire_timer = 112;
-        if depth <= 60 * LANE_UNIT
-            || shots
-                .iter()
-                .filter(|(_, reflection)| reflection.is_none())
-                .count()
-                >= level.enemy_shots
-        {
+        if depth <= 60 * LANE_UNIT || shots.iter().count() >= level.enemy_shots {
             continue;
         }
         let shot = EnemyShot {
@@ -111,6 +106,7 @@ pub(crate) fn fire_enemy_shots(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn move_enemy_shots(
     mut commands: Commands,
     game: Res<Game>,
@@ -119,13 +115,14 @@ pub(crate) fn move_enemy_shots(
         &mut EnemyShot,
         &mut Transform,
         Option<&beasts::Reflected>,
+        Option<&mirrors::ReturnedShot>,
     )>,
 ) {
     if game.status != Status::Playing {
         return;
     }
-    for (entity, mut shot, mut transform, reflection) in &mut shots {
-        shot.depth -= reflection.map_or(0x18000, |reflection| reflection.speed);
+    for (entity, mut shot, mut transform, reflection, returned) in &mut shots {
+        shot.depth -= returned.map_or_else(|| reflection.map_or(0x18000, |r| r.speed), |r| r.speed);
         shot.angle = shot.angle.wrapping_add(4);
         transform.translation.z = -(shot.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
         transform.rotation = Quat::from_rotation_z(-(shot.angle as f32) * TAU / 256.0);

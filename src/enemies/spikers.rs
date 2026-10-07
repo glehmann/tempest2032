@@ -3,8 +3,6 @@
 
 use crate::cry;
 use crate::enemies::Enemy;
-use crate::enemies::flippers::Flipper;
-use crate::enemies::fuseballs;
 use crate::enemies::tankers;
 use crate::game::Game;
 use crate::game::Status;
@@ -100,10 +98,9 @@ pub(crate) fn spawn(
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<SpikerAssets>,
-    flippers: Query<&Flipper>,
-    tankers: Query<&tankers::Tanker>,
+    living: Query<(), With<Enemy>>,
+    tankers: Query<(), With<tankers::Tanker>>,
     spikers: Query<&Spiker>,
-    fuses: Query<&fuseballs::Fuseball>,
 ) {
     let Some(generator) = &level.spikers else {
         return;
@@ -115,12 +112,7 @@ pub(crate) fn spawn(
         game.spiker_timer -= 1;
         return;
     }
-    if flippers.iter().count()
-        + tankers.iter().count() * 3
-        + spikers.iter().count()
-        + fuses.iter().count()
-        >= level.flippers.max_active
-    {
+    if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
         return;
     }
     game.spiker_timer = generator.spawn_interval_ticks - 1;

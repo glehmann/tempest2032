@@ -2,13 +2,11 @@
 //! armor detaches horns that return toward the glider as reflected shots.
 
 use crate::cry;
+use crate::enemies::Enemy;
 use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
 use crate::enemies::flippers::flipper_transform;
-use crate::enemies::fuseballs;
-use crate::enemies::pulsars::Pulsar;
-use crate::enemies::spikers;
 use crate::enemies::tankers;
 use crate::game::Game;
 use crate::game::Status;
@@ -146,11 +144,8 @@ pub(crate) fn spawn(
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
-    enemies: Query<&Flipper>,
-    tankers: Query<&tankers::Tanker>,
-    spikers: Query<&spikers::Spiker>,
-    fuses: Query<&fuseballs::Fuseball>,
-    pulsars: Query<&Pulsar>,
+    living: Query<(), With<Enemy>>,
+    tankers: Query<(), With<tankers::Tanker>>,
 ) {
     let Some(generator) = &level.beasts else {
         return;
@@ -162,13 +157,7 @@ pub(crate) fn spawn(
         game.beast_timer -= 1;
         return;
     }
-    if enemies.iter().count()
-        + tankers.iter().count() * 3
-        + spikers.iter().count()
-        + fuses.iter().count()
-        + pulsars.iter().count()
-        >= level.flippers.max_active
-    {
+    if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
         return;
     }
     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);

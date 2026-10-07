@@ -84,7 +84,7 @@ pub(crate) fn spawn_drop(
     ));
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn advance_powerups(
     level: Res<Level>,
     mut commands: Commands,
@@ -103,7 +103,10 @@ pub(crate) fn advance_powerups(
         Res<fuseballs::FuseAssets>,
         Res<crate::enemies::pulsar_render::PulsarAssets>,
     ),
-    spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
+    (spikers, mirrors): (
+        Query<(Entity, &spikers::Spiker, &Transform)>,
+        Query<Entity, With<crate::enemies::mirrors::Mirror>>,
+    ),
     fuses: Query<(Entity, &fuseballs::Fuseball, &Transform)>,
     pulsars: Query<(Entity, &Pulsar, &Transform)>,
 ) {
@@ -168,6 +171,9 @@ pub(crate) fn advance_powerups(
                         commands.entity(shot).despawn();
                     }
                     if reward == Reward::Skip {
+                        for entity in &mirrors {
+                            commands.entity(entity).despawn();
+                        }
                         game.remaining = 0;
                     }
                 }

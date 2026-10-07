@@ -4,9 +4,6 @@
 use crate::enemies::Enemy;
 use crate::enemies::beasts;
 use crate::enemies::flipper_render::FlipperAssets;
-use crate::enemies::fuseballs;
-use crate::enemies::pulsars::Pulsar;
-use crate::enemies::spikers;
 use crate::enemies::tankers;
 use crate::game::Game;
 use crate::game::Status;
@@ -41,6 +38,9 @@ pub(crate) struct Flipper {
     pub(crate) motion: Motion,
     pub(crate) pause: u8,
 }
+
+#[derive(Component)]
+pub(crate) struct SuperFlipper;
 
 impl Flipper {
     pub(crate) fn preview_target(&self, web: &Web) -> Option<(usize, i32)> {
@@ -120,44 +120,70 @@ pub(crate) fn spawn_enemies(
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
-    enemies: Query<&Flipper>,
-    tankers: Query<&tankers::Tanker>,
-    spikers: Query<&spikers::Spiker>,
-    fuses: Query<&fuseballs::Fuseball>,
-    pulsars: Query<&Pulsar>,
+    living: Query<(), With<Enemy>>,
+    tankers: Query<(), With<tankers::Tanker>>,
 ) {
-    if !level.flippers.enabled || game.status != Status::Playing || game.remaining == 0 {
+    if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    if game.spawn_timer > 0 {
-        game.spawn_timer -= 1;
-        return;
+    let mut occupied = living.iter().count() + tankers.iter().count() * 2;
+    for (super_flipper, interval) in [
+        (
+            false,
+            level
+                .flippers
+                .enabled
+                .then_some(level.flippers.spawn_interval_ticks),
+        ),
+        (
+            true,
+            level
+                .super_flippers
+                .as_ref()
+                .map(|g| g.spawn_interval_ticks),
+        ),
+    ] {
+        let Some(interval) = interval else { continue };
+        if game.remaining == 0 {
+            break;
+        }
+        let timer = if super_flipper {
+            &mut game.super_flipper_timer
+        } else {
+            &mut game.spawn_timer
+        };
+        if *timer > 0 {
+            *timer -= 1;
+            continue;
+        }
+        if occupied >= level.flippers.max_active {
+            continue;
+        }
+        *timer = interval - 1;
+        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        let flipper = Flipper {
+            lane: (game.random >> 16) as usize % level.web.lanes(),
+            depth: level.web.rear() + 300 * LANE_UNIT,
+            motion: Motion::Approach,
+            pause: if super_flipper {
+                0
+            } else {
+                level.flippers.pause_ticks
+            },
+        };
+        let mut enemy = commands.spawn((
+            flipper_transform(&flipper, &level.web),
+            flipper,
+            RenderLayers::layer(1),
+            Mesh3d(assets.point.clone()),
+            MeshMaterial3d(assets.point_shades.first().cloned().unwrap_or_default()),
+        ));
+        if super_flipper {
+            enemy.insert(SuperFlipper);
+        }
+        game.remaining -= 1;
+        occupied += 1;
     }
-    if enemies.iter().count()
-        + tankers.iter().count() * 3
-        + spikers.iter().count()
-        + fuses.iter().count()
-        + pulsars.iter().count()
-        >= level.flippers.max_active
-    {
-        return;
-    }
-    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-    let flipper = Flipper {
-        lane: (game.random >> 16) as usize % level.web.lanes(),
-        depth: level.web.rear() + 300 * LANE_UNIT,
-        motion: Motion::Approach,
-        pause: level.flippers.pause_ticks,
-    };
-    commands.spawn((
-        flipper_transform(&flipper, &level.web),
-        flipper,
-        RenderLayers::layer(1),
-        Mesh3d(assets.point.clone()),
-        MeshMaterial3d(assets.point_shades.first().cloned().unwrap_or_default()),
-    ));
-    game.remaining -= 1;
-    game.spawn_timer = level.flippers.spawn_interval_ticks - 1;
 }
 
 pub(crate) fn start_flip(flipper: &mut Flipper, player_lane: usize, web: &Web) {
@@ -189,6 +215,7 @@ pub(crate) fn move_enemies(
     player: Single<&Glider>,
     assets: Res<FlipperAssets>,
     beast_assets: Res<beasts::BeastAssets>,
+    shells: Res<tankers::TankerAssets>,
     mut enemies: Query<(
         &mut Flipper,
         &mut Transform,
@@ -196,16 +223,24 @@ pub(crate) fn move_enemies(
         &mut MeshMaterial3d<StandardMaterial>,
         Option<&mut tankers::Released>,
         Option<&beasts::Beast>,
+        Option<&SuperFlipper>,
     )>,
 ) {
     if game.status != Status::Playing {
         return;
     }
     let player_lane = level.web.selected_lane(player.progress) as usize;
-    for (mut flipper, mut transform, mut mesh, mut material, mut released, beast) in &mut enemies {
+    for (mut flipper, mut transform, mut mesh, mut material, mut released, beast, super_flipper) in
+        &mut enemies
+    {
         let speed = if beast.is_some() {
             level
                 .beasts
+                .as_ref()
+                .map_or(level.flippers.climb_speed, |g| g.climb_speed)
+        } else if super_flipper.is_some() {
+            level
+                .super_flippers
                 .as_ref()
                 .map_or(level.flippers.climb_speed, |g| g.climb_speed)
         } else {
@@ -218,7 +253,13 @@ pub(crate) fn move_enemies(
                     flipper.depth = level.web.rear() - speed;
                     flipper.motion = Motion::Climb;
                     mesh.0 = beast.map_or_else(
-                        || assets.body.clone(),
+                        || {
+                            if super_flipper.is_some() {
+                                shells.fast.clone()
+                            } else {
+                                assets.body.clone()
+                            }
+                        },
                         |beast| beast_assets.frames[beast.stage].clone(),
                     );
                     material.0 = assets.shaded.clone();
@@ -237,7 +278,7 @@ pub(crate) fn move_enemies(
             } => {
                 let angle = angle
                     + level.flippers.flip_speed
-                        * if released.as_ref().is_some_and(|r| r.fast) {
+                        * if super_flipper.is_some() || released.as_ref().is_some_and(|r| r.fast) {
                             2
                         } else {
                             1

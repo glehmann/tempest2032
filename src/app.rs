@@ -22,7 +22,7 @@ use crate::{
         beasts,
         flipper_render::{draw_approaching_flippers, update_enemy_colors},
         flippers::{move_enemies, spawn_enemies},
-        fuseballs,
+        fuseballs, mirrors,
         shots::{fire_enemy_shots, move_enemy_shots},
         spikers, tankers,
     },
@@ -149,6 +149,14 @@ fn add_systems(app: &mut App) {
                 .map_or(0, |p| p.generator.first_spawn_ticks - 1),
             entry: Some(0),
             remaining: initial.flippers.count,
+            super_flipper_timer: initial
+                .super_flippers
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
+            mirror_timer: initial
+                .mirrors
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             spawn_timer: initial.flippers.first_spawn_ticks - 1,
             level_index: index,
             tanker_timer: initial
@@ -215,10 +223,12 @@ fn add_systems(app: &mut App) {
                     beasts::spawn,
                     fuseballs::spawn,
                     pulsars::spawn,
+                    mirrors::spawn,
                 )
                     .chain(),
                 (
                     move_enemies,
+                    mirrors::advance,
                     fuseballs::advance,
                     move_enemy_shots,
                     pulsars::check_sparks,
@@ -261,6 +271,7 @@ fn add_systems(app: &mut App) {
         .add_systems(Update, draw_approaching_flippers.after(fit_camera))
         .add_systems(Update, tankers::draw_points.after(fit_camera))
         .add_systems(Update, fuseballs::draw_points.after(fit_camera))
+        .add_systems(Update, mirrors::draw_points.after(fit_camera))
         .add_systems(Update, draw_particle_shots.after(fit_camera))
         .add_systems(
             Update,

@@ -23,6 +23,8 @@ pub(crate) struct Level {
     pub(crate) fuseballs: Option<Generator>,
     pub(crate) pulsars: Option<Pulsars>,
     pub(crate) pulsar_tankers: Option<Pulsars>,
+    pub(crate) super_flippers: Option<Generator>,
+    pub(crate) mirrors: Option<Generator>,
 }
 
 #[derive(Clone)]
@@ -184,6 +186,10 @@ struct Definition {
     pulsars: Option<PulsarDefinition>,
     #[serde(default)]
     pulsar_tankers: Option<PulsarDefinition>,
+    #[serde(default)]
+    super_flippers: Option<GeneratorDefinition>,
+    #[serde(default)]
+    mirrors: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -259,6 +265,8 @@ impl Level {
             && def.beasts.is_none()
             && def.fuseballs.is_none()
             && def.pulsars.is_none()
+            && def.super_flippers.is_none()
+            && def.mirrors.is_none()
         {
             return fail("disabling Flippers requires another enemy generator");
         }
@@ -334,6 +342,8 @@ impl Level {
             fuseballs: def.fuseballs.map(|g| g.compile(name)).transpose()?,
             pulsars: def.pulsars.map(|g| g.compile(name)).transpose()?,
             pulsar_tankers: def.pulsar_tankers.map(|g| g.compile(name)).transpose()?,
+            super_flippers: def.super_flippers.map(|g| g.compile(name)).transpose()?,
+            mirrors: def.mirrors.map(|g| g.compile(name)).transpose()?,
         })
     }
 }
@@ -407,3 +417,7 @@ mod third_set;
 #[cfg(test)]
 #[path = "tests/fourth_set.rs"]
 mod fourth_set;
+
+#[cfg(test)]
+#[path = "tests/fourth_set_late.rs"]
+mod fourth_set_late;

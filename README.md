@@ -271,6 +271,13 @@ no Rust changes are needed. The supplied levels are:
 - `levels/56.toml`: closed fifteen-lane D-shaped `web29`, with Flippers every
   51 ticks, Beasties every 101, Flipper Tankers every 241, and Spikers every
   651. The fast-child threshold reaches 220 out of 256.
+- `levels/57.toml`: open curved-L `web30`, with 61 shared spawns. Dedicated
+  Super Flippers appear first after 13 ticks, then every 26, using the blue
+  `supf1` mesh and double-speed rim flips without a normal pause. Mirrors
+  repeat every 401 ticks, spin, and stop forty units from the rim. Surviving
+  hits push a Mirror backward by sixteen climbing steps and return the shot
+  at full speed, retaining its magazine slot. Five hits or recoil beyond
+  the rear destroys it for 250, 500, or 750 points without a pickup drop.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -308,6 +315,8 @@ The TOML fields use these conventions:
   Flipper generation. The table still supplies shared capacity and rim-motion
   settings, including those used by Beasties and Tanker children. A disabled
   Flipper generator requires another enemy generator in the level.
+  Optional `super_flippers` and `mirrors` tables use the standard generator
+  fields. Super Flippers have independent spawn timers and double-speed flips.
 - `enemy_count`: shared generation budget for mixed waves. It replaces the
   legacy `flippers.count` value when supplied. Released Tanker contents do not
   consume this budget. Optional `tankers` tables specify spawn times, climbing

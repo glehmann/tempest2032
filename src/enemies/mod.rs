@@ -17,6 +17,7 @@ pub(crate) mod beasts;
 pub(crate) mod flipper_render;
 pub(crate) mod flippers;
 pub(crate) mod fuseballs;
+pub(crate) mod mirrors;
 pub(crate) mod pulsar_render;
 pub(crate) mod pulsars;
 pub(crate) mod shots;
@@ -40,6 +41,7 @@ pub(crate) fn setup(
     spikers::setup(commands, meshes, materials);
     beasts::setup(commands, meshes);
     fuseballs::setup(commands, meshes, materials);
+    mirrors::setup(commands, meshes, materials);
     pulsar_render::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh(level.appearance.flipper)),

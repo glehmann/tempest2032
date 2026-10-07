@@ -10,6 +10,7 @@ use crate::{
         beasts,
         flipper_render::FlipperAssets,
         flippers::{Flipper, Motion},
+        mirrors,
         shots::EnemyShot,
         spikers, tankers,
     },
@@ -34,15 +35,24 @@ pub(crate) fn resolve_hits(
         (Entity, Option<&Flipper>, Option<&Pulsar>, &Transform),
         Or<(With<Flipper>, With<Pulsar>)>,
     >,
-    enemy_shots: Query<(Entity, &EnemyShot, Option<&beasts::Reflected>)>,
+    enemy_shots: Query<(
+        Entity,
+        &EnemyShot,
+        Option<&beasts::Reflected>,
+        Option<&mirrors::ReturnedShot>,
+    )>,
     tankers: Query<(Entity, &tankers::Tanker, &tankers::Contents, &Transform)>,
     shells: Res<tankers::TankerAssets>,
-    (flipper_assets, fuse_assets, pulsar_assets): (
+    (flipper_assets, fuse_assets, pulsar_assets, mirror_assets): (
         Res<FlipperAssets>,
         Res<crate::enemies::fuseballs::FuseAssets>,
         Res<crate::enemies::pulsar_render::PulsarAssets>,
+        Res<mirrors::MirrorAssets>,
     ),
-    spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
+    (spikers, mut mirrors): (
+        Query<(Entity, &spikers::Spiker, &Transform)>,
+        Query<(Entity, &mut mirrors::Mirror, &Transform)>,
+    ),
     mut spikes: Query<(Entity, &mut spikers::Spike)>,
     mut beast_layers: Query<(&mut beasts::Beast, &Flipper, &mut Mesh3d)>,
     beast_assets: Res<beasts::BeastAssets>,
@@ -56,7 +66,7 @@ pub(crate) fn resolve_hits(
             let z = -(depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
             lane == bullet.lane && (z - transform.translation.z).abs() < WORLD_UNIT * 6.0
         };
-        let hits = enemies
+        let mut hits = enemies
             .iter()
             .filter_map(|(entity, flipper, pulsar, transform)| {
                 let (lane, depth, points) = if let Some(flipper) = flipper {
@@ -102,14 +112,25 @@ pub(crate) fn resolve_hits(
                     .map(|(entity, s)| (entity, level.web.rear() - s.length, 0, None)),
             )
             .chain(
+                mirrors
+                    .iter()
+                    .filter(|(entity, mirror, _)| {
+                        !killed.contains(entity)
+                            && !mirror.approach
+                            && intersects(mirror.lane, mirror.depth)
+                    })
+                    .map(|(entity, mirror, _)| (entity, mirror.depth, 0, None)),
+            )
+            .chain(
                 enemy_shots
                     .iter()
-                    .filter(|(entity, shot, _)| {
+                    .filter(|(entity, shot, _, _)| {
                         !killed.contains(entity) && intersects(shot.lane, shot.depth)
                     })
-                    .map(|(entity, shot, _)| (entity, shot.depth, 0, None)),
+                    .map(|(entity, shot, _, _)| (entity, shot.depth, 0, None)),
             )
             .collect::<Vec<_>>();
+        hits.sort_unstable_by_key(|hit| hit.1);
         let nearest = hits
             .iter()
             .min_by_key(|(_, depth, _, _)| *depth)
@@ -118,12 +139,42 @@ pub(crate) fn resolve_hits(
             if particle.is_none() && Some(entity) != nearest {
                 continue;
             }
+            if let Ok((_, mut mirror, pose)) = mirrors.get_mut(entity) {
+                let speed = level.mirrors.as_ref().unwrap().climb_speed;
+                if mirror.hit(speed, level.web.rear()) {
+                    commands.entity(entity).despawn();
+                    killed.insert(entity);
+                    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    game.score += 250 * (1 + ((game.random >> 16) % 3));
+                    explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+                    continue;
+                }
+                commands.entity(entity).insert(mirror.transform(&level.web));
+                commands.entity(shot).despawn();
+                commands.spawn((
+                    EnemyShot {
+                        lane: bullet.lane,
+                        depth,
+                        angle: 0,
+                    },
+                    mirrors::ReturnedShot {
+                        speed: if particle.is_some() { 0x48000 } else { 0x38000 },
+                    },
+                    Transform::from_translation(transform.translation),
+                    RenderLayers::layer(1),
+                    Mesh3d(mirror_assets.reflection.clone()),
+                    MeshMaterial3d(mirror_assets.material.clone()),
+                ));
+                break;
+            }
             if particle.is_none() {
                 commands.entity(shot).despawn();
             }
             if enemy_shots
                 .get(entity)
-                .is_ok_and(|(_, _, reflection)| reflection.is_some())
+                .is_ok_and(|(_, _, reflection, returned)| {
+                    reflection.is_some() || returned.is_some()
+                })
             {
                 continue;
             }

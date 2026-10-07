@@ -6,9 +6,6 @@ use crate::animations::glider_death as shot_death;
 use crate::cry;
 use crate::enemies::Enemy;
 use crate::enemies::flipper_render::approach_dot_style;
-use crate::enemies::flippers::Flipper;
-use crate::enemies::pulsars::Pulsar;
-use crate::enemies::spikers;
 use crate::enemies::tankers;
 use crate::explosion;
 use crate::game::Game;
@@ -141,11 +138,8 @@ pub(crate) fn spawn(
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<FuseAssets>,
-    flippers: Query<&Flipper>,
-    tankers: Query<&tankers::Tanker>,
-    spikers: Query<&spikers::Spiker>,
-    fuses: Query<&Fuseball>,
-    pulsars: Query<&Pulsar>,
+    living: Query<(), With<Enemy>>,
+    tankers: Query<(), With<tankers::Tanker>>,
 ) {
     let Some(g) = &level.fuseballs else {
         return;
@@ -157,13 +151,7 @@ pub(crate) fn spawn(
         game.fuse_timer -= 1;
         return;
     }
-    if flippers.iter().count()
-        + tankers.iter().count() * 3
-        + spikers.iter().count()
-        + fuses.iter().count()
-        + pulsars.iter().count()
-        >= level.flippers.max_active
-    {
+    if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
         return;
     }
     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);

@@ -104,6 +104,7 @@ pub(crate) fn move_droid(
     spikers: Query<&spikers::Spiker>,
     fuses: Query<&fuseballs::Fuseball>,
     pulsars: Query<&Pulsar>,
+    mirrors: Query<&crate::enemies::mirrors::Mirror>,
     bullets: Query<Entity, With<ShotSlot>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     power_assets: Res<PowerAssets>,
@@ -128,6 +129,11 @@ pub(crate) fn move_droid(
         .chain(spikers.iter().map(|s| (s.lane, s.depth)))
         .chain(fuses.iter().filter_map(|f| f.target()))
         .chain(pulsars.iter().filter_map(|p| p.target(&level.web)))
+        .chain(
+            mirrors
+                .iter()
+                .filter_map(crate::enemies::mirrors::Mirror::target),
+        )
         .min_by_key(|(_, depth)| *depth)
         .map(|(lane, _)| lane);
     for (mut droid, mut transform) in &mut droids {

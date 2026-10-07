@@ -12,7 +12,6 @@ use crate::enemies::fuseballs;
 use crate::enemies::pulsar_render::{CYCLE, PulsarAssets};
 use crate::enemies::pulsars::Pulsar;
 use crate::enemies::pulsars::Pulse;
-use crate::enemies::spikers;
 use crate::explosion;
 use crate::game::Game;
 use crate::game::Status;
@@ -165,20 +164,13 @@ pub(crate) fn spawn(
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<TankerAssets>,
-    flippers: Query<&Flipper>,
-    tankers: Query<&Tanker>,
-    spikers: Query<&spikers::Spiker>,
-    fuses: Query<&fuseballs::Fuseball>,
-    pulsars: Query<&Pulsar>,
+    living: Query<(), With<Enemy>>,
+    tankers: Query<(), With<Tanker>>,
 ) {
     if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    let mut occupied = flippers.iter().count()
-        + tankers.iter().count() * 3
-        + spikers.iter().count()
-        + fuses.iter().count()
-        + pulsars.iter().count();
+    let mut occupied = living.iter().count() + tankers.iter().count() * 2;
     for (contents, generator) in [
         (Contents::Flippers, level.tankers.as_ref()),
         (Contents::Fuseballs, level.fuse_tankers.as_ref()),
