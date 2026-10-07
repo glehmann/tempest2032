@@ -154,6 +154,9 @@ no Rust changes are needed. The supplied levels are:
   `0xAC00` Flippers, and Pulsars every 433 ticks. Their phase delay drops
   to eight ticks. Tankers repeat every 281 ticks with an 80-in-256 mutation
   threshold; Spikers climb at `0xE000` and Fuseballs at `0xA000`.
+- `levels/22.toml`: open twelve-lane inverted-bird `web28`, with 36 shared
+  spawns. Flippers repeat every 96 ticks, Tankers every 261, and Pulsars every
+  426. Pulsar sparks bounce at the wing tips.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

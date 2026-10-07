@@ -28,3 +28,23 @@ fn level_21_reuses_the_compact_web_with_faster_pulsar_phases() {
     assert_eq!(level.spikers.unwrap().climb_speed, 0xe000);
     assert_eq!(level.fuseballs.unwrap().climb_speed, 0xa000);
 }
+
+#[test]
+fn level_22_has_open_bird_wings_and_a_thirty_six_spawn_budget() {
+    let level = level(22);
+    assert!(!level.web.closed);
+    assert_eq!(level.web.lanes(), 12);
+    assert_eq!(level.web.start_lane, 6);
+    assert_eq!(level.web.vertices[0], [18., 8.]);
+    assert_eq!(level.web.vertices[12], [-2., 8.]);
+    assert_eq!(level.web.neighbor(0, -1), None);
+    assert_eq!(level.web.neighbor(11, 1), None);
+    assert_eq!(level.flippers.count, 36);
+    assert_eq!(level.flippers.first_spawn_ticks, 48);
+    assert_eq!(level.flippers.spawn_interval_ticks, 96);
+    assert_eq!(level.tankers.unwrap().spawn_interval_ticks, 261);
+    let pulsars = level.pulsars.unwrap();
+    assert_eq!(pulsars.generator.first_spawn_ticks, 213);
+    assert_eq!(pulsars.generator.spawn_interval_ticks, 426);
+    assert_eq!(pulsars.phase_ticks, 8);
+}
