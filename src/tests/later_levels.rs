@@ -112,3 +112,18 @@ fn level_25_introduces_fuseball_tankers_on_the_curved_l() {
             .contains("released children")
     );
 }
+
+#[test]
+fn level_26_preserves_the_open_mouse_pointers_seventeen_lanes() {
+    let level = level(26);
+    assert!(!level.web.closed);
+    assert_eq!(level.web.lanes(), 17);
+    assert_eq!(level.web.start_lane, 13);
+    assert_eq!(level.web.vertices[0], [-1., 13.]);
+    assert_eq!(level.web.vertices[17], [2., 16.]);
+    assert_eq!(level.web.orientations[2], -128);
+    assert_eq!(level.web.orientations[3], 16);
+    assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 400);
+    assert_eq!(level.spikers.unwrap().spawn_interval_ticks, 851);
+    assert_eq!(level.fuse_tankers.unwrap().spawn_interval_ticks, 2001);
+}

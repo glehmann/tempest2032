@@ -170,6 +170,9 @@ no Rust changes are needed. The supplied levels are:
   crossing outward from the lane's two edges. Children do not consume the
   generation budget, and opening the Tanker does not advance the pickup counter.
   Pulsar phases now last seven ticks and pickups drop every eighth kill.
+- `levels/26.toml`: open seventeen-lane mouse-pointer `web31`, including its
+  folded tail. Pulsars repeat every 400 ticks and Spikers every 851; Fuseball
+  Tankers retain their 2,001-tick interval.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
