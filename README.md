@@ -327,6 +327,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/71.toml`: fourteen-lane T2K lemon `web18`, replacing Fuseballs with
   Beasties every 501 ticks. Primary Pulsar Tankers remain on their 71-tick
   interval, alongside Mirrors and faster `0x16C00` Alien Droids.
+- `levels/72.toml`: the same T2K lemon, restoring Super Flippers every 21
+  ticks and adding Spikers every 501. The 61-spawn wave retains Mirrors and
+  Alien Droids, while Pulsar Tankers and Beasties are absent.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
