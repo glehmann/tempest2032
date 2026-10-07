@@ -286,6 +286,10 @@ no Rust changes are needed. The supplied levels are:
 - `levels/59.toml`: open twelve-lane diagonal double-curve `web32`, adding
   Fuseballs every 524 ticks. Mirrors and Fuseballs use the `0xC800` climbing
   speed group, while the primary Spiker attempts retain their 51-tick interval.
+- `levels/60.toml`: closed cat-head `web33`, with 51 shared attempts and
+  a second Spiker generator every 1,501 ticks. Both Spiker timers share the
+  original one-active-Spiker limit; blocked attempts still consume budget.
+  Mirrors, Pulsars, and Fuseballs keep level fifty-nine's intervals.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -330,6 +334,8 @@ The TOML fields use these conventions:
   consume this budget. Optional `tankers` tables specify spawn times, climbing
   speed, and the fast-child probability out of 256.
   Optional `spikers` tables specify their spawn times and climbing speed.
+  Optional `extra_spikers` tables add a second timer sharing the one-Spiker
+  limit and require a `spikers` table with the same climbing speed.
   Optional `fuse_tankers` tables use the same generator fields and require
   a `fuseballs` table to supply their children's climbing speed.
   Optional `pulsars` tables also specify `phase_ticks` for the shared pulse

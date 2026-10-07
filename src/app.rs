@@ -149,6 +149,10 @@ fn add_systems(app: &mut App) {
                 .map_or(0, |p| p.generator.first_spawn_ticks - 1),
             entry: Some(0),
             remaining: initial.flippers.count,
+            extra_spiker_timer: initial
+                .extra_spikers
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             super_flipper_timer: initial
                 .super_flippers
                 .as_ref()

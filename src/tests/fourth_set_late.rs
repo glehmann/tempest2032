@@ -9,6 +9,7 @@ const WAVES: &[(usize, u16, u16, u16, u16, u16, u16, u16, u16)] = &[
     (57, 61, 26, 401, 0, 0, 0, 0, 0),
     (58, 41, 0, 401, 51, 152, 0, 0, 0),
     (59, 41, 0, 401, 51, 152, 0, 524, 0),
+    (60, 51, 0, 401, 51, 152, 0, 524, 0),
 ];
 
 #[test]
@@ -23,6 +24,13 @@ fn fourth_set_late_uses_the_original_dispatch_types_and_wave_intervals() {
         assert_eq!(level.web.start_lane, earlier.web.start_lane);
         assert_eq!(level.web.closed, earlier.web.closed);
         assert!(!level.flippers.enabled);
+        assert_eq!(
+            level
+                .extra_spikers
+                .as_ref()
+                .map_or(0, |g| g.spawn_interval_ticks),
+            if (60..=63).contains(&number) { 1501 } else { 0 }
+        );
         assert_eq!(level.flippers.count, count);
         assert_eq!(
             level

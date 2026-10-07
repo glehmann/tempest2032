@@ -102,43 +102,55 @@ pub(crate) fn spawn(
     tankers: Query<(), With<tankers::Tanker>>,
     spikers: Query<&Spiker>,
 ) {
-    let Some(generator) = &level.spikers else {
-        return;
-    };
     if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    if game.spiker_timer > 0 {
-        game.spiker_timer -= 1;
-        return;
+    let mut occupied = living.iter().count() + tankers.iter().count() * 2;
+    let mut has_spiker = !spikers.is_empty();
+    for (extra, generator) in [(false, &level.spikers), (true, &level.extra_spikers)] {
+        let Some(generator) = generator else { continue };
+        if game.remaining == 0 {
+            break;
+        }
+        let timer = if extra {
+            &mut game.extra_spiker_timer
+        } else {
+            &mut game.spiker_timer
+        };
+        if *timer > 0 {
+            *timer -= 1;
+            continue;
+        }
+        if occupied >= level.flippers.max_active {
+            continue;
+        }
+        *timer = generator.spawn_interval_ticks - 1;
+        game.remaining -= 1;
+        // launch1 spends the budget even when max_spikers refuses the attempt.
+        if has_spiker {
+            continue;
+        }
+        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        let lane = (game.random >> 16) as usize % level.web.lanes();
+        let mut pose = level.web.glider_transform(lane as i32 * LANE_UNIT);
+        pose.translation.z = -level.web.world_depth() + 0.06;
+        commands.spawn((
+            Spiker {
+                lane,
+                depth: level.web.rear(),
+                motion: Motion::Seek,
+                spike: None,
+                build: 50,
+                angle: 0,
+            },
+            pose,
+            RenderLayers::layer(1),
+            Mesh3d(assets.body.clone()),
+            MeshMaterial3d(assets.material.clone()),
+        ));
+        has_spiker = true;
+        occupied += 1;
     }
-    if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
-        return;
-    }
-    game.spiker_timer = generator.spawn_interval_ticks - 1;
-    game.remaining -= 1;
-    // max_spikers starts at zero and permits one before underflow.
-    if !spikers.is_empty() {
-        return;
-    }
-    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-    let lane = (game.random >> 16) as usize % level.web.lanes();
-    let mut pose = level.web.glider_transform(lane as i32 * LANE_UNIT);
-    pose.translation.z = -level.web.world_depth() + 0.06;
-    commands.spawn((
-        Spiker {
-            lane,
-            depth: level.web.rear(),
-            motion: Motion::Seek,
-            spike: None,
-            build: 50,
-            angle: 0,
-        },
-        pose,
-        RenderLayers::layer(1),
-        Mesh3d(assets.body.clone()),
-        MeshMaterial3d(assets.material.clone()),
-    ));
 }
 
 #[allow(clippy::type_complexity)]

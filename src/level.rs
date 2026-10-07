@@ -25,6 +25,7 @@ pub(crate) struct Level {
     pub(crate) pulsar_tankers: Option<Pulsars>,
     pub(crate) super_flippers: Option<Generator>,
     pub(crate) mirrors: Option<Generator>,
+    pub(crate) extra_spikers: Option<Generator>,
 }
 
 #[derive(Clone)]
@@ -190,6 +191,8 @@ struct Definition {
     super_flippers: Option<GeneratorDefinition>,
     #[serde(default)]
     mirrors: Option<GeneratorDefinition>,
+    #[serde(default)]
+    extra_spikers: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -267,6 +270,7 @@ impl Level {
             && def.pulsars.is_none()
             && def.super_flippers.is_none()
             && def.mirrors.is_none()
+            && def.extra_spikers.is_none()
         {
             return fail("disabling Flippers requires another enemy generator");
         }
@@ -277,6 +281,14 @@ impl Level {
         }
         if def.fuse_tankers.is_some() && def.fuseballs.is_none() {
             return fail("Fuseball Tankers require a fuseballs table for their released children");
+        }
+        if let Some(extra) = &def.extra_spikers
+            && def
+                .spikers
+                .as_ref()
+                .is_none_or(|base| base.climb_speed != extra.climb_speed)
+        {
+            return fail("extra_spikers requires spikers with the same climbing speed");
         }
         if let (Some(pulsars), Some(tankers)) = (&def.pulsars, &def.pulsar_tankers)
             && (pulsars.phase_ticks != tankers.phase_ticks
@@ -344,6 +356,7 @@ impl Level {
             pulsar_tankers: def.pulsar_tankers.map(|g| g.compile(name)).transpose()?,
             super_flippers: def.super_flippers.map(|g| g.compile(name)).transpose()?,
             mirrors: def.mirrors.map(|g| g.compile(name)).transpose()?,
+            extra_spikers: def.extra_spikers.map(|g| g.compile(name)).transpose()?,
         })
     }
 }

@@ -53,6 +53,7 @@ pub(crate) struct Game {
     pub(crate) pulsar_timer: u16,
     pub(crate) super_flipper_timer: u16,
     pub(crate) mirror_timer: u16,
+    pub(crate) extra_spiker_timer: u16,
 }
 
 impl Default for Game {
@@ -82,6 +83,7 @@ impl Default for Game {
             pulsar_timer: 0,
             super_flipper_timer: 0,
             mirror_timer: 0,
+            extra_spiker_timer: 0,
         }
     }
 }
@@ -98,6 +100,10 @@ pub(crate) fn controlling(game: Res<Game>) -> bool {
 
 pub(crate) fn reset_wave(game: &mut Game, level: &Level) {
     game.remaining = level.flippers.count;
+    game.extra_spiker_timer = level
+        .extra_spikers
+        .as_ref()
+        .map_or(0, |g| g.first_spawn_ticks - 1);
     game.super_flipper_timer = level
         .super_flippers
         .as_ref()

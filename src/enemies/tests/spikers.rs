@@ -57,6 +57,41 @@ fn level_58_primary_dispatch_produces_spikers_and_counts_blocked_attempts() {
     assert_eq!(app.world().resource::<Game>().remaining, 39);
 }
 
+#[test]
+fn duplicate_generators_consume_both_attempts_but_cannot_spawn_two_spikers() {
+    let mut app = app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/60.toml")),
+        "level60",
+    )
+    .unwrap();
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    let mut game = app.world_mut().resource_mut::<Game>();
+    assert_eq!(game.extra_spiker_timer, 750);
+    game.status = Status::Playing;
+    game.spiker_timer = 0;
+    game.extra_spiker_timer = 0;
+    app.insert_resource(level.clone())
+        .add_systems(FixedUpdate, spawn);
+    ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut().query::<&Spiker>().iter(app.world()).count(),
+        1
+    );
+    assert_eq!(app.world().resource::<Game>().remaining, 49);
+    assert_eq!(app.world().resource::<Game>().spiker_timer, 50);
+    assert_eq!(app.world().resource::<Game>().extra_spiker_timer, 1500);
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    assert_eq!(app.world().resource::<Game>().extra_spiker_timer, 750);
+    let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/60.toml"));
+    assert!(
+        Level::parse(&source.replace("[spikers]", "[beasts]"), "invalid")
+            .err()
+            .unwrap()
+            .contains("extra_spikers")
+    );
+}
+
 fn app() -> App {
     let mut app = crate::test_support::app();
     app.insert_resource(
