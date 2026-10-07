@@ -1,0 +1,58 @@
+# Original _nw28 on the closed cat-head web33.
+number = 28
+enemy_count = 41
+
+[web]
+start_lane = 8
+depth = 160
+vertices = [[8,1],[10,2],[12,0],[13,2],[15,3],[13,4],[12,6],[10,8],[8,8],[6,8],[4,6],[3,4],[1,3],[3,2],[4,0],[6,2]]
+orientations = [16,32,-48,-16,-112,-80,-96,-128,-128,96,80,112,16,48,-32,16]
+
+[flippers]
+first_spawn_ticks = 41
+spawn_interval_ticks = 81
+climb_speed = 0.6953125
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 186
+spawn_interval_ticks = 371
+climb_speed = 0.5625
+super_chance = 108
+
+[fuse_tankers]
+first_spawn_ticks = 1001
+spawn_interval_ticks = 2001
+climb_speed = 0.5625
+
+[pulsars]
+first_spawn_ticks = 189
+spawn_interval_ticks = 378
+climb_speed = 0.5
+phase_ticks = 7
+propagation_ticks = 5
+
+[spikers]
+first_spawn_ticks = 426
+spawn_interval_ticks = 851
+climb_speed = 1.0625
+
+[beasts]
+first_spawn_ticks = 501
+spawn_interval_ticks = 1001
+climb_speed = 0.6953125
+
+[fuseballs]
+first_spawn_ticks = 351
+spawn_interval_ticks = 701
+climb_speed = 0.71875
+
+[appearance]
+surface = [1.0, 0.0, 0.0]
+lines = [0.78, 0.01, 0.015]
+flipper = [135, 208, 255]
+
+[powerups]
+kill_interval = 8

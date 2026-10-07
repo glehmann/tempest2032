@@ -144,3 +144,19 @@ fn level_27_keeps_both_open_curves_and_the_next_speed_group() {
     assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 389);
     assert_eq!(level.tankers.unwrap().spawn_interval_ticks, 371);
 }
+
+#[test]
+fn level_28_has_a_closed_cat_head_and_inward_facing_ear_corners() {
+    let level = level(28);
+    assert!(level.web.closed);
+    assert_eq!(level.web.lanes(), 16);
+    assert_eq!(level.web.start_lane, 8);
+    assert_eq!(level.web.vertices[2], [12., 0.]);
+    assert_eq!(level.web.vertices[14], [4., 0.]);
+    assert_eq!(level.web.orientations[1], 32);
+    assert_eq!(level.web.orientations[2], -48);
+    assert_eq!(level.flippers.spawn_interval_ticks, 81);
+    assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 378);
+    assert_eq!(level.fuseballs.unwrap().spawn_interval_ticks, 701);
+    assert_eq!(level.tankers.unwrap().super_chance, 108);
+}

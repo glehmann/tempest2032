@@ -176,6 +176,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/27.toml`: open twelve-lane diagonal double-curve `web32`, with
   `0xB200` Flippers, `0x11000` Spikers, and `0xB800` Fuseballs. Pulsars repeat
   every 389 ticks and Tankers every 371.
+- `levels/28.toml`: closed sixteen-lane cat-head `web33`, with inward-facing
+  ear corners. Flippers repeat every 81 ticks, Pulsars every 378, and
+  Fuseballs every 701. The fast-child threshold rises to 108 out of 256.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
