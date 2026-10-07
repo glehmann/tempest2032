@@ -267,6 +267,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/55.toml`: closed sixteen-lane tiny-star `web26`, preserving its
   retraced tips. Flippers and Beasties climb at `0xB600`, Spikers at `0xF000`,
   and Fuseballs at `0xB800`; Flipper Tankers repeat every 251 ticks.
+- `levels/56.toml`: closed fifteen-lane D-shaped `web29`, with Flippers every
+  51 ticks, Beasties every 101, Flipper Tankers every 241, and Spikers every
+  651. The fast-child threshold reaches 220 out of 256.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
