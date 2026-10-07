@@ -7,6 +7,7 @@ use std::path::Path;
 const WAVES: &[(usize, u16, bool, u16, u16, u16, u16, u16)] = &[
     // Level, budget, normal Flippers, Flipper delay, Beastie delay, Tankers, Fuseballs, Pulsar Tankers.
     (49, 17, false, 141, 141, 0, 0, 0),
+    (50, 41, true, 51, 501, 0, 901, 0),
 ];
 
 #[test]

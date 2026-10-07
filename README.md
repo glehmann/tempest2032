@@ -249,6 +249,9 @@ no Rust changes are needed. The supplied levels are:
   entirely of 17 armored Beasties: first spawn after 71 gameplay ticks,
   then every 141 ticks, climbing at `0xB000`. Normal Flipper generation is
   disabled, and there are no other enemy generators.
+- `levels/50.toml`: open fifteen-lane spiraloid `web23`, restoring normal
+  Flippers every 51 ticks in a 41-spawn mixed wave. Beasties repeat every
+  501 ticks, Spikers every 751, and Fuseballs every 901.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
