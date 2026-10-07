@@ -321,6 +321,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/69.toml`: eighteen-lane triangle `web9`, replacing Fuseballs with
   Pulsar Tankers every 501 ticks. Super Flippers climb at `0xB400`, Alien
   Droids at `0x16800`, and the shared Pulsar phase delay is six ticks.
+- `levels/70.toml`: open fifteen-lane U-shaped `web3`, with primary Pulsar
+  Tankers every 71 ticks instead of Super Flippers. Fuseballs return every
+  301 ticks, while Mirrors and Alien Droids retain their previous intervals.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
