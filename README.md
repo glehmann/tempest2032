@@ -138,6 +138,10 @@ no Rust changes are needed. The supplied levels are:
   rim sparks that move in opposite directions every five ticks, wrapping on
   closed webs and bouncing at open ends. Rail kills award 200 points and
   spark kills 150; both participate in the normal pickup-drop sequence.
+- `levels/18.toml`: the open fifteen-lane spiraloid `web23`, with a 31-spawn
+  budget. Flippers repeat every 101 ticks and Pulsars every 501. It retains
+  level seventeen's red surfaces, cyan Flippers, climbing speeds, and other
+  generators. Pulsar sparks bounce at the open ends.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
