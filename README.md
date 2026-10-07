@@ -210,6 +210,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/37.toml`: eighteen-lane triangle `web9`, with `0xB400` Flippers,
   `0x9800` Tankers, and `0xB000` Fuseballs. Pulsar phases drop to six ticks;
   Spikers repeat every 801 ticks.
+- `levels/38.toml`: open fifteen-lane U-shaped `web3`, with 36 shared spawns.
+  Flippers repeat every 96 ticks and Flipper Tankers every 261, while Pulsar
+  Tankers retain their 451-tick interval.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
