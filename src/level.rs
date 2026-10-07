@@ -557,6 +557,18 @@ mod tests {
     }
 
     #[test]
+    fn original_level_sixteen_selects_the_compact_t2k_web_and_forty_one_spawns() {
+        let level = Level::parse(include_str!("../levels/16.toml"), "level16").unwrap();
+        assert!(level.web.closed);
+        assert_eq!(level.web.lanes(), 8);
+        assert_eq!(level.flippers.count, 41);
+        assert_eq!(level.flippers.spawn_interval_ticks, 71);
+        assert_eq!(level.tankers.as_ref().unwrap().super_chance, 60);
+        assert_eq!(level.enemy_shots, 2);
+        assert_eq!(level.web.flip_angle(7, 0, 1), 96);
+    }
+
+    #[test]
     fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
         let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
         assert!(!level.web.closed);

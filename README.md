@@ -105,6 +105,9 @@ no Rust changes are needed. The supplied levels are:
   Flippers every 76 ticks. The local flat sections retain their source angles.
 - `levels/15.toml`: open `web16`, with `0xAE00` Flippers and `0x13000` Spikers.
   Fuseballs climb at `0x9000` and repeat every 501 ticks.
+- `levels/16.toml`: T2K's compact eight-lane `web21`, with a 41-spawn budget,
+  Flippers every 71 ticks, and the original 60-in-256 fast-child threshold.
+  The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
