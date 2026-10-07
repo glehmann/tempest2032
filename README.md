@@ -318,6 +318,9 @@ no Rust changes are needed. The supplied levels are:
   speed; Mirrors and Fuseballs use `0xA800`.
 - `levels/68.toml`: open fifteen-lane V-shaped `web2`, preserving level 67's
   Super Flipper, Mirror, Alien Droid, and Fuseball intervals in a 61-spawn wave.
+- `levels/69.toml`: eighteen-lane triangle `web9`, replacing Fuseballs with
+  Pulsar Tankers every 501 ticks. Super Flippers climb at `0xB400`, Alien
+  Droids at `0x16800`, and the shared Pulsar phase delay is six ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
