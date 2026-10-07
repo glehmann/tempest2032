@@ -211,3 +211,40 @@ fn level_31_has_the_closed_kiss_of_death_and_the_last_second_set_speed_group() {
     assert_eq!(level.fuseballs.unwrap().climb_speed, 0xc800);
     assert_eq!(level.tankers.unwrap().super_chance, 120);
 }
+
+#[test]
+fn level_32_finishes_the_second_web_set_with_an_open_backwards_c() {
+    let level = level(32);
+    assert!(!level.web.closed);
+    assert_eq!(level.web.lanes(), 15);
+    assert_eq!(level.web.start_lane, 12);
+    assert_eq!(level.web.vertices[0], [6., 6.]);
+    assert_eq!(level.web.vertices[15], [6., 10.]);
+    assert_eq!(level.web.neighbor(0, -1), None);
+    assert_eq!(level.web.neighbor(14, 1), None);
+    assert_eq!(level.flippers.count, 41);
+    assert_eq!(level.tankers.unwrap().spawn_interval_ticks, 431);
+    assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 901);
+    assert_eq!(level.fuseballs.unwrap().spawn_interval_ticks, 501);
+    assert_eq!(level.fuse_tankers.unwrap().spawn_interval_ticks, 501);
+    assert_eq!(level.enemy_shots, 4);
+}
+
+#[test]
+fn mirrored_lane_rotations_point_along_the_actual_web_edges() {
+    use crate::web::FRONT_RADIUS;
+    use bevy::prelude::*;
+    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    for level in &levels.0[17..] {
+        for lane in 0..level.web.lanes() {
+            let tangent = (level.web.vertex(lane as f32 + 1., FRONT_RADIUS, 0.)
+                - level.web.vertex(lane as f32, FRONT_RADIUS, 0.))
+            .normalize();
+            assert!(
+                (level.web.orientation(lane) * Vec3::X).dot(tangent) > 0.5,
+                "level {}, lane {lane} has a reversed or misaligned orientation",
+                level.number
+            );
+        }
+    }
+}

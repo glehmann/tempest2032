@@ -188,6 +188,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/31.toml`: closed thirteen-lane kiss-of-death `web36`, with the
   original shallow inward corners. Flippers climb at `0xB600`, Spikers at
   `0x13000`, and Fuseballs at `0xC800`; Flippers repeat every 96 ticks.
+- `levels/32.toml`: open fifteen-lane backwards-C `web37`, finishing the
+  second web set. Fuseballs and Fuseball Tankers both repeat every 501 ticks,
+  while Pulsars repeat every 901. Four enemy shots can be active at once.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
