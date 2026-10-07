@@ -1,28 +1,53 @@
-//! Checks the optional frame-rate label reports the smoothed diagnostic value.
+//! Checks the frame-rate label samples at a steady pace, keeps a two-second
+//! window of per-frame times, and appends the processor and memory readings
+//! once they arrive.
 
-use crate::hud::{FpsLabel, spawn_fps_label, update_fps};
-use bevy::diagnostic::{FrameCountPlugin, FrameTimeDiagnosticsPlugin};
+use crate::hud::{FpsLabel, FpsMeter, spawn_fps_label, update_fps};
+use bevy::diagnostic::{
+    Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore,
+    SystemInformationDiagnosticsPlugin,
+};
 use bevy::prelude::*;
 use bevy::time::{TimePlugin, TimeUpdateStrategy};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn fps_app() -> App {
     let mut app = App::new();
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_nanos(
         16_666_667,
     )))
-    .add_plugins((
-        TimePlugin,
-        FrameCountPlugin,
-        FrameTimeDiagnosticsPlugin::default(),
-    ))
+    .add_plugins(TimePlugin)
+    .init_resource::<FpsMeter>()
+    .init_resource::<DiagnosticsStore>()
     .add_systems(Startup, spawn_fps_label)
-    .add_systems(
-        Update,
-        update_fps.after(FrameTimeDiagnosticsPlugin::diagnostic_system),
-    );
+    .add_systems(Update, update_fps);
+    let mut store = app.world_mut().resource_mut::<DiagnosticsStore>();
+    for path in [
+        SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE,
+        SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE,
+    ] {
+        store.add(Diagnostic::new(path));
+    }
     app.update();
     app
+}
+
+fn run(app: &mut App, frame: Duration, count: u32) {
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(frame));
+    for _ in 0..count {
+        app.update();
+    }
+}
+
+fn report(app: &mut App, path: &DiagnosticPath, readings: &[f64]) {
+    let mut store = app.world_mut().resource_mut::<DiagnosticsStore>();
+    let diagnostic = store.get_mut(path).unwrap();
+    for reading in readings {
+        diagnostic.add_measurement(DiagnosticMeasurement {
+            time: Instant::now(),
+            value: *reading,
+        });
+    }
 }
 
 fn label(app: &mut App) -> String {
@@ -35,11 +60,82 @@ fn label(app: &mut App) -> String {
 }
 
 #[test]
-fn the_label_reports_nothing_before_the_first_frame_and_the_rate_afterwards() {
+fn the_label_waits_for_a_half_second_sample_and_then_reports_the_frame_times() {
     let mut app = fps_app();
+    run(&mut app, Duration::from_nanos(16_666_667), 10);
     assert_eq!(label(&mut app), "");
-    for _ in 0..3 {
-        app.update();
-    }
-    assert_eq!(label(&mut app), "60 FPS");
+    run(&mut app, Duration::from_nanos(16_666_667), 20);
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms");
+}
+
+#[test]
+fn one_slow_frame_shows_up_in_the_range_at_the_next_refresh() {
+    let mut app = fps_app();
+    run(&mut app, Duration::from_nanos(16_666_667), 30);
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms");
+    run(&mut app, Duration::from_millis(100), 1);
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms");
+    run(&mut app, Duration::from_nanos(16_666_667), 25);
+    assert_eq!(label(&mut app), "50 FPS  16.7-100.0 ms");
+}
+
+#[test]
+fn the_frame_times_span_the_last_two_seconds_and_forget_older_frames() {
+    let mut app = fps_app();
+    run(&mut app, Duration::from_nanos(10_000_000), 60);
+    assert_eq!(label(&mut app), "100 FPS  10.0-10.0 ms");
+    run(&mut app, Duration::from_nanos(33_333_333), 50);
+    assert_eq!(label(&mut app), "30 FPS  10.0-33.3 ms");
+    run(&mut app, Duration::from_nanos(33_333_333), 50);
+    assert_eq!(label(&mut app), "30 FPS  33.3-33.3 ms");
+}
+
+#[test]
+fn the_processor_and_memory_readings_are_added_once_the_diagnostics_have_values() {
+    let mut app = fps_app();
+    run(&mut app, Duration::from_nanos(16_666_667), 30);
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms");
+    report(
+        &mut app,
+        &SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE,
+        &[10.0, 30.0],
+    );
+    run(&mut app, Duration::from_nanos(16_666_667), 30);
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  CPU 20%");
+    report(
+        &mut app,
+        &SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE,
+        &[1.24, 1.28],
+    );
+    run(&mut app, Duration::from_nanos(16_666_667), 30);
+    assert_eq!(
+        label(&mut app),
+        "60 FPS  16.7-16.7 ms  CPU 20%  MEM 1290 MiB"
+    );
+}
+
+#[test]
+fn refresh_deadlines_keep_the_remainder_from_previous_frames() {
+    let mut app = fps_app();
+    run(&mut app, Duration::from_millis(300), 2);
+    assert_eq!(label(&mut app), "3 FPS  300.0-300.0 ms");
+    run(&mut app, Duration::from_millis(200), 1);
+    assert_eq!(label(&mut app), "3 FPS  300.0-300.0 ms");
+    run(&mut app, Duration::from_millis(200), 1);
+    assert_eq!(label(&mut app), "5 FPS  200.0-300.0 ms");
+}
+
+#[test]
+fn the_rolling_window_keeps_its_precision_after_a_long_session() {
+    let mut app = fps_app();
+    app.world_mut()
+        .resource_mut::<Time<Real>>()
+        .update_with_duration(Duration::from_secs(7 * 24 * 60 * 60));
+    run(&mut app, Duration::from_millis(100), 1);
+    run(&mut app, Duration::from_millis(10), 40);
+    assert_eq!(label(&mut app), "82 FPS  10.0-100.0 ms");
+    run(&mut app, Duration::from_millis(10), 160);
+    assert_eq!(label(&mut app), "100 FPS  10.0-100.0 ms");
+    run(&mut app, Duration::from_millis(10), 50);
+    assert_eq!(label(&mut app), "100 FPS  10.0-10.0 ms");
 }

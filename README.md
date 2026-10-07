@@ -28,8 +28,13 @@ Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
 Pass `--fullscreen` to start borderless fullscreen on the primary monitor
-instead of a window, and `--fps` to show the smoothed frame rate in the
-top-right corner under the level label.
+instead of a window, and `--fps` to show the frame rate in the top-right corner
+under the level label. The label refreshes every 0.5 seconds and shows the
+fastest and slowest frame times in milliseconds over the last two seconds.
+Every frame counts, so a single hitch appears at the next refresh and stays
+in the range until it ages out. The same line reports this process's average
+CPU usage as a percentage of total CPU capacity and its resident memory in
+MiB, once their first readings arrive.
 
 On Linux, the build needs a C/C++ toolchain and X11 and Wayland development
 libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,

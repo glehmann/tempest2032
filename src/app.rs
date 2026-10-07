@@ -2,7 +2,7 @@
 //! schedules. Keeps fixed-tick system ordering and run conditions together.
 
 use crate::enemies::{pulsar_render, pulsars};
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::diagnostic::SystemInformationDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, WindowMode};
 
@@ -29,7 +29,7 @@ use crate::{
     explosion,
     game::{Game, Status, check_game, controlling, load_level, restart_game},
     glider::{animate_glider, move_glider},
-    hud::{spawn_fps_label, update_fps, update_hud},
+    hud::{FpsMeter, spawn_fps_label, update_fps, update_hud},
     level::{Level, Levels},
     powerups,
     scene::{setup, sync_web, update_lane},
@@ -43,12 +43,10 @@ struct StartingLevel(usize);
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
     if args.fps {
-        app.add_plugins(FrameTimeDiagnosticsPlugin::default())
+        app.add_plugins(SystemInformationDiagnosticsPlugin)
+            .init_resource::<FpsMeter>()
             .add_systems(Startup, spawn_fps_label)
-            .add_systems(
-                Update,
-                update_fps.after(FrameTimeDiagnosticsPlugin::diagnostic_system),
-            );
+            .add_systems(Update, update_fps);
     }
     if let Some(path) = args.screenshot {
         app.insert_resource(CapturePath(path))

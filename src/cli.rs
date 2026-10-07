@@ -21,7 +21,7 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fullscreen: bool,
 
-    /// Show the frame rate in the top-right corner
+    /// Show the frame rate, processor load, and memory use in the top-right corner
     #[arg(long)]
     pub(crate) fps: bool,
 

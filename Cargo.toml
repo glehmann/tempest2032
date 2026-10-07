@@ -11,7 +11,7 @@ toml = "0.9"
 bevy = { version = "0.18", default-features = false, features = [
     "std", "async_executor", "multi_threaded", "bevy_asset", "bevy_log",
     "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render",
-    "default_font", "x11", "wayland", "png",
+    "default_font", "x11", "wayland", "png", "sysinfo_plugin",
 ] }
 
 [profile.dev]
