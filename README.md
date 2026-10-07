@@ -232,6 +232,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/44.toml`: sixteen-lane cross `web10`. Direct Pulsars and Pulsar
   Tankers both repeat every 501 ticks; Fuseball Tankers remain on their
   301-tick interval, and Flippers repeat every 81 ticks.
+- `levels/45.toml`: open thirteen-lane T2K giraffe-neck `web20`, with
+  `0xBC00` Flippers and `0xB800` Tankers. Pulsar phases drop to four ticks;
+  Pulsar Tankers repeat every 301 ticks and direct Pulsars every 1,001.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
