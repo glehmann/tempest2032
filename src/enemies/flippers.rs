@@ -42,6 +42,16 @@ pub(crate) struct Flipper {
 #[derive(Component)]
 pub(crate) struct SuperFlipper;
 
+#[derive(Component)]
+pub(crate) struct SpiralFlipper;
+
+#[derive(Clone, Copy)]
+enum SpawnKind {
+    Normal,
+    Fast,
+    Spiral,
+}
+
 impl Flipper {
     pub(crate) fn preview_target(&self, web: &Web) -> Option<(usize, i32)> {
         self.hit_lane(web).map(|lane| (lane, self.depth))
@@ -127,18 +137,25 @@ pub(crate) fn spawn_enemies(
         return;
     }
     let mut occupied = living.iter().count() + tankers.iter().count() * 2;
-    for (super_flipper, interval) in [
+    for (kind, interval) in [
         (
-            false,
+            SpawnKind::Normal,
             level
                 .flippers
                 .enabled
                 .then_some(level.flippers.spawn_interval_ticks),
         ),
         (
-            true,
+            SpawnKind::Fast,
             level
                 .super_flippers
+                .as_ref()
+                .map(|g| g.spawn_interval_ticks),
+        ),
+        (
+            SpawnKind::Spiral,
+            level
+                .spiral_flippers
                 .as_ref()
                 .map(|g| g.spawn_interval_ticks),
         ),
@@ -147,10 +164,10 @@ pub(crate) fn spawn_enemies(
         if game.remaining == 0 {
             break;
         }
-        let timer = if super_flipper {
-            &mut game.super_flipper_timer
-        } else {
-            &mut game.spawn_timer
+        let timer = match kind {
+            SpawnKind::Normal => &mut game.spawn_timer,
+            SpawnKind::Fast => &mut game.super_flipper_timer,
+            SpawnKind::Spiral => &mut game.spiral_flipper_timer,
         };
         if *timer > 0 {
             *timer -= 1;
@@ -165,10 +182,10 @@ pub(crate) fn spawn_enemies(
             lane: (game.random >> 16) as usize % level.web.lanes(),
             depth: level.web.rear() + 300 * LANE_UNIT,
             motion: Motion::Approach,
-            pause: if super_flipper {
-                0
-            } else {
+            pause: if matches!(kind, SpawnKind::Normal) {
                 level.flippers.pause_ticks
+            } else {
+                0
             },
         };
         let mut enemy = commands.spawn((
@@ -178,8 +195,14 @@ pub(crate) fn spawn_enemies(
             Mesh3d(assets.point.clone()),
             MeshMaterial3d(assets.point_shades.first().cloned().unwrap_or_default()),
         ));
-        if super_flipper {
-            enemy.insert(SuperFlipper);
+        match kind {
+            SpawnKind::Normal => {}
+            SpawnKind::Fast => {
+                enemy.insert(SuperFlipper);
+            }
+            SpawnKind::Spiral => {
+                enemy.insert(SpiralFlipper);
+            }
         }
         game.remaining -= 1;
         occupied += 1;
@@ -208,6 +231,26 @@ pub(crate) fn start_flip(flipper: &mut Flipper, player_lane: usize, web: &Web) {
     };
 }
 
+pub(crate) fn start_spiral_flip(flipper: &mut Flipper, player_lane: usize, web: &Web) {
+    let from = flipper.lane;
+    start_flip(flipper, player_lane, web);
+    if flipper.depth > 0
+        && let Motion::Flip { direction, .. } = flipper.motion
+    {
+        let away = if web.neighbor(from, -direction).is_some() {
+            -direction
+        } else {
+            direction
+        };
+        flipper.lane = web.neighbor(from, away).unwrap();
+        flipper.motion = Motion::Flip {
+            from,
+            direction: away,
+            angle: 0,
+        };
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub(crate) fn move_enemies(
     level: Res<Level>,
@@ -224,18 +267,32 @@ pub(crate) fn move_enemies(
         Option<&mut tankers::Released>,
         Option<&beasts::Beast>,
         Option<&SuperFlipper>,
+        Option<&SpiralFlipper>,
     )>,
 ) {
     if game.status != Status::Playing {
         return;
     }
     let player_lane = level.web.selected_lane(player.progress) as usize;
-    for (mut flipper, mut transform, mut mesh, mut material, mut released, beast, super_flipper) in
-        &mut enemies
+    for (
+        mut flipper,
+        mut transform,
+        mut mesh,
+        mut material,
+        mut released,
+        beast,
+        super_flipper,
+        spiral,
+    ) in &mut enemies
     {
         let speed = if beast.is_some() {
             level
                 .beasts
+                .as_ref()
+                .map_or(level.flippers.climb_speed, |g| g.climb_speed)
+        } else if spiral.is_some() {
+            level
+                .spiral_flippers
                 .as_ref()
                 .map_or(level.flippers.climb_speed, |g| g.climb_speed)
         } else if super_flipper.is_some() {
@@ -250,11 +307,17 @@ pub(crate) fn move_enemies(
             Motion::Approach => {
                 flipper.depth -= 2 * LANE_UNIT;
                 if flipper.depth <= level.web.rear() {
-                    flipper.depth = level.web.rear() - speed;
-                    flipper.motion = Motion::Climb;
+                    flipper.depth = level.web.rear() - if spiral.is_some() { 0 } else { speed };
+                    flipper.motion = if spiral.is_some() {
+                        Motion::Pause(0)
+                    } else {
+                        Motion::Climb
+                    };
                     mesh.0 = beast.map_or_else(
                         || {
-                            if super_flipper.is_some() {
+                            if spiral.is_some() {
+                                shells.spiral.clone()
+                            } else if super_flipper.is_some() {
                                 shells.fast.clone()
                             } else {
                                 assets.body.clone()
@@ -276,6 +339,9 @@ pub(crate) fn move_enemies(
                 direction,
                 angle,
             } => {
+                if spiral.is_some() {
+                    flipper.depth = (flipper.depth - speed).max(0);
+                }
                 let angle = angle
                     + level.flippers.flip_speed
                         * if super_flipper.is_some() || released.as_ref().is_some_and(|r| r.fast) {
@@ -319,6 +385,8 @@ pub(crate) fn move_enemies(
                             angle: 0,
                         };
                     }
+                } else if spiral.is_some() {
+                    start_spiral_flip(&mut flipper, player_lane, &level.web);
                 } else {
                     start_flip(&mut flipper, player_lane, &level.web);
                 }

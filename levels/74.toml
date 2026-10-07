@@ -1,0 +1,56 @@
+# Original _nw74 on web4, introducing dispatch-11 spiral Super Flippers.
+number = 74
+enemy_count = 61
+
+[web]
+start_lane = 8
+depth = 160
+vertices = [[8,6],[9,4],[11,5],[12,7],[10,8],[12,9],[11,11],[9,12],[8,10],[7,12],[5,11],[4,9],[6,8],[4,7],[5,5],[7,4]]
+orientations = [48,-16,-48,-112,-16,-80,-112,80,-80,112,80,16,112,48,16,-48]
+
+[flippers]
+enabled = false
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.71875
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[super_flippers]
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.71875
+
+[spiral_flippers]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 0.71875
+
+[mirrors]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.75
+
+[aliens]
+first_spawn_ticks = 301
+spawn_interval_ticks = 601
+climb_speed = 1.4375
+
+[spikers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 1.375
+
+[fuseballs]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.75
+
+[appearance]
+surface = [1.0, 0.0, 0.6627451]
+lines = [0.78, 0.015, 0.52]
+flipper = [247, 255, 230]
+
+[powerups]
+kill_interval = 9

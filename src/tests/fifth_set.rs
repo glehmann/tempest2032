@@ -15,6 +15,7 @@ const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
     (71, 0, 751, 601, 0, 71, 501, 0),
     (72, 21, 751, 601, 0, 0, 0, 501),
     (73, 21, 751, 601, 301, 0, 0, 501),
+    (74, 21, 751, 601, 301, 0, 0, 501),
 ];
 
 #[test]
@@ -27,6 +28,13 @@ fn fifth_set_matches_the_original_dispatch_table_and_speed_groups() {
         assert_eq!(level.web.closed, earlier.web.closed);
         assert_eq!(level.flippers.count, 61);
         assert!(!level.flippers.enabled);
+        assert_eq!(
+            level
+                .spiral_flippers
+                .as_ref()
+                .map_or(0, |g| g.spawn_interval_ticks),
+            if number >= 74 { 401 } else { 0 }
+        );
         assert_eq!(
             level
                 .super_flippers

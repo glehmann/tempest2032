@@ -23,6 +23,109 @@ use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn spiral_flippers_flip_away_during_descent_at_normal_angular_speed() {
+    use crate::enemies::flippers::SpiralFlipper;
+    let mut app = app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/74.toml")),
+        "level74",
+    )
+    .unwrap();
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, move_enemies);
+    let id = enemy(&mut app, 5, 60 * LANE_UNIT, Motion::Pause(0));
+    app.world_mut().entity_mut(id).insert(SpiralFlipper);
+    ticks(&mut app, 1);
+    assert!(matches!(
+        app.world().get::<Flipper>(id).unwrap().motion,
+        Motion::Flip {
+            from: 5,
+            direction: -1,
+            angle: 0
+        }
+    ));
+    assert_eq!(app.world().get::<Flipper>(id).unwrap().lane, 4);
+    ticks(&mut app, 1);
+    assert!(matches!(
+        app.world().get::<Flipper>(id).unwrap().motion,
+        Motion::Flip { angle: 4, .. }
+    ));
+    assert_eq!(
+        app.world().get::<Flipper>(id).unwrap().depth,
+        60 * LANE_UNIT - 0xb800
+    );
+    app.world_mut().get_mut::<Flipper>(id).unwrap().depth = 0;
+    app.world_mut().get_mut::<Flipper>(id).unwrap().motion = Motion::Pause(0);
+    ticks(&mut app, 1);
+    assert!(matches!(
+        app.world().get::<Flipper>(id).unwrap().motion,
+        Motion::Flip { direction: 1, .. }
+    ));
+}
+
+#[test]
+fn spiral_flippers_wait_when_aligned_and_bounce_at_open_ends() {
+    use crate::enemies::flippers::{SpiralFlipper, start_spiral_flip};
+    let mut app = app();
+    app.add_systems(FixedUpdate, move_enemies);
+    let id = enemy(&mut app, 7, 60 * LANE_UNIT, Motion::Pause(0));
+    app.world_mut().entity_mut(id).insert(SpiralFlipper);
+    ticks(&mut app, 50);
+    assert_eq!(
+        app.world().get::<Flipper>(id).unwrap().depth,
+        60 * LANE_UNIT
+    );
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/73.toml")),
+        "level73",
+    )
+    .unwrap();
+    let mut flipper = Flipper {
+        lane: 0,
+        depth: LANE_UNIT,
+        motion: Motion::Pause(0),
+        pause: 0,
+    };
+    start_spiral_flip(&mut flipper, 3, &level.web);
+    assert_eq!(flipper.lane, 1);
+}
+
+#[test]
+fn spiral_generator_has_an_independent_first_spawn_timer() {
+    use crate::enemies::flippers::SpiralFlipper;
+    use crate::game::{Status, reset_wave};
+    let mut app = app();
+    let mut level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/74.toml")),
+        "level74",
+    )
+    .unwrap();
+    level.super_flippers = None;
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, spawn_enemies);
+    ticks(&mut app, 200);
+    assert_eq!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<SpiralFlipper>>()
+            .iter(app.world())
+            .count(),
+        1
+    );
+    assert_eq!(app.world().resource::<Game>().remaining, 60);
+    assert_eq!(app.world().resource::<Game>().spiral_flipper_timer, 400);
+}
+
+#[test]
 fn dedicated_super_flippers_appear_at_their_own_rate_and_flip_twice_as_fast() {
     use crate::enemies::flippers::SuperFlipper;
     use crate::game::{Status, reset_wave};

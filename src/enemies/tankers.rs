@@ -57,6 +57,7 @@ pub(crate) struct Released {
 pub(crate) struct TankerAssets {
     pub(crate) body: Handle<Mesh>,
     pub(crate) fast: Handle<Mesh>,
+    pub(crate) spiral: Handle<Mesh>,
     pub(crate) point: Handle<Mesh>,
     pub(crate) material: Handle<StandardMaterial>,
     pub(crate) shades: Vec<Handle<StandardMaterial>>,
@@ -130,6 +131,30 @@ pub(crate) fn setup(
         }),
     );
     commands.insert_resource(TankerAssets {
+        spiral: meshes.add(colored_mesh(
+            [
+                (0xcc, [6, 1, 4], [255, 64, 64]),
+                (0xcc, [7, 1, 4], [255, 64, 64]),
+                (0x44, [0, 1, 2], [255, 128, 192]),
+                (0x66, [5, 4, 2], [255, 128, 192]),
+                (0x44, [0, 1, 3], [255, 128, 192]),
+                (0x66, [5, 4, 3], [255, 128, 192]),
+            ]
+            .map(|(hue, face, intensity)| {
+                let points = [
+                    (1., 9.),
+                    (5., 9.),
+                    (9., 5.),
+                    (9., 13.),
+                    (13., 9.),
+                    (17., 9.),
+                    (9., 3.),
+                    (9., 15.),
+                ]
+                .map(|(x, y)| Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, 0.));
+                std::array::from_fn(|i| (points[face[i]], cry::color(hue, intensity[i])))
+            }),
+        )),
         body: meshes.add(colored_mesh(triangles)),
         fast: meshes.add(fast),
         point: meshes.add(Rectangle::new(1., 1.)),

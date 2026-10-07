@@ -333,6 +333,11 @@ no Rust changes are needed. The supplied levels are:
 - `levels/73.toml`: open fourteen-lane sine-wave `web13`, adding Fuseballs
   every 301 ticks to the Super Flipper, Mirror, Alien Droid, and Spiker wave.
   Alien Droids climb at `0x17000` and Spikers at `0x16000`.
+- `levels/74.toml`: closed clover `web4`, adding type-3 Super Flippers every
+  401 ticks. They use the six-face `s_flip2` mesh, flip away from the player
+  while descending, stop descending when aligned, and pursue normally at
+  the rim. Unlike type 2, they use the normal four-unit angular step. The
+  source's extra firing call is commented out and remains inactive here.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -372,6 +377,7 @@ The TOML fields use these conventions:
   Flipper generator requires another enemy generator in the level.
   Optional `super_flippers` and `mirrors` tables use the standard generator
   fields. Super Flippers have independent spawn timers and double-speed flips.
+  Optional `spiral_flippers` tables configure the independent type-3 generator.
   Optional `aliens` tables specify Alien Droid generation and climbing speed.
 - `enemy_count`: shared generation budget for mixed waves. It replaces the
   legacy `flippers.count` value when supplied. Released Tanker contents do not

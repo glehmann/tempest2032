@@ -24,6 +24,7 @@ pub(crate) struct Level {
     pub(crate) pulsars: Option<Pulsars>,
     pub(crate) pulsar_tankers: Option<Pulsars>,
     pub(crate) super_flippers: Option<Generator>,
+    pub(crate) spiral_flippers: Option<Generator>,
     pub(crate) mirrors: Option<Generator>,
     pub(crate) extra_spikers: Option<Generator>,
     pub(crate) aliens: Option<Generator>,
@@ -191,6 +192,8 @@ struct Definition {
     #[serde(default)]
     super_flippers: Option<GeneratorDefinition>,
     #[serde(default)]
+    spiral_flippers: Option<GeneratorDefinition>,
+    #[serde(default)]
     mirrors: Option<GeneratorDefinition>,
     #[serde(default)]
     extra_spikers: Option<GeneratorDefinition>,
@@ -272,6 +275,7 @@ impl Level {
             && def.fuseballs.is_none()
             && def.pulsars.is_none()
             && def.super_flippers.is_none()
+            && def.spiral_flippers.is_none()
             && def.mirrors.is_none()
             && def.extra_spikers.is_none()
             && def.aliens.is_none()
@@ -362,6 +366,7 @@ impl Level {
             pulsars: def.pulsars.map(|g| g.compile(name)).transpose()?,
             pulsar_tankers: def.pulsar_tankers.map(|g| g.compile(name)).transpose()?,
             super_flippers: def.super_flippers.map(|g| g.compile(name)).transpose()?,
+            spiral_flippers: def.spiral_flippers.map(|g| g.compile(name)).transpose()?,
             mirrors: def.mirrors.map(|g| g.compile(name)).transpose()?,
             extra_spikers: def.extra_spikers.map(|g| g.compile(name)).transpose()?,
             aliens: def.aliens.map(|g| g.compile(name)).transpose()?,
