@@ -1,4 +1,4 @@
-//! Tankers are pink enemy shells that climb lanes and split into two Flippers.
+//! Tankers climb lanes and release two Flippers or Fuseballs when shot or at the rim.
 //! Handles shell graphics, spawning, releases, and fast-child movement.
 
 use crate::cry;
@@ -17,14 +17,26 @@ use crate::game::Status;
 use crate::level::Level;
 use crate::level::LevelActor;
 use crate::mesh::colored_mesh;
+use crate::web::FRONT_RADIUS;
 use crate::web::LANE_UNIT;
 use crate::web::WORLD_UNIT;
 use crate::web::Web;
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
+use std::f32::consts::TAU;
+
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Contents {
+    #[default]
+    Flippers,
+    Fuseballs,
+}
+
+#[derive(Component, Default)]
+pub(crate) struct TankerSpin(u8);
 
 #[derive(Component)]
-#[require(LevelActor, Enemy)]
+#[require(LevelActor, Enemy, Contents, TankerSpin)]
 pub(crate) struct Tanker {
     pub(crate) lane: usize,
     pub(crate) depth: i32,
@@ -156,51 +168,100 @@ pub(crate) fn spawn(
     fuses: Query<&fuseballs::Fuseball>,
     pulsars: Query<&Pulsar>,
 ) {
-    let Some(generator) = &level.tankers else {
-        return;
-    };
     if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    if game.tanker_timer > 0 {
-        game.tanker_timer -= 1;
-        return;
-    }
-    if flippers.iter().count()
+    let mut occupied = flippers.iter().count()
         + tankers.iter().count() * 3
         + spikers.iter().count()
         + fuses.iter().count()
-        + pulsars.iter().count()
-        >= level.flippers.max_active
-    {
-        return;
+        + pulsars.iter().count();
+    for (contents, generator) in [
+        (Contents::Flippers, &level.tankers),
+        (Contents::Fuseballs, &level.fuse_tankers),
+    ] {
+        let Some(generator) = generator else { continue };
+        if game.remaining == 0 {
+            break;
+        }
+        let timer = match contents {
+            Contents::Flippers => &mut game.tanker_timer,
+            Contents::Fuseballs => &mut game.fuse_tanker_timer,
+        };
+        if *timer > 0 {
+            *timer -= 1;
+            continue;
+        }
+        if occupied >= level.flippers.max_active {
+            continue;
+        }
+        *timer = generator.spawn_interval_ticks - 1;
+        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        let tanker = Tanker {
+            lane: 1 + (game.random >> 16) as usize % (level.web.lanes() - 2),
+            depth: level.web.rear() + 300 * LANE_UNIT,
+            approach: true,
+        };
+        commands.spawn((
+            transform(&tanker, &level.web),
+            tanker,
+            contents,
+            RenderLayers::layer(1),
+            Mesh3d(assets.point.clone()),
+            MeshMaterial3d(assets.shades.first().cloned().unwrap_or_default()),
+        ));
+        game.remaining -= 1;
+        occupied += 3;
     }
-    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-    let tanker = Tanker {
-        lane: 1 + (game.random >> 16) as usize % (level.web.lanes() - 2),
-        depth: level.web.rear() + 300 * LANE_UNIT,
-        approach: true,
-    };
-    commands.spawn((
-        transform(&tanker, &level.web),
-        tanker,
-        RenderLayers::layer(1),
-        Mesh3d(assets.point.clone()),
-        MeshMaterial3d(assets.shades.first().cloned().unwrap_or_default()),
-    ));
-    game.remaining -= 1;
-    game.tanker_timer = generator.spawn_interval_ticks - 1;
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn open(
     commands: &mut Commands,
     game: &mut Game,
     level: &Level,
     assets: &FlipperAssets,
     shells: &TankerAssets,
+    fuses: &fuseballs::FuseAssets,
     tanker: &Tanker,
+    contents: Contents,
 ) {
     game.score += 100;
+    if contents == Contents::Fuseballs {
+        for direction in [-1, 1] {
+            let from = tanker.lane + usize::from(direction > 0);
+            let to = if level.web.closed {
+                (from as i32 + direction).rem_euclid(level.web.lanes() as i32) as usize
+            } else {
+                (from as i32 + direction) as usize
+            };
+            let lane = level.web.neighbor(tanker.lane, direction).unwrap();
+            commands.spawn((
+                fuseballs::Fuseball {
+                    edge: from,
+                    depth: tanker.depth,
+                    motion: fuseballs::Motion::Cross {
+                        from,
+                        to,
+                        lane,
+                        steps: 0,
+                        delay: 4,
+                    },
+                    rise: 48,
+                    tick: 0,
+                },
+                Transform::from_translation(level.web.vertex(
+                    from as f32,
+                    FRONT_RADIUS,
+                    -tanker.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT + 0.06,
+                )),
+                RenderLayers::layer(1),
+                Mesh3d(fuses.frames.first().cloned().unwrap_or_default()),
+                MeshMaterial3d(fuses.material.clone()),
+            ));
+        }
+        return;
+    }
     for direction in [-1, 1] {
         game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
         let fast =
@@ -241,7 +302,7 @@ pub(crate) fn open(
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn move_tankers(
     level: Res<Level>,
     mut commands: Commands,
@@ -249,9 +310,12 @@ pub(crate) fn move_tankers(
     assets: Res<FlipperAssets>,
     shells: Res<TankerAssets>,
     bursts: Res<explosion::BurstAssets>,
+    fuses: Res<fuseballs::FuseAssets>,
     mut tankers: Query<(
         Entity,
         &mut Tanker,
+        &Contents,
+        &mut TankerSpin,
         &mut Transform,
         &mut Mesh3d,
         &mut MeshMaterial3d<StandardMaterial>,
@@ -260,24 +324,43 @@ pub(crate) fn move_tankers(
     if game.status != Status::Playing {
         return;
     }
-    let Some(generator) = &level.tankers else {
-        return;
-    };
-    for (entity, mut tanker, mut pose, mut mesh, mut material) in &mut tankers {
+    for (entity, mut tanker, contents, mut spin, mut pose, mut mesh, mut material) in &mut tankers {
+        let Some(generator) = (match contents {
+            Contents::Flippers => &level.tankers,
+            Contents::Fuseballs => &level.fuse_tankers,
+        }) else {
+            continue;
+        };
         if tanker.approach {
             tanker.depth -= 2 * LANE_UNIT;
             if tanker.depth <= level.web.rear() {
                 tanker.depth = level.web.rear();
                 tanker.approach = false;
-                mesh.0 = shells.body.clone();
+                mesh.0 = match contents {
+                    Contents::Flippers => shells.body.clone(),
+                    Contents::Fuseballs => fuses.tanker.clone(),
+                };
                 material.0 = shells.material.clone();
             }
         } else {
             tanker.depth = (tanker.depth - generator.climb_speed).max(0);
         }
         *pose = transform(&tanker, &level.web);
+        if !tanker.approach && *contents == Contents::Fuseballs {
+            spin.0 = spin.0.wrapping_add(1);
+            pose.rotate_local_z(-f32::from(spin.0) * TAU / 256.);
+        }
         if !tanker.approach && tanker.depth == 0 {
-            open(&mut commands, &mut game, &level, &assets, &shells, &tanker);
+            open(
+                &mut commands,
+                &mut game,
+                &level,
+                &assets,
+                &shells,
+                &fuses,
+                &tanker,
+                *contents,
+            );
             explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
             commands.entity(entity).despawn();
         }

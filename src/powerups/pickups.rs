@@ -96,9 +96,9 @@ pub(crate) fn advance_powerups(
     mut pickups: Query<(Entity, &mut PowerUp)>,
     enemies: Query<(Entity, &Flipper, &Transform)>,
     shots: Query<Entity, With<EnemyShot>>,
-    tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
+    tankers: Query<(Entity, &tankers::Tanker, &tankers::Contents, &Transform)>,
     shells: Res<tankers::TankerAssets>,
-    flippers: Res<FlipperAssets>,
+    (flippers, fuse_assets): (Res<FlipperAssets>, Res<fuseballs::FuseAssets>),
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
     fuses: Query<(Entity, &fuseballs::Fuseball, &Transform)>,
     pulsars: Query<(Entity, &Pulsar, &Transform)>,
@@ -136,7 +136,7 @@ pub(crate) fn advance_powerups(
                             game.score += 150;
                         }
                     }
-                    for (entity, tanker, transform) in &tankers {
+                    for (entity, tanker, contents, transform) in &tankers {
                         if reward == Reward::Zap {
                             tankers::open(
                                 &mut commands,
@@ -144,7 +144,9 @@ pub(crate) fn advance_powerups(
                                 &level,
                                 &flippers,
                                 &shells,
+                                &fuse_assets,
                                 tanker,
+                                *contents,
                             );
                         }
                         commands.entity(entity).despawn();

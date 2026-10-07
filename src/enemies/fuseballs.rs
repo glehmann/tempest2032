@@ -78,6 +78,7 @@ impl Fuseball {
 #[derive(Resource, Default)]
 pub(crate) struct FuseAssets {
     pub(crate) frames: Vec<Handle<Mesh>>,
+    pub(crate) tanker: Handle<Mesh>,
     pub(crate) point: Handle<Mesh>,
     pub(crate) material: Handle<StandardMaterial>,
     pub(crate) shades: Vec<Handle<StandardMaterial>>,
@@ -89,6 +90,7 @@ pub(crate) fn setup(
     materials: &mut Assets<StandardMaterial>,
 ) {
     let mut frames = Vec::new();
+    let mut tanker = Vec::new();
     for pattern in 0..32 {
         let mut triangles = Vec::new();
         for (arm, hue) in [15, 255, 128, 143, 240].into_iter().enumerate() {
@@ -106,10 +108,14 @@ pub(crate) fn setup(
                 }));
             }
         }
+        if pattern == 0 || pattern == 31 {
+            tanker.extend(triangles.iter().copied());
+        }
         frames.push(meshes.add(colored_mesh(triangles)));
     }
     commands.insert_resource(FuseAssets {
         frames,
+        tanker: meshes.add(colored_mesh(tanker)),
         point: meshes.add(Rectangle::new(1., 1.)),
         material: materials.add(StandardMaterial {
             unlit: true,

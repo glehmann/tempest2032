@@ -83,3 +83,32 @@ fn level_24_has_the_closed_d_and_shorter_generator_delays() {
     assert_eq!(pulsars.generator.spawn_interval_ticks, 412);
     assert_eq!(level.flippers.count, 36);
 }
+
+#[test]
+fn level_25_introduces_fuseball_tankers_on_the_curved_l() {
+    let level = level(25);
+    assert!(!level.web.closed);
+    assert_eq!(level.web.lanes(), 13);
+    assert_eq!(level.web.start_lane, 4);
+    assert_eq!(level.web.vertices[0], [15., 13.]);
+    assert_eq!(level.web.vertices[13], [-2., 0.]);
+    assert_eq!(level.flippers.count, 41);
+    assert_eq!(level.flippers.climb_speed, 0xb000);
+    let tankers = level.fuse_tankers.unwrap();
+    assert_eq!(tankers.first_spawn_ticks, 1001);
+    assert_eq!(tankers.spawn_interval_ticks, 2001);
+    assert_eq!(tankers.climb_speed, 0x9000);
+    assert_eq!(level.pulsars.unwrap().phase_ticks, 7);
+    assert_eq!(level.powerups.kill_interval, 8);
+    let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/25.toml"));
+    let invalid = source.replace(
+        "[fuseballs]\nfirst_spawn_ticks = 351\nspawn_interval_ticks = 701\nclimb_speed = 0.6875\n",
+        "",
+    );
+    assert!(
+        Level::parse(&invalid, "invalid")
+            .err()
+            .unwrap()
+            .contains("released children")
+    );
+}

@@ -45,6 +45,7 @@ pub(crate) struct Game {
     pub(crate) level_index: usize,
     pub(crate) load: Option<LoadReason>,
     pub(crate) tanker_timer: u16,
+    pub(crate) fuse_tanker_timer: u16,
     pub(crate) spiker_timer: u16,
     pub(crate) beast_timer: u16,
     pub(crate) fuse_timer: u16,
@@ -70,6 +71,7 @@ impl Default for Game {
             level_index: 0,
             load: None,
             tanker_timer: 0,
+            fuse_tanker_timer: 0,
             spiker_timer: 0,
             beast_timer: 0,
             fuse_timer: 0,
@@ -100,6 +102,10 @@ pub(crate) fn reset_wave(game: &mut Game, level: &Level) {
     game.fire_timer = 112;
     game.tanker_timer = level
         .tankers
+        .as_ref()
+        .map_or(0, |g| g.first_spawn_ticks - 1);
+    game.fuse_tanker_timer = level
+        .fuse_tankers
         .as_ref()
         .map_or(0, |g| g.first_spawn_ticks - 1);
     game.spiker_timer = level

@@ -163,6 +163,13 @@ no Rust changes are needed. The supplied levels are:
 - `levels/24.toml`: closed fifteen-lane D-shaped `web29`, with six flat lanes
   along its base. Tankers repeat every 241 ticks, Spikers every 651, and
   Pulsars every 412, with the same 36-spawn budget as levels 22 and 23.
+- `levels/25.toml`: open thirteen-lane curved-L `web30`, with 41 shared spawns
+  and Fuseball Tankers every 2,001 ticks. Their rotating five-armed graphic
+  draws both original leg shapes per arm. Shooting a Tanker or letting it
+  reach the rim awards 100 points and releases two Fuseballs at its depth,
+  crossing outward from the lane's two edges. Children do not consume the
+  generation budget, and opening the Tanker does not advance the pickup counter.
+  Pulsar phases now last seven ticks and pickups drop every eighth kill.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -201,6 +208,8 @@ The TOML fields use these conventions:
   consume this budget. Optional `tankers` tables specify spawn times, climbing
   speed, and the fast-child probability out of 256.
   Optional `spikers` tables specify their spawn times and climbing speed.
+  Optional `fuse_tankers` tables use the same generator fields and require
+  a `fuseballs` table to supply their children's climbing speed.
   Optional `pulsars` tables also specify `phase_ticks` for the shared pulse
   and `propagation_ticks` for rim-spark movement. Both must be positive.
 - `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.

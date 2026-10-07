@@ -16,6 +16,7 @@ pub(crate) struct Level {
     pub(crate) appearance: Appearance,
     pub(crate) powerups: PowerUps,
     pub(crate) tankers: Option<Generator>,
+    pub(crate) fuse_tankers: Option<Generator>,
     pub(crate) spikers: Option<Generator>,
     pub(crate) enemy_shots: usize,
     pub(crate) beasts: Option<Generator>,
@@ -170,6 +171,8 @@ struct Definition {
     #[serde(default)]
     pub(crate) tankers: Option<GeneratorDefinition>,
     #[serde(default)]
+    fuse_tankers: Option<GeneratorDefinition>,
+    #[serde(default)]
     pub(crate) spikers: Option<GeneratorDefinition>,
     #[serde(default)]
     pub(crate) beasts: Option<GeneratorDefinition>,
@@ -234,8 +237,11 @@ impl Level {
             return fail("web vertices must enclose an area in clockwise screen order");
         }
         let f = def.flippers;
-        if def.tankers.is_some() && web.lanes() < 3 {
+        if (def.tankers.is_some() || def.fuse_tankers.is_some()) && web.lanes() < 3 {
             return fail("Tankers require at least three lanes");
+        }
+        if def.fuse_tankers.is_some() && def.fuseballs.is_none() {
+            return fail("Fuseball Tankers require a fuseballs table for their released children");
         }
         let count = def
             .enemy_count
@@ -284,6 +290,7 @@ impl Level {
                 .tankers
                 .map(|generator| generator.compile(name))
                 .transpose()?,
+            fuse_tankers: def.fuse_tankers.map(|g| g.compile(name)).transpose()?,
             spikers: def
                 .spikers
                 .map(|generator| generator.compile(name))

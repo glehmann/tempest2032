@@ -155,6 +155,10 @@ fn add_systems(app: &mut App) {
                 .tankers
                 .as_ref()
                 .map_or(0, |g| g.first_spawn_ticks - 1),
+            fuse_tanker_timer: initial
+                .fuse_tankers
+                .as_ref()
+                .map_or(0, |g| g.first_spawn_ticks - 1),
             spiker_timer: initial
                 .spikers
                 .as_ref()

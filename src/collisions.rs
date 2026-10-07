@@ -35,9 +35,12 @@ pub(crate) fn resolve_hits(
         Or<(With<Flipper>, With<Pulsar>)>,
     >,
     enemy_shots: Query<(Entity, &EnemyShot, Option<&beasts::Reflected>)>,
-    tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
+    tankers: Query<(Entity, &tankers::Tanker, &tankers::Contents, &Transform)>,
     shells: Res<tankers::TankerAssets>,
-    flipper_assets: Res<FlipperAssets>,
+    (flipper_assets, fuse_assets): (
+        Res<FlipperAssets>,
+        Res<crate::enemies::fuseballs::FuseAssets>,
+    ),
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
     mut spikes: Query<(Entity, &mut spikers::Spike)>,
     mut beast_layers: Query<(&mut beasts::Beast, &Flipper, &mut Mesh3d)>,
@@ -72,12 +75,12 @@ pub(crate) fn resolve_hits(
             .chain(
                 tankers
                     .iter()
-                    .filter(|(entity, tanker, _)| {
+                    .filter(|(entity, tanker, _, _)| {
                         !killed.contains(entity)
                             && !tanker.approach
                             && intersects(tanker.lane, tanker.depth)
                     })
-                    .map(|(entity, tanker, _)| (entity, tanker.depth, 0, None)),
+                    .map(|(entity, tanker, _, _)| (entity, tanker.depth, 0, None)),
             )
             .chain(
                 spikers
@@ -160,14 +163,16 @@ pub(crate) fn resolve_hits(
             commands.entity(entity).despawn();
             killed.insert(entity);
             game.score += points;
-            if let Ok((_, tanker, pose)) = tankers.get(entity) {
+            if let Ok((_, tanker, contents, pose)) = tankers.get(entity) {
                 tankers::open(
                     &mut commands,
                     &mut game,
                     &level,
                     &flipper_assets,
                     &shells,
+                    &fuse_assets,
                     tanker,
+                    *contents,
                 );
                 explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
             }
