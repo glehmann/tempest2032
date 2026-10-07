@@ -261,6 +261,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/53.toml`: compact eight-lane `web21`, restoring Flipper Tankers
   every 281 ticks with a 208-in-256 fast-child threshold. Beasties repeat
   every 201 ticks; Flippers climb at `0xB400` and Spikers at `0xE000`.
+- `levels/54.toml`: open twelve-lane inverted-bird `web28`, with Beasties
+  every 101 ticks and Flipper Tankers every 261. The shared budget stays
+  at 51 spawns, with a 212-in-256 fast-child threshold.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
