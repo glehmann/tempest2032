@@ -17,6 +17,14 @@ pub(crate) struct Cli {
     #[arg(long, default_value = "levels", value_name = "DIRECTORY")]
     pub(crate) levels: PathBuf,
 
+    /// Start in borderless fullscreen instead of a window
+    #[arg(long)]
+    pub(crate) fullscreen: bool,
+
+    /// Show the frame rate in the top-right corner
+    #[arg(long)]
+    pub(crate) fps: bool,
+
     /// Save the settled level to a screenshot and exit
     #[arg(long, value_name = "FILE", conflicts_with = "recording")]
     pub(crate) screenshot: Option<PathBuf>,

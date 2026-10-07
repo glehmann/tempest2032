@@ -2,7 +2,9 @@
 //! schedules. Keeps fixed-tick system ordering and run conditions together.
 
 use crate::enemies::{pulsar_render, pulsars};
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
+use bevy::window::{MonitorSelection, WindowMode};
 
 use crate::{
     animations::{
@@ -27,7 +29,7 @@ use crate::{
     explosion,
     game::{Game, Status, check_game, controlling, load_level, restart_game},
     glider::{animate_glider, move_glider},
-    hud::update_hud,
+    hud::{spawn_fps_label, update_fps, update_hud},
     level::{Level, Levels},
     powerups,
     scene::{setup, sync_web, update_lane},
@@ -40,6 +42,14 @@ struct StartingLevel(usize);
 
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
+    if args.fps {
+        app.add_plugins(FrameTimeDiagnosticsPlugin::default())
+            .add_systems(Startup, spawn_fps_label)
+            .add_systems(
+                Update,
+                update_fps.after(FrameTimeDiagnosticsPlugin::diagnostic_system),
+            );
+    }
     if let Some(path) = args.screenshot {
         app.insert_resource(CapturePath(path))
             .add_systems(Update, capture_frame);
@@ -97,6 +107,12 @@ pub(crate) fn run(args: cli::Cli) {
             primary_window: Some(Window {
                 title: format!("T2K | Level {starting_level}"),
                 resolution: (1100, 850).into(),
+                mode: if args.fullscreen {
+                    // A new window has no monitor yet, so this must not use Current.
+                    WindowMode::BorderlessFullscreen(MonitorSelection::Primary)
+                } else {
+                    WindowMode::Windowed
+                },
                 ..default()
             }),
             ..default()

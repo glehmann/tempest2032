@@ -27,6 +27,9 @@ For an optimized build, use `cargo run --release`.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
+Pass `--fullscreen` to start borderless fullscreen on the primary monitor
+instead of a window, and `--fps` to show the smoothed frame rate in the
+top-right corner under the level label.
 
 On Linux, the build needs a C/C++ toolchain and X11 and Wayland development
 libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,

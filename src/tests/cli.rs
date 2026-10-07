@@ -12,6 +12,32 @@ fn derive_definition_and_defaults_are_valid() {
     assert_eq!(cli.level, 1);
     assert_eq!(cli.levels, PathBuf::from("levels"));
     assert!(cli.seconds.is_none());
+    assert!(!cli.fullscreen);
+    assert!(!cli.fps);
+}
+
+#[test]
+fn fps_display_combines_with_level_and_capture_options() {
+    let cli = Cli::try_parse_from(["t2k", "--fps", "--level", "3"]).unwrap();
+    assert!(cli.fps);
+    assert_eq!(cli.level, 3);
+    assert!(
+        Cli::try_parse_from(["t2k", "--fps", "--screenshot", "shot.png", "--fullscreen"])
+            .unwrap()
+            .fps
+    );
+}
+
+#[test]
+fn fullscreen_combines_with_level_and_capture_options() {
+    let cli = Cli::try_parse_from(["t2k", "--fullscreen", "--level", "3"]).unwrap();
+    assert!(cli.fullscreen);
+    assert_eq!(cli.level, 3);
+    assert!(
+        Cli::try_parse_from(["t2k", "--screenshot", "shot.png", "--fullscreen"])
+            .unwrap()
+            .fullscreen
+    );
 }
 
 #[test]
