@@ -103,9 +103,10 @@ pub(crate) fn advance_powerups(
         Res<fuseballs::FuseAssets>,
         Res<crate::enemies::pulsar_render::PulsarAssets>,
     ),
-    (spikers, mirrors): (
+    (spikers, mirrors, aliens): (
         Query<(Entity, &spikers::Spiker, &Transform)>,
         Query<Entity, With<crate::enemies::mirrors::Mirror>>,
+        Query<(Entity, &crate::enemies::aliens::AlienDroid, &Transform)>,
     ),
     fuses: Query<(Entity, &fuseballs::Fuseball, &Transform)>,
     pulsars: Query<(Entity, &Pulsar, &Transform)>,
@@ -122,6 +123,17 @@ pub(crate) fn advance_powerups(
                     spawn_droid(&mut commands, &assets, &level.web);
                 }
                 reward @ (Reward::Zap | Reward::Skip) => {
+                    for (entity, alien, pose) in &aliens {
+                        if reward == Reward::Skip || !alien.climbing() {
+                            commands.entity(entity).despawn();
+                            explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+                            if reward == Reward::Zap {
+                                game.random =
+                                    game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                                game.score += 250 * (1 + ((game.random >> 16) % 3));
+                            }
+                        }
+                    }
                     for (entity, pulsar, pose) in &pulsars {
                         commands.entity(entity).despawn();
                         explosion::spawn_explosion(&mut commands, &bursts, pose.translation);

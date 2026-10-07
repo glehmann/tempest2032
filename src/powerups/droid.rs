@@ -91,7 +91,7 @@ pub(crate) fn spawn_droid(commands: &mut Commands, assets: &PowerAssets, web: &W
     ));
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn move_droid(
     level: Res<Level>,
     mut commands: Commands,
@@ -104,7 +104,10 @@ pub(crate) fn move_droid(
     spikers: Query<&spikers::Spiker>,
     fuses: Query<&fuseballs::Fuseball>,
     pulsars: Query<&Pulsar>,
-    mirrors: Query<&crate::enemies::mirrors::Mirror>,
+    (mirrors, aliens): (
+        Query<&crate::enemies::mirrors::Mirror>,
+        Query<&crate::enemies::aliens::AlienDroid>,
+    ),
     bullets: Query<Entity, With<ShotSlot>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     power_assets: Res<PowerAssets>,
@@ -133,6 +136,11 @@ pub(crate) fn move_droid(
             mirrors
                 .iter()
                 .filter_map(crate::enemies::mirrors::Mirror::target),
+        )
+        .chain(
+            aliens
+                .iter()
+                .filter_map(crate::enemies::aliens::AlienDroid::target),
         )
         .min_by_key(|(_, depth)| *depth)
         .map(|(lane, _)| lane);

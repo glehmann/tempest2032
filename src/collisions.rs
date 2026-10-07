@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use crate::{
     enemies::{
-        beasts,
+        aliens, beasts,
         flipper_render::FlipperAssets,
         flippers::{Flipper, Motion},
         mirrors,
@@ -49,9 +49,10 @@ pub(crate) fn resolve_hits(
         Res<crate::enemies::pulsar_render::PulsarAssets>,
         Res<mirrors::MirrorAssets>,
     ),
-    (spikers, mut mirrors): (
+    (spikers, mut mirrors, mut aliens): (
         Query<(Entity, &spikers::Spiker, &Transform)>,
         Query<(Entity, &mut mirrors::Mirror, &Transform)>,
+        Query<(Entity, &mut aliens::AlienDroid, &Transform)>,
     ),
     mut spikes: Query<(Entity, &mut spikers::Spike)>,
     mut beast_layers: Query<(&mut beasts::Beast, &Flipper, &mut Mesh3d)>,
@@ -129,6 +130,16 @@ pub(crate) fn resolve_hits(
                     })
                     .map(|(entity, shot, _, _)| (entity, shot.depth, 0, None)),
             )
+            .chain(
+                aliens
+                    .iter()
+                    .filter(|(entity, alien, _)| {
+                        !killed.contains(entity)
+                            && !alien.approach
+                            && intersects(alien.lane, alien.depth)
+                    })
+                    .map(|(entity, alien, _)| (entity, alien.depth, 0, None)),
+            )
             .collect::<Vec<_>>();
         hits.sort_unstable_by_key(|hit| hit.1);
         let nearest = hits
@@ -137,6 +148,27 @@ pub(crate) fn resolve_hits(
             .map(|hit| hit.0);
         for (entity, depth, points, centre) in hits {
             if particle.is_none() && Some(entity) != nearest {
+                continue;
+            }
+            if let Ok((_, mut alien, pose)) = aliens.get_mut(entity) {
+                let climbing = alien.climbing();
+                if climbing || particle.is_none() {
+                    commands.entity(shot).despawn();
+                }
+                let speed = level.aliens.as_ref().unwrap().climb_speed;
+                if alien.hit(speed, level.web.rear()) {
+                    commands.entity(entity).despawn();
+                    killed.insert(entity);
+                    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    game.score += 250 * (1 + ((game.random >> 16) % 3));
+                    explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+                } else {
+                    commands.entity(entity).insert(alien.transform(&level.web));
+                    explosion::spawn_explosion(&mut commands, &bursts, transform.translation);
+                }
+                if climbing {
+                    break;
+                }
                 continue;
             }
             if let Ok((_, mut mirror, pose)) = mirrors.get_mut(entity) {

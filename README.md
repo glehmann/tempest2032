@@ -302,6 +302,14 @@ no Rust changes are needed. The supplied levels are:
 - `levels/64.toml`: open fifteen-lane backwards-C `web37`, ending the fourth
   web set with primary Pulsars every 31 ticks and Beasties every 401. Normal
   Flippers, Mirrors, Spikers, and Tankers are absent from this 51-spawn wave.
+- `levels/65.toml`: returns to sixteen-lane `web5`, starting the fifth set
+  with magenta surfaces and pale-cream Flippers. The dispatch table selects
+  Super Flippers every 21 ticks and Alien Droids every 701. Alien Droids
+  climb at twice the Flipper speed to fifteen units beyond the rim, cross
+  a lane in sixteen three-tick steps, then zap for 32 ticks. Jumping and
+  invulnerability protect the player. Shots repel an ascending Droid by
+  sixteen climbing steps; recoil beyond the rear or a hit in its rim phase
+  destroys it for bonus points without a pickup drop.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -341,6 +349,7 @@ The TOML fields use these conventions:
   Flipper generator requires another enemy generator in the level.
   Optional `super_flippers` and `mirrors` tables use the standard generator
   fields. Super Flippers have independent spawn timers and double-speed flips.
+  Optional `aliens` tables specify Alien Droid generation and climbing speed.
 - `enemy_count`: shared generation budget for mixed waves. It replaces the
   legacy `flippers.count` value when supplied. Released Tanker contents do not
   consume this budget. Optional `tankers` tables specify spawn times, climbing

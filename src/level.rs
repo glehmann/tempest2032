@@ -26,6 +26,7 @@ pub(crate) struct Level {
     pub(crate) super_flippers: Option<Generator>,
     pub(crate) mirrors: Option<Generator>,
     pub(crate) extra_spikers: Option<Generator>,
+    pub(crate) aliens: Option<Generator>,
 }
 
 #[derive(Clone)]
@@ -193,6 +194,8 @@ struct Definition {
     mirrors: Option<GeneratorDefinition>,
     #[serde(default)]
     extra_spikers: Option<GeneratorDefinition>,
+    #[serde(default)]
+    aliens: Option<GeneratorDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -271,6 +274,7 @@ impl Level {
             && def.super_flippers.is_none()
             && def.mirrors.is_none()
             && def.extra_spikers.is_none()
+            && def.aliens.is_none()
         {
             return fail("disabling Flippers requires another enemy generator");
         }
@@ -281,6 +285,9 @@ impl Level {
         }
         if def.fuse_tankers.is_some() && def.fuseballs.is_none() {
             return fail("Fuseball Tankers require a fuseballs table for their released children");
+        }
+        if def.aliens.is_some() && web.lanes() < 2 {
+            return fail("Alien Droids require at least two lanes");
         }
         if let Some(extra) = &def.extra_spikers
             && def
@@ -357,6 +364,7 @@ impl Level {
             super_flippers: def.super_flippers.map(|g| g.compile(name)).transpose()?,
             mirrors: def.mirrors.map(|g| g.compile(name)).transpose()?,
             extra_spikers: def.extra_spikers.map(|g| g.compile(name)).transpose()?,
+            aliens: def.aliens.map(|g| g.compile(name)).transpose()?,
         })
     }
 }
@@ -434,3 +442,7 @@ mod fourth_set;
 #[cfg(test)]
 #[path = "tests/fourth_set_late.rs"]
 mod fourth_set_late;
+
+#[cfg(test)]
+#[path = "tests/fifth_set.rs"]
+mod fifth_set;

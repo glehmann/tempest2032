@@ -13,6 +13,7 @@ use crate::level::Level;
 use crate::powerups;
 use bevy::prelude::*;
 
+pub(crate) mod aliens;
 pub(crate) mod beasts;
 pub(crate) mod flipper_render;
 pub(crate) mod flippers;
@@ -42,6 +43,7 @@ pub(crate) fn setup(
     beasts::setup(commands, meshes);
     fuseballs::setup(commands, meshes, materials);
     mirrors::setup(commands, meshes, materials);
+    aliens::setup(commands, meshes, materials);
     pulsar_render::setup(commands, meshes, materials);
     commands.insert_resource(FlipperAssets {
         body: meshes.add(flipper_mesh(level.appearance.flipper)),
