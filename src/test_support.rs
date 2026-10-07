@@ -104,6 +104,8 @@ pub(crate) fn app() -> App {
         .init_resource::<FlipperAssets>()
         .init_resource::<tankers::TankerAssets>()
         .init_resource::<crate::enemies::fuseballs::FuseAssets>()
+        .init_resource::<crate::enemies::pulsar_render::PulsarAssets>()
+        .init_resource::<crate::enemies::pulsars::Pulse>()
         .init_resource::<beasts::BeastAssets>()
         .init_resource::<explosion::BurstAssets>()
         .init_resource::<ButtonInput<KeyCode>>()

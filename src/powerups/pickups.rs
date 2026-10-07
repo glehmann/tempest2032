@@ -98,7 +98,11 @@ pub(crate) fn advance_powerups(
     shots: Query<Entity, With<EnemyShot>>,
     tankers: Query<(Entity, &tankers::Tanker, &tankers::Contents, &Transform)>,
     shells: Res<tankers::TankerAssets>,
-    (flippers, fuse_assets): (Res<FlipperAssets>, Res<fuseballs::FuseAssets>),
+    (flippers, fuse_assets, pulsar_assets): (
+        Res<FlipperAssets>,
+        Res<fuseballs::FuseAssets>,
+        Res<crate::enemies::pulsar_render::PulsarAssets>,
+    ),
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
     fuses: Query<(Entity, &fuseballs::Fuseball, &Transform)>,
     pulsars: Query<(Entity, &Pulsar, &Transform)>,
@@ -145,6 +149,7 @@ pub(crate) fn advance_powerups(
                                 &flippers,
                                 &shells,
                                 &fuse_assets,
+                                &pulsar_assets,
                                 tanker,
                                 *contents,
                             );

@@ -18,6 +18,142 @@ use crate::weapons::Bullet;
 use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
+fn pulsar_level() -> Level {
+    Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/33.toml")),
+        "level33",
+    )
+    .unwrap()
+}
+
+#[test]
+fn pulsar_tankers_spawn_without_direct_pulsars_and_reset_their_timer() {
+    use crate::enemies::pulsars::{Pulsar, Pulse, pulse, spawn as spawn_pulsars};
+    let mut app = crate::test_support::app();
+    let level = pulsar_level();
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.insert_resource(level.clone())
+        .add_systems(FixedUpdate, (pulse, spawn, spawn_pulsars).chain());
+    crate::test_support::ticks(&mut app, 250);
+    assert_eq!(
+        app.world_mut().query::<&Tanker>().iter(app.world()).count(),
+        0
+    );
+    crate::test_support::ticks(&mut app, 1);
+    assert_eq!(app.world().resource::<Game>().remaining, 24);
+    assert_eq!(
+        *app.world_mut()
+            .query::<&Contents>()
+            .single(app.world())
+            .unwrap(),
+        Contents::Pulsars
+    );
+    assert_eq!(
+        app.world_mut().query::<&Pulsar>().iter(app.world()).count(),
+        0
+    );
+    assert_eq!(app.world().resource::<Pulse>().phase, 3);
+    assert_eq!(app.world().resource::<Game>().pulsar_tanker_timer, 500);
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    assert_eq!(app.world().resource::<Game>().pulsar_tanker_timer, 250);
+}
+
+#[test]
+fn pulsar_children_flip_once_before_climbing_or_electrifying_the_lane() {
+    use crate::enemies::pulsars::{Pulsar, Pulse, advance};
+    let mut app = crate::test_support::app();
+    app.insert_resource(pulsar_level())
+        .add_systems(FixedUpdate, resolve_hits);
+    app.world_mut().spawn((
+        Tanker {
+            lane: 5,
+            depth: 60 * LANE_UNIT,
+            approach: false,
+        },
+        Contents::Pulsars,
+        Transform::default(),
+    ));
+    app.world_mut()
+        .spawn((Bullet { lane: 5 }, Transform::from_xyz(0., 0., -10.)));
+    app.world_mut().run_schedule(FixedUpdate);
+    assert_eq!(app.world().resource::<Game>().score, 100);
+    assert!(
+        app.world_mut()
+            .resource_mut::<powerups::Upgrades>()
+            .drop_due(9)
+    );
+    let mut lanes = app
+        .world_mut()
+        .query::<&Pulsar>()
+        .iter(app.world())
+        .map(|p| {
+            assert!(p.flipping());
+            assert!(!p.electrified(7));
+            assert_eq!(p.target(&app.world().resource::<Level>().web), None);
+            p.lane
+        })
+        .collect::<Vec<_>>();
+    lanes.sort();
+    assert_eq!(lanes, [4, 6]);
+    app.world_mut().resource_mut::<Pulse>().phase = 7;
+    app.add_systems(FixedUpdate, advance);
+    crate::test_support::ticks(&mut app, 27);
+    assert!(
+        app.world_mut()
+            .query::<&Pulsar>()
+            .iter(app.world())
+            .all(|p| p.flipping() && p.depth == 60 * LANE_UNIT)
+    );
+    crate::test_support::ticks(&mut app, 1);
+    assert!(
+        app.world_mut()
+            .query::<&Pulsar>()
+            .iter(app.world())
+            .all(|p| p.climbing() && p.electrified(7) && p.depth == 60 * LANE_UNIT)
+    );
+    crate::test_support::ticks(&mut app, 1);
+    assert!(
+        app.world_mut()
+            .query::<&Pulsar>()
+            .iter(app.world())
+            .all(|p| p.depth == 60 * LANE_UNIT - 0x8000)
+    );
+}
+
+#[test]
+fn pulsar_tankers_release_two_flipping_children_at_the_rim() {
+    use crate::enemies::pulsars::Pulsar;
+    let mut app = crate::test_support::app();
+    app.insert_resource(pulsar_level())
+        .add_systems(FixedUpdate, move_tankers);
+    app.world_mut().spawn((
+        Tanker {
+            lane: 5,
+            depth: 1,
+            approach: false,
+        },
+        Contents::Pulsars,
+        Transform::default(),
+        Mesh3d::default(),
+        MeshMaterial3d::<StandardMaterial>::default(),
+    ));
+    app.world_mut().run_schedule(FixedUpdate);
+    assert_eq!(app.world().resource::<Game>().score, 100);
+    assert_eq!(
+        app.world_mut().query::<&Tanker>().iter(app.world()).count(),
+        0
+    );
+    assert_eq!(
+        app.world_mut()
+            .query::<&Pulsar>()
+            .iter(app.world())
+            .filter(|p| p.flipping() && p.depth == 0)
+            .count(),
+        2
+    );
+}
+
 fn fuse_level() -> Level {
     Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/25.toml")),

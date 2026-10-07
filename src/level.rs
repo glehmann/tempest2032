@@ -22,6 +22,7 @@ pub(crate) struct Level {
     pub(crate) beasts: Option<Generator>,
     pub(crate) fuseballs: Option<Generator>,
     pub(crate) pulsars: Option<Pulsars>,
+    pub(crate) pulsar_tankers: Option<Pulsars>,
 }
 
 #[derive(Clone)]
@@ -180,6 +181,8 @@ struct Definition {
     pub(crate) fuseballs: Option<GeneratorDefinition>,
     #[serde(default)]
     pulsars: Option<PulsarDefinition>,
+    #[serde(default)]
+    pulsar_tankers: Option<PulsarDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -196,6 +199,10 @@ struct FlipperDefinition {
 }
 
 impl Level {
+    pub(crate) fn pulse_settings(&self) -> Option<&Pulsars> {
+        self.pulsars.as_ref().or(self.pulsar_tankers.as_ref())
+    }
+
     pub(crate) fn parse(source: &str, name: &str) -> Result<Self, String> {
         let def: Definition = toml::from_str(source).map_err(|err| format!("{name}: {err}"))?;
         let fail = |message: &str| Err(format!("{name}: {message}"));
@@ -237,11 +244,19 @@ impl Level {
             return fail("web vertices must enclose an area in clockwise screen order");
         }
         let f = def.flippers;
-        if (def.tankers.is_some() || def.fuse_tankers.is_some()) && web.lanes() < 3 {
+        if (def.tankers.is_some() || def.fuse_tankers.is_some() || def.pulsar_tankers.is_some())
+            && web.lanes() < 3
+        {
             return fail("Tankers require at least three lanes");
         }
         if def.fuse_tankers.is_some() && def.fuseballs.is_none() {
             return fail("Fuseball Tankers require a fuseballs table for their released children");
+        }
+        if let (Some(pulsars), Some(tankers)) = (&def.pulsars, &def.pulsar_tankers)
+            && (pulsars.phase_ticks != tankers.phase_ticks
+                || pulsars.propagation_ticks != tankers.propagation_ticks)
+        {
+            return fail("Pulsars and Pulsar Tankers must share phase and propagation times");
         }
         let count = def
             .enemy_count
@@ -299,6 +314,7 @@ impl Level {
             beasts: def.beasts.map(|g| g.compile(name)).transpose()?,
             fuseballs: def.fuseballs.map(|g| g.compile(name)).transpose()?,
             pulsars: def.pulsars.map(|g| g.compile(name)).transpose()?,
+            pulsar_tankers: def.pulsar_tankers.map(|g| g.compile(name)).transpose()?,
         })
     }
 }
@@ -364,3 +380,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tests/later_levels.rs"]
 mod later_levels;
+
+#[cfg(test)]
+#[path = "tests/third_set.rs"]
+mod third_set;

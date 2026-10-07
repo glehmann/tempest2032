@@ -1,0 +1,47 @@
+# Original _nw33 returns to web5 and introduces Pulsar Tankers.
+number = 33
+enemy_count = 25
+
+[web]
+start_lane = 8
+depth = 160
+vertices = [[7,2],[9,2],[11,3],[13,5],[14,7],[14,9],[13,11],[11,13],[9,14],[7,14],[5,13],[3,11],[2,9],[2,7],[3,5],[5,3]]
+orientations = [0,-16,-32,-48,-64,-80,-96,-112,-128,112,96,80,64,48,32,16]
+
+[flippers]
+first_spawn_ticks = 51
+spawn_interval_ticks = 101
+climb_speed = 0.6875
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[pulsar_tankers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 0.5
+phase_ticks = 7
+propagation_ticks = 5
+
+[spikers]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.8125
+
+[beasts]
+first_spawn_ticks = 351
+spawn_interval_ticks = 701
+climb_speed = 0.6875
+
+[fuseballs]
+first_spawn_ticks = 451
+spawn_interval_ticks = 901
+climb_speed = 0.625
+
+[appearance]
+surface = [1.0, 1.0, 0.0] # Jaguar CRY chroma $FF.
+lines = [0.78, 0.78, 0.015]
+flipper = [248, 255, 95] # Jaguar CRY chroma $CB.
+
+[powerups]
+kill_interval = 9

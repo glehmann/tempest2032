@@ -105,7 +105,7 @@ pub(crate) fn preview_input(
                 )
                 .chain(spikers.iter().map(|s| (s.lane, s.depth)))
                 .chain(fuses.iter().filter_map(|f| f.target()))
-                .chain(pulsars.iter().filter_map(Pulsar::target))
+                .chain(pulsars.iter().filter_map(|p| p.target(&level.web)))
                 .min_by_key(|(_, depth)| *depth)
                 .map(|(lane, _)| lane)
         });

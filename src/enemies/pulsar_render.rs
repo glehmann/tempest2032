@@ -14,17 +14,18 @@ use crate::{
     scene::{WebAssets, WebSegment},
 };
 
-const CYCLE: [usize; 16] = [0, 0, 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0, 0, 0];
+pub(crate) const CYCLE: [usize; 16] = [0, 0, 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0, 0, 0];
 
 #[derive(Resource, Default)]
 pub(crate) struct PulsarAssets {
     pub(crate) frames: [Handle<Mesh>; 6],
+    pub(crate) tankers: [Handle<Mesh>; 6],
     pub(crate) point: Handle<Mesh>,
     pub(crate) material: Handle<StandardMaterial>,
     pub(crate) shades: Vec<Handle<StandardMaterial>>,
 }
 
-fn mesh(frame: usize) -> Mesh {
+fn mesh(frame: usize, tanker: bool) -> Mesh {
     // obj2d.s spv6..spv1 and their six triangle faces.
     let h = frame as f32 + 1.0;
     let vertices = [
@@ -54,19 +55,26 @@ fn mesh(frame: usize) -> Mesh {
         3 => [96, 160, 160, 224, 255, 255, 224, 160, 160, 96],
         _ => [64, 128, 128, 192, 255, 255, 192, 128, 128, 64],
     };
-    colored_mesh(
-        [
-            [0, 1, 2],
-            [1, 2, 3],
-            [3, 4, 5],
-            [4, 5, 6],
-            [6, 7, 8],
-            [7, 8, 9],
-        ]
-        .into_iter()
-        .zip([outer, inner, 0xff, 0xff, inner, outer])
-        .map(|(face, hue)| face.map(|i| (vertices[i], cry::color(hue, intensity[i])))),
-    )
+    let mut faces = [
+        [0, 1, 2],
+        [1, 2, 3],
+        [3, 4, 5],
+        [4, 5, 6],
+        [6, 7, 8],
+        [7, 8, 9],
+    ]
+    .into_iter()
+    .zip([outer, inner, 0xff, 0xff, inner, outer])
+    .map(|(face, hue)| face.map(|i| (vertices[i], cry::color(hue, intensity[i]))))
+    .collect::<Vec<_>>();
+    if tanker {
+        let opposite = faces
+            .iter()
+            .map(|face| face.map(|(vertex, color)| (-vertex, color)))
+            .collect::<Vec<_>>();
+        faces.extend(opposite);
+    }
+    colored_mesh(faces)
 }
 
 pub(crate) fn setup(
@@ -75,7 +83,8 @@ pub(crate) fn setup(
     materials: &mut Assets<StandardMaterial>,
 ) {
     commands.insert_resource(PulsarAssets {
-        frames: std::array::from_fn(|i| meshes.add(mesh(i))),
+        frames: std::array::from_fn(|i| meshes.add(mesh(i, false))),
+        tankers: std::array::from_fn(|i| meshes.add(mesh(i, true))),
         point: meshes.add(Rectangle::new(1., 1.)),
         material: materials.add(StandardMaterial {
             unlit: true,
@@ -121,7 +130,12 @@ pub(crate) fn draw(
             material.0 = assets.shades[intensity].clone();
         } else {
             pose.scale = Vec3::ONE;
-            mesh.0 = assets.frames[CYCLE[pulse.phase as usize]].clone();
+            mesh.0 = assets.frames[if pulsar.flipping() {
+                3
+            } else {
+                CYCLE[pulse.phase as usize]
+            }]
+            .clone();
             material.0 = assets.material.clone();
         }
     }

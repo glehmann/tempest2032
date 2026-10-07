@@ -57,6 +57,7 @@ fn collection_grants_one_reward_and_the_burst_expires() {
         .init_resource::<tankers::TankerAssets>()
         .init_resource::<FlipperAssets>()
         .init_resource::<crate::enemies::fuseballs::FuseAssets>()
+        .init_resource::<crate::enemies::pulsar_render::PulsarAssets>()
         .init_resource::<Upgrades>()
         .init_resource::<PowerAssets>()
         .init_resource::<explosion::BurstAssets>()

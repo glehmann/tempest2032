@@ -1,4 +1,4 @@
-//! Tankers climb lanes and release two Flippers or Fuseballs when shot or at the rim.
+//! Tankers climb lanes and release two Flippers, Fuseballs, or Pulsars when opened.
 //! Handles shell graphics, spawning, releases, and fast-child movement.
 
 use crate::cry;
@@ -9,7 +9,9 @@ use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
 use crate::enemies::flippers::flipper_transform;
 use crate::enemies::fuseballs;
+use crate::enemies::pulsar_render::{CYCLE, PulsarAssets};
 use crate::enemies::pulsars::Pulsar;
+use crate::enemies::pulsars::Pulse;
 use crate::enemies::spikers;
 use crate::explosion;
 use crate::game::Game;
@@ -30,6 +32,7 @@ pub(crate) enum Contents {
     #[default]
     Flippers,
     Fuseballs,
+    Pulsars,
 }
 
 #[derive(Component, Default)]
@@ -177,8 +180,12 @@ pub(crate) fn spawn(
         + fuses.iter().count()
         + pulsars.iter().count();
     for (contents, generator) in [
-        (Contents::Flippers, &level.tankers),
-        (Contents::Fuseballs, &level.fuse_tankers),
+        (Contents::Flippers, level.tankers.as_ref()),
+        (Contents::Fuseballs, level.fuse_tankers.as_ref()),
+        (
+            Contents::Pulsars,
+            level.pulsar_tankers.as_ref().map(|p| &p.generator),
+        ),
     ] {
         let Some(generator) = generator else { continue };
         if game.remaining == 0 {
@@ -187,6 +194,7 @@ pub(crate) fn spawn(
         let timer = match contents {
             Contents::Flippers => &mut game.tanker_timer,
             Contents::Fuseballs => &mut game.fuse_tanker_timer,
+            Contents::Pulsars => &mut game.pulsar_tanker_timer,
         };
         if *timer > 0 {
             *timer -= 1;
@@ -223,10 +231,29 @@ pub(crate) fn open(
     assets: &FlipperAssets,
     shells: &TankerAssets,
     fuses: &fuseballs::FuseAssets,
+    pulsars: &PulsarAssets,
     tanker: &Tanker,
     contents: Contents,
 ) {
     game.score += 100;
+    if contents == Contents::Pulsars {
+        for direction in [-1, 1] {
+            let pulsar = Pulsar::released(
+                level.web.neighbor(tanker.lane, direction).unwrap(),
+                tanker.depth,
+                tanker.lane,
+                direction,
+            );
+            commands.spawn((
+                pulsar.transform(&level.web),
+                pulsar,
+                RenderLayers::layer(1),
+                Mesh3d(pulsars.frames[3].clone()),
+                MeshMaterial3d(pulsars.material.clone()),
+            ));
+        }
+        return;
+    }
     if contents == Contents::Fuseballs {
         for direction in [-1, 1] {
             let from = tanker.lane + usize::from(direction > 0);
@@ -310,7 +337,7 @@ pub(crate) fn move_tankers(
     assets: Res<FlipperAssets>,
     shells: Res<TankerAssets>,
     bursts: Res<explosion::BurstAssets>,
-    fuses: Res<fuseballs::FuseAssets>,
+    (fuses, pulsars, pulse): (Res<fuseballs::FuseAssets>, Res<PulsarAssets>, Res<Pulse>),
     mut tankers: Query<(
         Entity,
         &mut Tanker,
@@ -326,8 +353,9 @@ pub(crate) fn move_tankers(
     }
     for (entity, mut tanker, contents, mut spin, mut pose, mut mesh, mut material) in &mut tankers {
         let Some(generator) = (match contents {
-            Contents::Flippers => &level.tankers,
-            Contents::Fuseballs => &level.fuse_tankers,
+            Contents::Flippers => level.tankers.as_ref(),
+            Contents::Fuseballs => level.fuse_tankers.as_ref(),
+            Contents::Pulsars => level.pulsar_tankers.as_ref().map(|p| &p.generator),
         }) else {
             continue;
         };
@@ -339,6 +367,7 @@ pub(crate) fn move_tankers(
                 mesh.0 = match contents {
                     Contents::Flippers => shells.body.clone(),
                     Contents::Fuseballs => fuses.tanker.clone(),
+                    Contents::Pulsars => pulsars.tankers[CYCLE[pulse.phase as usize]].clone(),
                 };
                 material.0 = shells.material.clone();
             }
@@ -346,9 +375,12 @@ pub(crate) fn move_tankers(
             tanker.depth = (tanker.depth - generator.climb_speed).max(0);
         }
         *pose = transform(&tanker, &level.web);
-        if !tanker.approach && *contents == Contents::Fuseballs {
+        if !tanker.approach && *contents != Contents::Flippers {
             spin.0 = spin.0.wrapping_add(1);
             pose.rotate_local_z(-f32::from(spin.0) * TAU / 256.);
+            if *contents == Contents::Pulsars {
+                mesh.0 = pulsars.tankers[CYCLE[pulse.phase as usize]].clone();
+            }
         }
         if !tanker.approach && tanker.depth == 0 {
             open(
@@ -358,6 +390,7 @@ pub(crate) fn move_tankers(
                 &assets,
                 &shells,
                 &fuses,
+                &pulsars,
                 &tanker,
                 *contents,
             );

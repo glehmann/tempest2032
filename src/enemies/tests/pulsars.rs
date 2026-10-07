@@ -50,6 +50,7 @@ fn enemy(app: &mut App, lane: usize, depth: i32, approach: bool) -> Entity {
                 depth,
                 approach,
                 spark: None,
+                flip: None,
             },
             pose,
         ))

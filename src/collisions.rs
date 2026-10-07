@@ -37,9 +37,10 @@ pub(crate) fn resolve_hits(
     enemy_shots: Query<(Entity, &EnemyShot, Option<&beasts::Reflected>)>,
     tankers: Query<(Entity, &tankers::Tanker, &tankers::Contents, &Transform)>,
     shells: Res<tankers::TankerAssets>,
-    (flipper_assets, fuse_assets): (
+    (flipper_assets, fuse_assets, pulsar_assets): (
         Res<FlipperAssets>,
         Res<crate::enemies::fuseballs::FuseAssets>,
+        Res<crate::enemies::pulsar_render::PulsarAssets>,
     ),
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
     mut spikes: Query<(Entity, &mut spikers::Spike)>,
@@ -62,7 +63,7 @@ pub(crate) fn resolve_hits(
                     (flipper.hit_lane(&level.web)?, flipper.depth, 150)
                 } else {
                     let pulsar = pulsar?;
-                    let (lane, depth) = pulsar.target()?;
+                    let (lane, depth) = pulsar.target(&level.web)?;
                     (lane, depth, pulsar.points())
                 };
                 (!killed.contains(&entity) && intersects(lane, depth)).then_some((
@@ -171,6 +172,7 @@ pub(crate) fn resolve_hits(
                     &flipper_assets,
                     &shells,
                     &fuse_assets,
+                    &pulsar_assets,
                     tanker,
                     *contents,
                 );

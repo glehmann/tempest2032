@@ -6,13 +6,18 @@ use bevy::{camera::visibility::RenderLayers, prelude::*};
 
 use crate::{
     animations::glider_death::Death,
-    enemies::{Enemy, pulsar_render::PulsarAssets, tankers::Tanker},
+    enemies::{
+        Enemy,
+        flippers::{Flipper, Motion, flipper_transform},
+        pulsar_render::PulsarAssets,
+        tankers::Tanker,
+    },
     game::{Game, Status},
     glider::Glider,
     level::{Level, LevelActor},
     powerups::Upgrades,
     weapons::Weapon,
-    web::{LANE_UNIT, WORLD_UNIT},
+    web::{LANE_UNIT, Web},
 };
 
 #[derive(Resource, Default)]
@@ -35,15 +40,24 @@ pub(crate) struct Pulsar {
     pub(crate) depth: i32,
     pub(crate) approach: bool,
     spark: Option<Spark>,
+    flip: Option<Motion>,
 }
 
 impl Pulsar {
-    pub(crate) fn target(&self) -> Option<(usize, i32)> {
-        (!self.approach).then_some((self.lane, self.depth))
+    pub(crate) fn target(&self, web: &Web) -> Option<(usize, i32)> {
+        if self.flipping() {
+            self.flipper().hit_lane(web).map(|lane| (lane, self.depth))
+        } else {
+            (!self.approach).then_some((self.lane, self.depth))
+        }
     }
 
     pub(crate) fn points(&self) -> u32 {
-        if self.spark.is_some() { 150 } else { 200 }
+        if self.spark.is_some() || self.flipping() {
+            150
+        } else {
+            200
+        }
     }
 
     pub(crate) fn electrified(&self, phase: u8) -> bool {
@@ -51,12 +65,43 @@ impl Pulsar {
     }
 
     pub(crate) fn climbing(&self) -> bool {
-        !self.approach && self.spark.is_none()
+        !self.approach && self.spark.is_none() && !self.flipping()
+    }
+
+    pub(crate) fn flipping(&self) -> bool {
+        self.flip.is_some()
+    }
+
+    pub(crate) fn released(lane: usize, depth: i32, from: usize, direction: i32) -> Self {
+        Self {
+            lane,
+            depth,
+            approach: false,
+            spark: None,
+            flip: Some(Motion::Flip {
+                from,
+                direction,
+                angle: 0,
+            }),
+        }
+    }
+
+    fn flipper(&self) -> Flipper {
+        Flipper {
+            lane: self.lane,
+            depth: self.depth,
+            motion: self.flip.unwrap_or(Motion::Climb),
+            pause: 0,
+        }
+    }
+
+    pub(crate) fn transform(&self, web: &Web) -> Transform {
+        flipper_transform(&self.flipper(), web)
     }
 }
 
 pub(crate) fn pulse(level: Res<Level>, game: Res<Game>, mut pulse: ResMut<Pulse>) {
-    let Some(settings) = &level.pulsars else {
+    let Some(settings) = level.pulse_settings() else {
         return;
     };
     if !matches!(game.status, Status::Entering | Status::Playing) {
@@ -97,9 +142,9 @@ pub(crate) fn spawn(
         depth: level.web.rear() + 300 * LANE_UNIT,
         approach: true,
         spark: None,
+        flip: None,
     };
-    let mut pose = level.web.glider_transform(pulsar.lane as i32 * LANE_UNIT);
-    pose.translation.z = -pulsar.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT + 0.06;
+    let pose = pulsar.transform(&level.web);
     commands.spawn((
         pulsar,
         pose,
@@ -119,13 +164,34 @@ pub(crate) fn advance(
     mut commands: Commands,
     mut pulsars: Query<(&mut Pulsar, &mut Transform)>,
 ) {
-    let Some(settings) = &level.pulsars else {
+    let Some(settings) = level.pulse_settings() else {
         return;
     };
     if game.status != Status::Playing {
         return;
     }
     for (mut pulsar, mut pose) in &mut pulsars {
+        if let Some(Motion::Flip {
+            from,
+            direction,
+            angle,
+        }) = pulsar.flip
+        {
+            let angle = angle.saturating_add(level.flippers.flip_speed);
+            pulsar.flip = (angle < level.web.flip_angle(from, pulsar.lane, direction)).then_some(
+                Motion::Flip {
+                    from,
+                    direction,
+                    angle,
+                },
+            );
+            *pose = pulsar.transform(&level.web);
+            continue;
+        }
+        let climb_speed = level
+            .pulsars
+            .as_ref()
+            .map_or(0x8000, |p| p.generator.climb_speed);
         if pulsar.approach {
             pulsar.depth -= 2 * LANE_UNIT;
             if pulsar.depth <= level.web.rear() {
@@ -133,7 +199,7 @@ pub(crate) fn advance(
                 // run_objects waits at the rear until the shared pulse is harmless.
                 if pulse.phase < 3 {
                     pulsar.approach = false;
-                    pulsar.depth -= settings.generator.climb_speed;
+                    pulsar.depth -= climb_speed;
                 }
             }
         } else if let Some(mut spark) = pulsar.spark {
@@ -150,7 +216,7 @@ pub(crate) fn advance(
             }
             pulsar.spark = Some(spark);
         } else {
-            pulsar.depth -= settings.generator.climb_speed;
+            pulsar.depth -= climb_speed;
             if pulsar.depth < 0 {
                 pulsar.depth = 0;
                 pulsar.spark = Some(Spark {
@@ -173,9 +239,7 @@ pub(crate) fn advance(
                 ));
             }
         }
-        *pose = level.web.glider_transform(pulsar.lane as i32 * LANE_UNIT);
-        pose.translation.z = -pulsar.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT + 0.06;
-        pose.rotation = level.web.orientation(pulsar.lane);
+        *pose = pulsar.transform(&level.web);
     }
 }
 

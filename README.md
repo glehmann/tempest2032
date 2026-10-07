@@ -191,6 +191,14 @@ no Rust changes are needed. The supplied levels are:
 - `levels/32.toml`: open fifteen-lane backwards-C `web37`, finishing the
   second web set. Fuseballs and Fuseball Tankers both repeat every 501 ticks,
   while Pulsars repeat every 901. Four enemy shots can be active at once.
+- `levels/33.toml`: returns to sixteen-lane `web5`, now with yellow surfaces
+  and yellow-green Flippers. The 25-spawn wave introduces Pulsar Tankers
+  every 501 ticks and Beasties every 701. A Pulsar Tanker draws two opposing,
+  rotating zigzags synchronized with the shared pulse. Opening it awards 100
+  points and releases two children that flip into adjacent lanes before
+  climbing at `0x8000` and electrifying them. There are no direct Pulsar,
+  Flipper Tanker, or Fuseball Tanker generators in this wave. Pickups now
+  drop every ninth kill after the first.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -233,6 +241,10 @@ The TOML fields use these conventions:
   a `fuseballs` table to supply their children's climbing speed.
   Optional `pulsars` tables also specify `phase_ticks` for the shared pulse
   and `propagation_ticks` for rim-spark movement. Both must be positive.
+  Optional `pulsar_tankers` tables use the same fields, with `climb_speed`
+  controlling the Tanker. Released children use the `pulsars` climbing speed
+  when present, or the original `0x8000` otherwise. Both tables must agree
+  on phase and propagation timing.
 - `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.
   `appearance.flipper` uses integer RGB channels between 0 and 255.
 - `powerups.kill_interval`: first kill drops a pickup, then every Nth kill.
