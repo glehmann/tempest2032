@@ -241,6 +241,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/47.toml`: open fifteen-lane `web16`, with `0xBE00` Flippers,
   `0x13000` Spikers, and `0xD800` Fuseballs. Direct Pulsars now repeat every
   351 ticks while Pulsar Tankers remain at 301.
+- `levels/48.toml`: compact eight-lane `web21`, finishing the third web set.
+  Flipper Tankers repeat every 231 ticks, Pulsar Tankers every 301, and
+  Fuseball Tankers every 401; the fast-child threshold reaches 188 out of 256.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
