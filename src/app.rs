@@ -1,6 +1,7 @@
 //! Bevy app startup and the ordered input, simulation, rendering, and game-flow
 //! schedules. Keeps fixed-tick system ordering and run conditions together.
 
+use crate::enemies::{pulsar_render, pulsars};
 use bevy::prelude::*;
 
 use crate::{
@@ -126,6 +127,10 @@ fn add_systems(app: &mut App) {
         .init_resource::<Levels>()
         .insert_resource(Game {
             status: Status::Entering,
+            pulsar_timer: initial
+                .pulsars
+                .as_ref()
+                .map_or(0, |p| p.generator.first_spawn_ticks - 1),
             entry: Some(0),
             remaining: initial.flippers.count,
             spawn_timer: initial.flippers.first_spawn_ticks - 1,
@@ -149,6 +154,7 @@ fn add_systems(app: &mut App) {
             ..default()
         })
         .init_resource::<powerups::Upgrades>()
+        .init_resource::<pulsars::Pulse>()
         .add_systems(
             PreUpdate,
             powerups::queue_jump.after(bevy::input::InputSystems),
@@ -178,18 +184,23 @@ fn add_systems(app: &mut App) {
                     }),
                     move_bullets,
                     fire_bullets.run_if(controlling),
+                    pulsars::pulse,
                     spawn_enemies,
                     tankers::spawn,
                     spikers::spawn,
                     beasts::spawn,
                     fuseballs::spawn,
+                    pulsars::spawn,
                 )
                     .chain(),
                 (
                     move_enemies,
                     fuseballs::advance,
                     move_enemy_shots,
+                    pulsars::check_sparks,
+                    pulsars::advance,
                     resolve_hits,
+                    pulsars::check_player,
                     tankers::move_tankers,
                     spikers::advance,
                     fire_enemy_shots,
@@ -227,6 +238,10 @@ fn add_systems(app: &mut App) {
         .add_systems(Update, tankers::draw_points.after(fit_camera))
         .add_systems(Update, fuseballs::draw_points.after(fit_camera))
         .add_systems(Update, draw_particle_shots.after(fit_camera))
+        .add_systems(
+            Update,
+            pulsar_render::draw.after(fit_camera).after(sync_web),
+        )
         .add_systems(
             Update,
             (

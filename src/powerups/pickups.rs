@@ -4,6 +4,7 @@
 use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::fuseballs;
+use crate::enemies::pulsars::Pulsar;
 use crate::enemies::shots::EnemyShot;
 use crate::enemies::spikers;
 use crate::enemies::tankers;
@@ -100,6 +101,7 @@ pub(crate) fn advance_powerups(
     flippers: Res<FlipperAssets>,
     spikers: Query<(Entity, &spikers::Spiker, &Transform)>,
     fuses: Query<(Entity, &fuseballs::Fuseball, &Transform)>,
+    pulsars: Query<(Entity, &Pulsar, &Transform)>,
 ) {
     upgrades.frame = upgrades.frame.wrapping_add(1);
     upgrades.notice_ticks = upgrades.notice_ticks.saturating_sub(1);
@@ -113,6 +115,13 @@ pub(crate) fn advance_powerups(
                     spawn_droid(&mut commands, &assets, &level.web);
                 }
                 reward @ (Reward::Zap | Reward::Skip) => {
+                    for (entity, pulsar, pose) in &pulsars {
+                        commands.entity(entity).despawn();
+                        explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+                        if reward == Reward::Zap {
+                            game.score += pulsar.points();
+                        }
+                    }
                     for (entity, _, pose) in &fuses {
                         commands.entity(entity).despawn();
                         explosion::spawn_explosion(&mut commands, &bursts, pose.translation);

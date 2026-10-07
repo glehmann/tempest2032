@@ -6,6 +6,7 @@ use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
 use crate::enemies::fuseballs;
+use crate::enemies::pulsars::Pulsar;
 use crate::enemies::spikers;
 use crate::enemies::tankers;
 use crate::explosion;
@@ -102,6 +103,7 @@ pub(crate) fn move_droid(
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
     fuses: Query<&fuseballs::Fuseball>,
+    pulsars: Query<&Pulsar>,
     bullets: Query<Entity, With<ShotSlot>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     power_assets: Res<PowerAssets>,
@@ -125,6 +127,7 @@ pub(crate) fn move_droid(
         )
         .chain(spikers.iter().map(|s| (s.lane, s.depth)))
         .chain(fuses.iter().filter_map(|f| f.target()))
+        .chain(pulsars.iter().filter_map(Pulsar::target))
         .min_by_key(|(_, depth)| *depth)
         .map(|(lane, _)| lane);
     for (mut droid, mut transform) in &mut droids {

@@ -7,6 +7,7 @@ use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
 use crate::enemies::flippers::flipper_transform;
 use crate::enemies::fuseballs;
+use crate::enemies::pulsars::Pulsar;
 use crate::enemies::spikers;
 use crate::enemies::tankers;
 use crate::game::Game;
@@ -144,6 +145,7 @@ pub(crate) fn spawn(
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
     fuses: Query<&fuseballs::Fuseball>,
+    pulsars: Query<&Pulsar>,
 ) {
     let Some(generator) = &level.beasts else {
         return;
@@ -159,6 +161,7 @@ pub(crate) fn spawn(
         + tankers.iter().count() * 3
         + spikers.iter().count()
         + fuses.iter().count()
+        + pulsars.iter().count()
         >= level.flippers.max_active
     {
         return;

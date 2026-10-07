@@ -4,6 +4,7 @@
 use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::fuseballs;
+use crate::enemies::pulsars::Pulsar;
 use crate::enemies::shots::EnemyShot;
 use crate::enemies::spikers;
 use crate::enemies::tankers;
@@ -76,6 +77,7 @@ pub(crate) fn preview_input(
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
     fuses: Query<&fuseballs::Fuseball>,
+    pulsars: Query<&Pulsar>,
     upgrades: Res<Upgrades>,
 ) {
     keys.release(KeyCode::KeyD);
@@ -103,6 +105,7 @@ pub(crate) fn preview_input(
                 )
                 .chain(spikers.iter().map(|s| (s.lane, s.depth)))
                 .chain(fuses.iter().filter_map(|f| f.target()))
+                .chain(pulsars.iter().filter_map(Pulsar::target))
                 .min_by_key(|(_, depth)| *depth)
                 .map(|(lane, _)| lane)
         });

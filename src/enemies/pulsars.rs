@@ -1,0 +1,235 @@
+//! Pulsars climb lanes and electrify them during phase seven of a shared pulse.
+//! At the rim they split into two sparks that propagate in opposite directions.
+//! Implements spawning, approach gating, movement, and grounded-player contact.
+
+use bevy::{camera::visibility::RenderLayers, prelude::*};
+
+use crate::{
+    animations::glider_death::Death,
+    enemies::{Enemy, pulsar_render::PulsarAssets, tankers::Tanker},
+    game::{Game, Status},
+    glider::Glider,
+    level::{Level, LevelActor},
+    powerups::Upgrades,
+    weapons::Weapon,
+    web::{LANE_UNIT, WORLD_UNIT},
+};
+
+#[derive(Resource, Default)]
+pub(crate) struct Pulse {
+    pub(crate) phase: u8,
+    pub(crate) frame: u32,
+    ticks: u8,
+}
+
+#[derive(Clone, Copy)]
+struct Spark {
+    direction: i32,
+    ticks: u8,
+}
+
+#[derive(Component, Clone, Copy)]
+#[require(LevelActor, Enemy)]
+pub(crate) struct Pulsar {
+    pub(crate) lane: usize,
+    pub(crate) depth: i32,
+    pub(crate) approach: bool,
+    spark: Option<Spark>,
+}
+
+impl Pulsar {
+    pub(crate) fn target(&self) -> Option<(usize, i32)> {
+        (!self.approach).then_some((self.lane, self.depth))
+    }
+
+    pub(crate) fn points(&self) -> u32 {
+        if self.spark.is_some() { 150 } else { 200 }
+    }
+
+    pub(crate) fn electrified(&self, phase: u8) -> bool {
+        self.climbing() && phase == 7
+    }
+
+    pub(crate) fn climbing(&self) -> bool {
+        !self.approach && self.spark.is_none()
+    }
+}
+
+pub(crate) fn pulse(level: Res<Level>, game: Res<Game>, mut pulse: ResMut<Pulse>) {
+    let Some(settings) = &level.pulsars else {
+        return;
+    };
+    if !matches!(game.status, Status::Entering | Status::Playing) {
+        return;
+    }
+    pulse.frame = pulse.frame.wrapping_add(1);
+    pulse.ticks += 1;
+    if pulse.ticks >= settings.phase_ticks {
+        pulse.ticks = 0;
+        pulse.phase = (pulse.phase + 1) & 15;
+    }
+}
+
+pub(crate) fn spawn(
+    level: Res<Level>,
+    mut commands: Commands,
+    mut game: ResMut<Game>,
+    assets: Res<PulsarAssets>,
+    living: Query<(), With<Enemy>>,
+    tankers: Query<(), With<Tanker>>,
+) {
+    let Some(settings) = &level.pulsars else {
+        return;
+    };
+    if game.status != Status::Playing || game.remaining == 0 {
+        return;
+    }
+    if game.pulsar_timer > 0 {
+        game.pulsar_timer -= 1;
+        return;
+    }
+    if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
+        return;
+    }
+    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+    let pulsar = Pulsar {
+        lane: (game.random >> 16) as usize % level.web.lanes(),
+        depth: level.web.rear() + 300 * LANE_UNIT,
+        approach: true,
+        spark: None,
+    };
+    let mut pose = level.web.glider_transform(pulsar.lane as i32 * LANE_UNIT);
+    pose.translation.z = -pulsar.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT + 0.06;
+    commands.spawn((
+        pulsar,
+        pose,
+        RenderLayers::layer(1),
+        Mesh3d(assets.point.clone()),
+        MeshMaterial3d(assets.shades[0].clone()),
+    ));
+    game.remaining -= 1;
+    game.pulsar_timer = settings.generator.spawn_interval_ticks - 1;
+}
+
+pub(crate) fn advance(
+    level: Res<Level>,
+    game: Res<Game>,
+    pulse: Res<Pulse>,
+    assets: Res<PulsarAssets>,
+    mut commands: Commands,
+    mut pulsars: Query<(&mut Pulsar, &mut Transform)>,
+) {
+    let Some(settings) = &level.pulsars else {
+        return;
+    };
+    if game.status != Status::Playing {
+        return;
+    }
+    for (mut pulsar, mut pose) in &mut pulsars {
+        if pulsar.approach {
+            pulsar.depth -= 2 * LANE_UNIT;
+            if pulsar.depth <= level.web.rear() {
+                pulsar.depth = level.web.rear();
+                // run_objects waits at the rear until the shared pulse is harmless.
+                if pulse.phase < 3 {
+                    pulsar.approach = false;
+                    pulsar.depth -= settings.generator.climb_speed;
+                }
+            }
+        } else if let Some(mut spark) = pulsar.spark {
+            spark.ticks -= 1;
+            if spark.ticks == 0 {
+                spark.ticks = settings.propagation_ticks;
+                if level.web.neighbor(pulsar.lane, spark.direction).is_none() {
+                    spark.direction = -spark.direction;
+                }
+                pulsar.lane = level
+                    .web
+                    .neighbor(pulsar.lane, spark.direction)
+                    .unwrap_or(pulsar.lane);
+            }
+            pulsar.spark = Some(spark);
+        } else {
+            pulsar.depth -= settings.generator.climb_speed;
+            if pulsar.depth < 0 {
+                pulsar.depth = 0;
+                pulsar.spark = Some(Spark {
+                    direction: -1,
+                    ticks: settings.propagation_ticks,
+                });
+                let other = Pulsar {
+                    spark: Some(Spark {
+                        direction: 1,
+                        ticks: settings.propagation_ticks,
+                    }),
+                    ..*pulsar
+                };
+                commands.spawn((
+                    other,
+                    level.web.glider_transform(other.lane as i32 * LANE_UNIT),
+                    RenderLayers::layer(1),
+                    Mesh3d(assets.frames[5].clone()),
+                    MeshMaterial3d(assets.material.clone()),
+                ));
+            }
+        }
+        *pose = level.web.glider_transform(pulsar.lane as i32 * LANE_UNIT);
+        pose.translation.z = -pulsar.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT + 0.06;
+        pose.rotation = level.web.orientation(pulsar.lane);
+    }
+}
+
+pub(crate) fn check_player(
+    level: Res<Level>,
+    mut game: ResMut<Game>,
+    pulse: Res<Pulse>,
+    mut upgrades: ResMut<Upgrades>,
+    mut player: Single<(&mut Glider, &mut Weapon, &Transform, &mut Visibility)>,
+    pulsars: Query<&Pulsar>,
+) {
+    if game.status != Status::Playing || game.invulnerable > 0 || upgrades.jump_height > 0 {
+        return;
+    }
+    let lane = level.web.selected_lane(player.0.progress) as usize;
+    if pulsars
+        .iter()
+        .any(|p| p.lane == lane && p.electrified(pulse.phase))
+    {
+        fry(&level, &mut game, &mut upgrades, &mut player);
+    }
+}
+
+pub(crate) fn check_sparks(
+    level: Res<Level>,
+    mut game: ResMut<Game>,
+    mut upgrades: ResMut<Upgrades>,
+    mut player: Single<(&mut Glider, &mut Weapon, &Transform, &mut Visibility)>,
+    pulsars: Query<&Pulsar>,
+) {
+    if game.status != Status::Playing || game.invulnerable > 0 || upgrades.jump_height > 0 {
+        return;
+    }
+    let lane = level.web.selected_lane(player.0.progress) as usize;
+    if pulsars.iter().any(|p| p.lane == lane && p.spark.is_some()) {
+        fry(&level, &mut game, &mut upgrades, &mut player);
+    }
+}
+
+fn fry(
+    level: &Level,
+    game: &mut Game,
+    upgrades: &mut Upgrades,
+    player: &mut Single<(&mut Glider, &mut Weapon, &Transform, &mut Visibility)>,
+) {
+    let (glider, weapon, pose, visibility) = &mut **player;
+    game.status = Status::Fried;
+    game.death = Some(Death::new(pose.translation, &level.web));
+    glider.velocity = 0;
+    **weapon = Weapon::default();
+    **visibility = Visibility::Hidden;
+    upgrades.lose_life();
+}
+
+#[cfg(test)]
+#[path = "tests/pulsars.rs"]
+mod tests;

@@ -20,6 +20,45 @@ pub(crate) struct Level {
     pub(crate) enemy_shots: usize,
     pub(crate) beasts: Option<Generator>,
     pub(crate) fuseballs: Option<Generator>,
+    pub(crate) pulsars: Option<Pulsars>,
+}
+
+#[derive(Clone)]
+pub(crate) struct Pulsars {
+    pub(crate) generator: Generator,
+    pub(crate) phase_ticks: u8,
+    pub(crate) propagation_ticks: u8,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PulsarDefinition {
+    first_spawn_ticks: u16,
+    spawn_interval_ticks: u16,
+    climb_speed: f32,
+    phase_ticks: u8,
+    propagation_ticks: u8,
+}
+
+impl PulsarDefinition {
+    fn compile(self, name: &str) -> Result<Pulsars, String> {
+        if self.phase_ticks == 0 || self.propagation_ticks == 0 {
+            return Err(format!(
+                "{name}: Pulsar phase and propagation times must be positive"
+            ));
+        }
+        Ok(Pulsars {
+            generator: GeneratorDefinition {
+                first_spawn_ticks: self.first_spawn_ticks,
+                spawn_interval_ticks: self.spawn_interval_ticks,
+                climb_speed: self.climb_speed,
+                super_chance: 0,
+            }
+            .compile(name)?,
+            phase_ticks: self.phase_ticks,
+            propagation_ticks: self.propagation_ticks,
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -136,6 +175,8 @@ struct Definition {
     pub(crate) beasts: Option<GeneratorDefinition>,
     #[serde(default)]
     pub(crate) fuseballs: Option<GeneratorDefinition>,
+    #[serde(default)]
+    pulsars: Option<PulsarDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -250,6 +291,7 @@ impl Level {
             enemy_shots,
             beasts: def.beasts.map(|g| g.compile(name)).transpose()?,
             fuseballs: def.fuseballs.map(|g| g.compile(name)).transpose()?,
+            pulsars: def.pulsars.map(|g| g.compile(name)).transpose()?,
         })
     }
 }

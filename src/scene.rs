@@ -20,6 +20,12 @@ use crate::{
 #[derive(Component)]
 pub(crate) struct LaneHighlight(pub(crate) usize);
 
+#[derive(Component)]
+pub(crate) struct WebSegment {
+    pub(crate) lane: usize,
+    pub(crate) rim: bool,
+}
+
 #[derive(Resource)]
 pub(crate) struct WebAssets {
     pub(crate) beam: Handle<Mesh>,
@@ -207,6 +213,10 @@ pub(crate) fn spawn_web(
     for lane in 0..web.lanes() {
         let lane = lane as f32;
         commands.spawn((
+            WebSegment {
+                lane: lane as usize,
+                rim: false,
+            },
             ChildOf(root),
             Mesh3d(assets.beam.clone()),
             MeshMaterial3d(assets.blue.clone()),
@@ -217,7 +227,7 @@ pub(crate) fn spawn_web(
             ),
         ));
         for z in [0.0, -web.world_depth()] {
-            commands.spawn((
+            let mut segment = commands.spawn((
                 ChildOf(root),
                 Mesh3d(assets.beam.clone()),
                 MeshMaterial3d(assets.blue.clone()),
@@ -227,6 +237,12 @@ pub(crate) fn spawn_web(
                     0.026,
                 ),
             ));
+            if z == 0.0 {
+                segment.insert(WebSegment {
+                    lane: lane as usize,
+                    rim: true,
+                });
+            }
         }
     }
     for edge in 0..2 {
@@ -241,6 +257,10 @@ pub(crate) fn spawn_web(
     }
     if !web.closed {
         commands.spawn((
+            WebSegment {
+                lane: web.lanes(),
+                rim: false,
+            },
             ChildOf(root),
             Mesh3d(assets.beam.clone()),
             MeshMaterial3d(assets.blue.clone()),

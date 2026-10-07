@@ -1,6 +1,7 @@
 //! Game state, score and lives, level advancement, retries, and restarting.
 //! Chooses death and transition animations and clears level-owned actors.
 
+use crate::enemies::pulsars::Pulse;
 use bevy::prelude::*;
 
 use crate::{
@@ -47,6 +48,7 @@ pub(crate) struct Game {
     pub(crate) spiker_timer: u16,
     pub(crate) beast_timer: u16,
     pub(crate) fuse_timer: u16,
+    pub(crate) pulsar_timer: u16,
 }
 
 impl Default for Game {
@@ -71,6 +73,7 @@ impl Default for Game {
             spiker_timer: 0,
             beast_timer: 0,
             fuse_timer: 0,
+            pulsar_timer: 0,
         }
     }
 }
@@ -89,6 +92,10 @@ pub(crate) fn reset_wave(game: &mut Game, level: &Level) {
     game.remaining = level.flippers.count;
     game.spawn_timer = level.flippers.first_spawn_ticks - 1;
     game.status = Status::Entering;
+    game.pulsar_timer = level
+        .pulsars
+        .as_ref()
+        .map_or(0, |p| p.generator.first_spawn_ticks - 1);
     game.entry = Some(0);
     game.fire_timer = 112;
     game.tanker_timer = level
@@ -238,6 +245,7 @@ pub(crate) fn load_level(
     mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
     power_assets: Option<Res<powerups::PowerAssets>>,
     mut warp: Option<ResMut<stars::Warp>>,
+    mut pulse: Option<ResMut<Pulse>>,
 ) {
     let Some(reason) = game.load.take() else {
         return;
@@ -273,6 +281,9 @@ pub(crate) fn load_level(
     }
     if let Some(warp) = &mut warp {
         **warp = stars::Warp::default();
+    }
+    if let Some(pulse) = &mut pulse {
+        **pulse = Pulse::default();
     }
     let (glider, weapon, transform, visibility) = &mut *player;
     glider.progress = level.web.start();

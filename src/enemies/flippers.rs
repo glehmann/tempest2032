@@ -5,6 +5,7 @@ use crate::enemies::Enemy;
 use crate::enemies::beasts;
 use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::fuseballs;
+use crate::enemies::pulsars::Pulsar;
 use crate::enemies::spikers;
 use crate::enemies::tankers;
 use crate::game::Game;
@@ -123,6 +124,7 @@ pub(crate) fn spawn_enemies(
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,
     fuses: Query<&fuseballs::Fuseball>,
+    pulsars: Query<&Pulsar>,
 ) {
     if game.status != Status::Playing || game.remaining == 0 {
         return;
@@ -135,6 +137,7 @@ pub(crate) fn spawn_enemies(
         + tankers.iter().count() * 3
         + spikers.iter().count()
         + fuses.iter().count()
+        + pulsars.iter().count()
         >= level.flippers.max_active
     {
         return;

@@ -107,6 +107,18 @@ no Rust changes are needed. The supplied levels are:
   Fuseballs climb at `0x9000` and repeat every 501 ticks.
 - `levels/16.toml`: T2K's compact eight-lane `web21`, with a 41-spawn budget,
   Flippers every 71 ticks, and the original 60-in-256 fast-child threshold.
+- `levels/17.toml`: the eighteen-lane big oval `web24`, starting T2K's second
+  web set with red surfaces and cyan Flippers. The 25-spawn wave includes
+  Pulsars every 601 ticks, Spikers every 751, Beasties every 1,001, and
+  Fuseballs every 901. There are no Flipper Tankers, and three enemy shots
+  can be active at once. Flippers return to the `0xA800` speed group.
+  Pulsars climb at `0x8000` and share a sixteen-phase cycle, advancing every
+  nine ticks. Phase seven electrifies the occupied lane, frying a grounded
+  glider even while it fires. Jumping and respawn invulnerability protect it.
+  Pulsars wait for a safe phase before entering the web, then split into two
+  rim sparks that move in opposite directions every five ticks, wrapping on
+  closed webs and bouncing at open ends. Rail kills award 200 points and
+  spark kills 150; both participate in the normal pickup-drop sequence.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -135,7 +147,7 @@ The TOML fields use these conventions:
   negative values turn clockwise. These also determine Flipper flip targets.
 - `web.start_lane`: a zero-based index in this clockwise order. Original
   `web11` lane 5 is lane 10 here. Level one's existing prototype spawn is kept.
-- `web.depth`: depth in game units, 160 for both supplied webs.
+- `web.depth`: depth in game units, 160 for the supplied webs.
 - `flippers`: count, first and repeat spawn times in 60 Hz ticks, climbing speed
   in depth units per tick, flip speed in angle units per tick, pause counter,
   and maximum simultaneous Flippers. Climbing speed converts to 16:16 once
@@ -145,6 +157,8 @@ The TOML fields use these conventions:
   consume this budget. Optional `tankers` tables specify spawn times, climbing
   speed, and the fast-child probability out of 256.
   Optional `spikers` tables specify their spawn times and climbing speed.
+  Optional `pulsars` tables also specify `phase_ticks` for the shared pulse
+  and `propagation_ticks` for rim-spark movement. Both must be positive.
 - `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.
   `appearance.flipper` uses integer RGB channels between 0 and 255.
 - `powerups.kill_interval`: first kill drops a pickup, then every Nth kill.
@@ -408,7 +422,7 @@ terminology. The source is organized by responsibility:
 | `src/scene.rs`, `src/camera.rs`, `src/mesh.rs` | Scene setup, web rendering, lane highlights, cameras, and shared mesh helpers |
 | `src/web.rs`, `src/level.rs` | Lane topology and geometry, TOML definitions, validation, and the level catalog |
 | `src/capture.rs` | Screenshots, recordings, scripted input, and transition previews |
-| `src/enemies/` | Flippers, enemy shots, Tankers, Spikers and spikes, Beasties, and Fuseballs |
+| `src/enemies/` | Flippers, enemy shots, Tankers, Spikers and spikes, Beasties, Fuseballs, and Pulsars with rim sparks |
 | `src/powerups/` | Reward state, pickups, particle rings, jumping, and the AI droid |
 | `src/animations/` | Web entry, level exit and warp, Flipper capture, and glider death |
 | `src/explosion.rs`, `src/cry.rs`, `src/stars.rs` | Enemy-death rings, Jaguar color decoding, and background stars |

@@ -1,6 +1,7 @@
 //! Player-shot hit resolution, nearest-hit selection, particle-laser piercing,
 //! Beastie armor reflections, Tanker releases, spike trimming, and kill rewards.
 
+use crate::enemies::pulsars::Pulsar;
 use bevy::{camera::visibility::RenderLayers, prelude::*};
 use std::collections::HashSet;
 
@@ -20,7 +21,7 @@ use crate::{
     web::{LANE_UNIT, WORLD_UNIT},
 };
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn resolve_hits(
     level: Res<Level>,
     mut commands: Commands,
@@ -29,7 +30,10 @@ pub(crate) fn resolve_hits(
     mut upgrades: ResMut<powerups::Upgrades>,
     power_assets: Res<powerups::PowerAssets>,
     bullets: Query<(Entity, &Bullet, &Transform, Option<&ParticleShot>)>,
-    enemies: Query<(Entity, &Flipper, &Transform)>,
+    enemies: Query<
+        (Entity, Option<&Flipper>, Option<&Pulsar>, &Transform),
+        Or<(With<Flipper>, With<Pulsar>)>,
+    >,
     enemy_shots: Query<(Entity, &EnemyShot, Option<&beasts::Reflected>)>,
     tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
     shells: Res<tankers::TankerAssets>,
@@ -50,18 +54,20 @@ pub(crate) fn resolve_hits(
         };
         let hits = enemies
             .iter()
-            .filter(|(entity, flipper, _)| {
-                !killed.contains(entity)
-                    && flipper.hit_lane(&level.web) == Some(bullet.lane)
-                    && intersects(flipper.lane, flipper.depth)
-            })
-            .map(|(entity, flipper, transform)| {
-                (
+            .filter_map(|(entity, flipper, pulsar, transform)| {
+                let (lane, depth, points) = if let Some(flipper) = flipper {
+                    (flipper.hit_lane(&level.web)?, flipper.depth, 150)
+                } else {
+                    let pulsar = pulsar?;
+                    let (lane, depth) = pulsar.target()?;
+                    (lane, depth, pulsar.points())
+                };
+                (!killed.contains(&entity) && intersects(lane, depth)).then_some((
                     entity,
-                    flipper.depth,
-                    150,
-                    Some((flipper.lane, transform.translation)),
-                )
+                    depth,
+                    points,
+                    Some((lane, transform.translation)),
+                ))
             })
             .chain(
                 tankers

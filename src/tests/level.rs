@@ -5,6 +5,58 @@ use crate::level::Levels;
 use crate::web::FRONT_RADIUS;
 use crate::web::LANE_UNIT;
 use bevy::prelude::*;
+
+#[test]
+fn original_level_seventeen_starts_the_red_oval_and_pulsar_wave() {
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/17.toml")),
+        "level17",
+    )
+    .unwrap();
+    assert_eq!(level.web.lanes(), 18);
+    assert!(level.web.closed);
+    assert_eq!(level.web.start_lane, 13);
+    assert_eq!(level.web.vertices[0], [1., 8.]);
+    assert_eq!(level.web.vertices[9], [15., 10.]);
+    assert_eq!(
+        level.web.orientations,
+        [
+            48, 16, 16, 0, 0, -16, -16, -48, -64, -80, -112, -112, -128, -128, 112, 112, 80, 64
+        ]
+    );
+    assert_eq!(level.flippers.count, 25);
+    assert_eq!(level.flippers.climb_speed, 0xa800);
+    assert_eq!(level.flippers.spawn_interval_ticks, 121);
+    assert_eq!(level.enemy_shots, 3);
+    assert!(level.tankers.is_none());
+    let pulsars = level.pulsars.unwrap();
+    assert_eq!(pulsars.generator.first_spawn_ticks, 301);
+    assert_eq!(pulsars.generator.spawn_interval_ticks, 601);
+    assert_eq!(pulsars.generator.climb_speed, 0x8000);
+    assert_eq!(pulsars.phase_ticks, 9);
+    assert_eq!(pulsars.propagation_ticks, 5);
+    assert_eq!(level.spikers.unwrap().climb_speed, 0xd000);
+    assert_eq!(level.beasts.unwrap().spawn_interval_ticks, 1001);
+    assert_eq!(level.fuseballs.unwrap().spawn_interval_ticks, 901);
+    assert_eq!(level.appearance.surface, [1., 0., 0.]);
+    assert_eq!(level.appearance.flipper, [135, 208, 255]);
+    assert_eq!(level.powerups.kill_interval, 7);
+    for bad in ["phase_ticks = 0", "propagation_ticks = 0"] {
+        let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/17.toml"));
+        let field = bad.split(" = ").next().unwrap();
+        let valid = if field == "phase_ticks" {
+            "phase_ticks = 9"
+        } else {
+            "propagation_ticks = 5"
+        };
+        assert!(
+            Level::parse(&source.replace(valid, bad), "bad-pulsar")
+                .err()
+                .unwrap()
+                .contains("must be positive")
+        );
+    }
+}
 use std::path::Path;
 
 #[test]
