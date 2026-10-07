@@ -353,6 +353,9 @@ no Rust changes are needed. The supplied levels are:
   budget, with four-tick Pulsar phases.
 - `levels/79.toml`: open fifteen-lane `web16`, adding Beasties every 801
   ticks. Type-2 and type-3 Flippers use `0xBE00`; Alien Droids use `0x17C00`.
+- `levels/80.toml`: compact eight-lane `web21`, ending the fifth set with
+  both Super Flipper types, all three Tanker types, Mirrors, Alien Droids,
+  Fuseballs, Pulsars, and Beasties. Pulsar Tankers replace Spikers at 501 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
