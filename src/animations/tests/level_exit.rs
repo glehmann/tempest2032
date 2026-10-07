@@ -299,7 +299,7 @@ fn all_configured_levels_advance_through_the_exit_and_wrap_to_one() {
         Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap(),
     );
     let count = app.world().resource::<Levels>().0.len();
-    assert_eq!(count, 45);
+    assert_eq!(count, 46);
     for next in (2..=count).chain(std::iter::once(1)) {
         app.world_mut().resource_mut::<Game>().remaining = 0;
         ticks(&mut app, 377);

@@ -235,6 +235,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/45.toml`: open thirteen-lane T2K giraffe-neck `web20`, with
   `0xBC00` Flippers and `0xB800` Tankers. Pulsar phases drop to four ticks;
   Pulsar Tankers repeat every 301 ticks and direct Pulsars every 1,001.
+- `levels/46.toml`: open fifteen-lane distorted-W `web6`, with Flippers every
+  76 ticks and a 180-in-256 fast-child threshold. Other generator intervals
+  and speeds remain in level forty-five's group.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

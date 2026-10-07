@@ -1,0 +1,66 @@
+# Original _nw46 on the open distorted-W web6.
+number = 46
+enemy_count = 41
+
+[web]
+closed = false
+start_lane = 8
+depth = 160
+vertices = [[18,1],[17,3],[16,5],[15,7],[14,9],[13,11],[11,11],[10,13],[9,15],[7,15],[6,13],[5,11],[4,9],[3,7],[2,5],[1,3]]
+orientations = [-80,-80,-80,-80,-80,-128,-80,-80,-128,80,80,80,80,80,80]
+
+[flippers]
+first_spawn_ticks = 38
+spawn_interval_ticks = 76
+climb_speed = 0.734375
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 136
+spawn_interval_ticks = 271
+climb_speed = 0.71875
+super_chance = 180
+
+[fuse_tankers]
+first_spawn_ticks = 401
+spawn_interval_ticks = 801
+climb_speed = 0.71875
+
+[pulsar_tankers]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.71875
+phase_ticks = 4
+propagation_ticks = 5
+
+[pulsars]
+first_spawn_ticks = 501
+spawn_interval_ticks = 1001
+climb_speed = 0.5
+phase_ticks = 4
+propagation_ticks = 5
+
+[spikers]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 1.125
+
+[beasts]
+first_spawn_ticks = 351
+spawn_interval_ticks = 701
+climb_speed = 0.734375
+
+[fuseballs]
+first_spawn_ticks = 451
+spawn_interval_ticks = 901
+climb_speed = 0.8125
+
+[appearance]
+surface = [1.0, 1.0, 0.0]
+lines = [0.78, 0.78, 0.015]
+flipper = [248, 255, 95]
+
+[powerups]
+kill_interval = 9
