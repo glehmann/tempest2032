@@ -252,6 +252,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/50.toml`: open fifteen-lane spiraloid `web23`, restoring normal
   Flippers every 51 ticks in a 41-spawn mixed wave. Beasties repeat every
   501 ticks, Spikers every 751, and Fuseballs every 901.
+- `levels/51.toml`: closed fifteen-lane pentagon `web27`, with 46 shared
+  spawns. Pulsar Tankers repeat every 951 ticks in place of Fuseballs;
+  Flippers climb at `0xB200`, and Beasties repeat every 501 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

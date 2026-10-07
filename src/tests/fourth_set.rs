@@ -8,6 +8,7 @@ const WAVES: &[(usize, u16, bool, u16, u16, u16, u16, u16)] = &[
     // Level, budget, normal Flippers, Flipper delay, Beastie delay, Tankers, Fuseballs, Pulsar Tankers.
     (49, 17, false, 141, 141, 0, 0, 0),
     (50, 41, true, 51, 501, 0, 901, 0),
+    (51, 46, true, 51, 501, 0, 0, 951),
 ];
 
 #[test]
@@ -24,6 +25,7 @@ fn fourth_set_matches_the_original_waves_and_second_set_geometry() {
         assert_eq!(level.flippers.count, count);
         assert_eq!(level.flippers.enabled, flippers);
         assert_eq!(level.flippers.spawn_interval_ticks, flip_delay);
+        assert_eq!(level.flippers.first_spawn_ticks, (flip_delay - 1) / 2 + 1);
         let beasts = level.beasts.as_ref().unwrap();
         assert_eq!(beasts.spawn_interval_ticks, beast_delay);
         assert_eq!(beasts.first_spawn_ticks, (beast_delay - 1) / 2 + 1);
@@ -47,6 +49,30 @@ fn fourth_set_matches_the_original_waves_and_second_set_geometry() {
         );
         assert!(level.pulsars.is_none());
         assert!(level.fuse_tankers.is_none());
+        if let Some(tankers) = &level.tankers {
+            assert_eq!(tankers.super_chance, 4 * (number as u8 - 1));
+            assert_eq!(
+                tankers.climb_speed,
+                [0x8000, 0x8000, 0x9800, 0x9800][(number - 49) / 2]
+            );
+        }
+        if let Some(fuses) = &level.fuseballs {
+            assert_eq!(
+                fuses.climb_speed,
+                [0xa000, 0xa800, 0xb000, 0xb800][(number - 49) / 2]
+            );
+        }
+        if let Some(spikers) = &level.spikers {
+            assert_eq!(
+                spikers.climb_speed,
+                [0xd000, 0xd000, 0xe000, 0xf000][(number - 49) / 2]
+            );
+        }
+        if let Some(pulsars) = &level.pulsar_tankers {
+            assert_eq!(pulsars.phase_ticks, 7);
+            assert_eq!(pulsars.propagation_ticks, 5);
+            assert_eq!(pulsars.generator.climb_speed, 0x8000);
+        }
         assert_eq!(
             beasts.climb_speed,
             [0xb000, 0xb200, 0xb400, 0xb600][(number - 49) / 2]
