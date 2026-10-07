@@ -14,6 +14,7 @@ const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
     (70, 0, 751, 601, 301, 71, 0, 0),
     (71, 0, 751, 601, 0, 71, 501, 0),
     (72, 21, 751, 601, 0, 0, 0, 501),
+    (73, 21, 751, 601, 301, 0, 0, 501),
 ];
 
 #[test]
@@ -66,7 +67,9 @@ fn fifth_set_matches_the_original_dispatch_table_and_speed_groups() {
         assert_eq!(droids.first_spawn_ticks, (aliens - 1) / 2 + 1);
         assert_eq!(
             droids.climb_speed,
-            2 * [0xb000, 0xb200, 0xb400, 0xb600][(number - 65) / 2]
+            2 * [
+                0xb000, 0xb200, 0xb400, 0xb600, 0xb800, 0xba00, 0xbc00, 0xbe00
+            ][(number - 65) / 2]
         );
         assert_eq!(
             level.appearance.surface,

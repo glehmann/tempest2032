@@ -330,6 +330,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/72.toml`: the same T2K lemon, restoring Super Flippers every 21
   ticks and adding Spikers every 501. The 61-spawn wave retains Mirrors and
   Alien Droids, while Pulsar Tankers and Beasties are absent.
+- `levels/73.toml`: open fourteen-lane sine-wave `web13`, adding Fuseballs
+  every 301 ticks to the Super Flipper, Mirror, Alien Droid, and Spiker wave.
+  Alien Droids climb at `0x17000` and Spikers at `0x16000`.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
