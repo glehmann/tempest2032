@@ -199,6 +199,8 @@ no Rust changes are needed. The supplied levels are:
   climbing at `0x8000` and electrifying them. There are no direct Pulsar,
   Flipper Tanker, or Fuseball Tanker generators in this wave. Pickups now
   drop every ninth kill after the first.
+- `levels/34.toml`: square `web11`, with 31 shared spawns and Pulsar Tankers
+  every 451 ticks. Beasties retain their 701-tick interval.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
