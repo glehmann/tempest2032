@@ -348,6 +348,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/77.toml`: open giraffe-neck `web20`, introducing Fuseball Tankers
   every 624 ticks in place of direct Pulsars. Alien Droids climb at `0x17800`,
   while Mirrors and Fuseballs use the `0xD000` group.
+- `levels/78.toml`: open distorted-W `web6`, adding direct Pulsars every
+  301 ticks alongside Fuseball Tankers. Both share the existing 61-spawn
+  budget, with four-tick Pulsar phases.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
