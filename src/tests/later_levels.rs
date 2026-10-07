@@ -48,3 +48,21 @@ fn level_22_has_open_bird_wings_and_a_thirty_six_spawn_budget() {
     assert_eq!(pulsars.generator.spawn_interval_ticks, 426);
     assert_eq!(pulsars.phase_ticks, 8);
 }
+
+#[test]
+fn level_23_keeps_the_tiny_stars_retraced_tips_and_lane_orientations() {
+    let level = level(23);
+    assert!(level.web.closed);
+    assert_eq!(level.web.lanes(), 16);
+    assert_eq!(level.web.start_lane, 9);
+    assert_eq!(level.web.vertices[0], [8., 3.]);
+    assert_eq!(level.web.vertices[3], level.web.vertices[5]);
+    assert_eq!(level.web.vertices[7], level.web.vertices[9]);
+    assert_eq!(level.web.orientations[3], 0);
+    assert_eq!(level.web.orientations[4], -128);
+    assert_eq!(level.flippers.climb_speed, 0xae00);
+    assert_eq!(level.spikers.unwrap().climb_speed, 0xf000);
+    assert_eq!(level.fuseballs.unwrap().climb_speed, 0xa800);
+    assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 463);
+    assert_eq!(level.tankers.unwrap().super_chance, 88);
+}

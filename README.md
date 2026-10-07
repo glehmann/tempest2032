@@ -157,6 +157,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/22.toml`: open twelve-lane inverted-bird `web28`, with 36 shared
   spawns. Flippers repeat every 96 ticks, Tankers every 261, and Pulsars every
   426. Pulsar sparks bounce at the wing tips.
+- `levels/23.toml`: closed sixteen-lane tiny-star `web26`, retaining its
+  retraced tips and sharp lane reversals. Flippers climb at `0xAE00`, Spikers
+  at `0xF000`, and Fuseballs at `0xA800`; Pulsars repeat every 463 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

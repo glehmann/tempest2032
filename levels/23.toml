@@ -1,0 +1,53 @@
+# Original _nw23 on web26. The star's retraced tips are intentional.
+number = 23
+enemy_count = 36
+
+[web]
+start_lane = 9
+depth = 160
+vertices = [[8,3],[8,5],[9,7],[11,8],[13,8],[11,8],[9,9],[8,11],[8,13],[8,11],[7,9],[5,8],[3,8],[5,8],[7,7],[8,5]]
+orientations = [-64,-48,-16,0,-128,-112,-80,-64,64,80,112,-128,0,16,48,64]
+
+[flippers]
+first_spawn_ticks = 46
+spawn_interval_ticks = 91
+climb_speed = 0.6796875
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 126
+spawn_interval_ticks = 251
+climb_speed = 0.53125
+super_chance = 88
+
+[pulsars]
+first_spawn_ticks = 232
+spawn_interval_ticks = 463
+climb_speed = 0.5
+phase_ticks = 8
+propagation_ticks = 5
+
+[spikers]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.9375
+
+[beasts]
+first_spawn_ticks = 501
+spawn_interval_ticks = 1001
+climb_speed = 0.6796875
+
+[fuseballs]
+first_spawn_ticks = 451
+spawn_interval_ticks = 901
+climb_speed = 0.65625
+
+[appearance]
+surface = [1.0, 0.0, 0.0]
+lines = [0.78, 0.01, 0.015]
+flipper = [135, 208, 255]
+
+[powerups]
+kill_interval = 7
