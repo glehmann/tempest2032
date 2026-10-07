@@ -255,6 +255,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/51.toml`: closed fifteen-lane pentagon `web27`, with 46 shared
   spawns. Pulsar Tankers repeat every 951 ticks in place of Fuseballs;
   Flippers climb at `0xB200`, and Beasties repeat every 501 ticks.
+- `levels/52.toml`: open twelve-lane hook `web25`, increasing the shared
+  budget to 51 spawns. Beasties repeat every 301 ticks, Fuseballs every 951,
+  and normal Flippers continue every 51 ticks. Pulsar Tankers are absent.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
