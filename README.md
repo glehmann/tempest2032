@@ -182,6 +182,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/29.toml`: closed fifteen-lane teardrop `web34`, retaining the
   retraced top tip. Flippers climb at `0xB400`, Tankers at `0x9800`, Spikers
   at `0x12000`, and Fuseballs at `0xC000`. Pulsar phases drop to six ticks.
+- `levels/30.toml`: open fourteen-lane crinkly-L `web35`, with alternating
+  angles along its stem. Flippers repeat every 76 ticks, Pulsars every 351,
+  and Fuseball Tankers every 1,001, twice their previous frequency.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

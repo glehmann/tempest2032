@@ -179,3 +179,19 @@ fn level_29_preserves_the_teardrops_tip_and_six_tick_pulsar_phases() {
     assert_eq!(pulsars.phase_ticks, 6);
     assert_eq!(pulsars.generator.spawn_interval_ticks, 367);
 }
+
+#[test]
+fn level_30_has_the_open_crinkly_l_and_more_frequent_fuse_tankers() {
+    let level = level(30);
+    assert!(!level.web.closed);
+    assert_eq!(level.web.lanes(), 14);
+    assert_eq!(level.web.start_lane, 3);
+    assert_eq!(level.web.vertices[0], [14., 16.]);
+    assert_eq!(level.web.vertices[14], [1., -2.]);
+    assert_eq!(&level.web.orientations[4..8], &[80, 64, 80, 64]);
+    assert_eq!(level.flippers.spawn_interval_ticks, 76);
+    let tankers = level.fuse_tankers.unwrap();
+    assert_eq!(tankers.first_spawn_ticks, 501);
+    assert_eq!(tankers.spawn_interval_ticks, 1001);
+    assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 351);
+}
