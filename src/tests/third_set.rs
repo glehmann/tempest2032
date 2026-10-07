@@ -3,12 +3,17 @@
 use super::Levels;
 use std::path::Path;
 
+#[rustfmt::skip]
+const WAVES: &[(usize, u16, u16, u16, u16, u16)] = &[
+    (33, 25, 101, 501, 0, 0),
+    (34, 31, 101, 451, 0, 0),
+    (35, 31, 121, 451, 0, 0),
+];
+
 #[test]
 fn third_set_matches_original_waves_and_reuses_the_first_set_webs() {
     let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
-    for (number, count, flippers, tankers, pulsars, fuses) in
-        [(33, 25, 101, 501, 0, 0), (34, 31, 101, 451, 0, 0)]
-    {
+    for &(number, count, flippers, tankers, pulsars, fuses) in WAVES {
         let level = &levels.0[number - 1];
         let earlier = &levels.0[number - 33];
         assert_eq!(level.web.vertices, earlier.web.vertices);

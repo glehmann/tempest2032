@@ -201,6 +201,9 @@ no Rust changes are needed. The supplied levels are:
   drop every ninth kill after the first.
 - `levels/34.toml`: square `web11`, with 31 shared spawns and Pulsar Tankers
   every 451 ticks. Beasties retain their 701-tick interval.
+- `levels/35.toml`: open eleven-lane flat `web1`, restoring Flipper Tankers
+  every 445 ticks with a 136-in-256 mutation threshold. Flippers climb at
+  `0xB200` and Fuseballs at `0xA800`.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
