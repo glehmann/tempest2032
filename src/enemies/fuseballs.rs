@@ -1,7 +1,35 @@
-use super::*;
+//! Fuseballs are multicolored, five-armed enemies that climb lane boundaries
+//! and cross toward the glider. They are shootable near the middle of a crossing;
+//! contact at the rim fries the glider. Implements movement and point graphics.
+
+use crate::animations::glider_death as shot_death;
+use crate::cry;
+use crate::enemies::Enemy;
+use crate::enemies::flipper_render::approach_dot_style;
+use crate::enemies::flippers::Flipper;
+use crate::enemies::spikers;
+use crate::enemies::tankers;
+use crate::explosion;
+use crate::game::Game;
+use crate::game::Status;
+use crate::glider::Glider;
+use crate::level::Level;
+use crate::level::LevelActor;
+use crate::mesh::colored_mesh;
+use crate::powerups;
+use crate::weapons::Bullet;
+use crate::weapons::ParticleShot;
+use crate::weapons::Weapon;
+use crate::web::FRONT_RADIUS;
+use crate::web::LANE_UNIT;
+use crate::web::WORLD_UNIT;
+use bevy::camera::visibility::RenderLayers;
+use bevy::prelude::*;
+use std::collections::HashSet;
+use std::f32::consts::TAU;
 
 #[derive(Clone, Copy)]
-enum Motion {
+pub(crate) enum Motion {
     Approach,
     Rail,
     Cross {
@@ -18,9 +46,9 @@ enum Motion {
 pub(crate) struct Fuseball {
     pub(crate) depth: i32,
     pub(crate) edge: usize,
-    motion: Motion,
-    rise: u8,
-    tick: u16,
+    pub(crate) motion: Motion,
+    pub(crate) rise: u8,
+    pub(crate) tick: u16,
 }
 
 impl Fuseball {
@@ -34,7 +62,7 @@ impl Fuseball {
             _ => None,
         }
     }
-    fn danger(&self) -> Option<usize> {
+    pub(crate) fn danger(&self) -> Option<usize> {
         if self.depth <= 0 {
             match self.motion {
                 Motion::Cross { lane, .. } => Some(lane),
@@ -47,14 +75,14 @@ impl Fuseball {
 }
 
 #[derive(Resource, Default)]
-pub(super) struct FuseAssets {
-    frames: Vec<Handle<Mesh>>,
-    point: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-    shades: Vec<Handle<StandardMaterial>>,
+pub(crate) struct FuseAssets {
+    pub(crate) frames: Vec<Handle<Mesh>>,
+    pub(crate) point: Handle<Mesh>,
+    pub(crate) material: Handle<StandardMaterial>,
+    pub(crate) shades: Vec<Handle<StandardMaterial>>,
 }
 
-pub(super) fn setup(
+pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
@@ -101,7 +129,7 @@ pub(super) fn setup(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn spawn(
+pub(crate) fn spawn(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -159,7 +187,7 @@ pub(super) fn spawn(
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub(super) fn advance(
+pub(crate) fn advance(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -322,7 +350,7 @@ pub(super) fn advance(
 }
 
 #[allow(clippy::type_complexity)]
-pub(super) fn draw_points(
+pub(crate) fn draw_points(
     assets: Res<FuseAssets>,
     cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Fuseball>)>,
     mut fuses: Query<(
@@ -347,135 +375,5 @@ pub(super) fn draw_points(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    fn app() -> App {
-        let mut app = super::super::tests::app();
-        app.insert_resource(Level::parse(include_str!("../levels/11.toml"), "level11").unwrap())
-            .init_resource::<FuseAssets>()
-            .add_systems(FixedUpdate, advance);
-        app
-    }
-    fn ticks(app: &mut App, n: usize) {
-        for _ in 0..n {
-            app.world_mut().run_schedule(FixedUpdate);
-        }
-    }
-    #[test]
-    fn fuseballs_only_take_hits_in_the_middle_of_a_crossing() {
-        for steps in [0, 3, 8, 11, 15] {
-            let mut app = app();
-            let entity = app
-                .world_mut()
-                .spawn((
-                    Fuseball {
-                        depth: 60 * LANE_UNIT,
-                        edge: 4,
-                        motion: Motion::Cross {
-                            from: 4,
-                            to: 5,
-                            lane: 4,
-                            steps,
-                            delay: 4,
-                        },
-                        rise: 48,
-                        tick: 0,
-                    },
-                    Transform::default(),
-                    Mesh3d::default(),
-                    MeshMaterial3d::<StandardMaterial>::default(),
-                ))
-                .id();
-            app.world_mut()
-                .spawn((Bullet { lane: 4 }, Transform::from_xyz(0., 0., -10.)));
-            ticks(&mut app, 1);
-            assert_eq!(
-                app.world().get_entity(entity).is_err(),
-                (3..=11).contains(&steps)
-            );
-            if (3..=11).contains(&steps) {
-                assert!([250, 500, 750].contains(&app.world().resource::<Game>().score));
-            }
-            assert_eq!(
-                app.world_mut()
-                    .query::<&powerups::PowerUp>()
-                    .iter(app.world())
-                    .count(),
-                0
-            );
-        }
-    }
-    #[test]
-    fn rail_rise_and_sixteen_five_tick_steps_match_the_original_counters() {
-        let mut app = app();
-        let entity = app
-            .world_mut()
-            .spawn((
-                Fuseball {
-                    depth: 60 * LANE_UNIT,
-                    edge: 4,
-                    motion: Motion::Rail,
-                    rise: 48,
-                    tick: 0,
-                },
-                Transform::default(),
-                Mesh3d::default(),
-                MeshMaterial3d::<StandardMaterial>::default(),
-            ))
-            .id();
-        ticks(&mut app, 48);
-        assert!(matches!(
-            app.world().get::<Fuseball>(entity).unwrap().motion,
-            Motion::Rail
-        ));
-        ticks(&mut app, 1);
-        assert!(matches!(
-            app.world().get::<Fuseball>(entity).unwrap().motion,
-            Motion::Cross { .. }
-        ));
-        assert_eq!(
-            app.world().get::<Fuseball>(entity).unwrap().depth,
-            60 * LANE_UNIT - 49 * 0x8000
-        );
-        ticks(&mut app, 79);
-        assert!(matches!(
-            app.world().get::<Fuseball>(entity).unwrap().motion,
-            Motion::Cross { .. }
-        ));
-        ticks(&mut app, 1);
-        assert!(matches!(
-            app.world().get::<Fuseball>(entity).unwrap().motion,
-            Motion::Rail
-        ));
-    }
-    #[test]
-    fn a_rim_crossing_fries_the_claw_even_while_the_weapon_is_active() {
-        let mut app = app();
-        app.world_mut().spawn((
-            Fuseball {
-                depth: 0,
-                edge: 7,
-                motion: Motion::Cross {
-                    from: 7,
-                    to: 8,
-                    lane: 7,
-                    steps: 0,
-                    delay: 4,
-                },
-                rise: 48,
-                tick: 0,
-            },
-            Transform::default(),
-            Mesh3d::default(),
-            MeshMaterial3d::<StandardMaterial>::default(),
-        ));
-        let entity = app
-            .world_mut()
-            .query_filtered::<Entity, With<Glider>>()
-            .single(app.world())
-            .unwrap();
-        app.world_mut().get_mut::<Weapon>(entity).unwrap().firing = true;
-        ticks(&mut app, 1);
-        assert!(app.world().resource::<Game>().status == Status::Fried);
-    }
-}
+#[path = "tests/fuseballs.rs"]
+mod tests;

@@ -1,4 +1,26 @@
-use super::*;
+//! Tankers are pink enemy shells that climb lanes and split into two Flippers.
+//! Handles shell graphics, spawning, releases, and fast-child movement.
+
+use crate::cry;
+use crate::enemies::Enemy;
+use crate::enemies::flipper_render::FlipperAssets;
+use crate::enemies::flipper_render::approach_dot_style;
+use crate::enemies::flippers::Flipper;
+use crate::enemies::flippers::Motion;
+use crate::enemies::flippers::flipper_transform;
+use crate::enemies::fuseballs;
+use crate::enemies::spikers;
+use crate::explosion;
+use crate::game::Game;
+use crate::game::Status;
+use crate::level::Level;
+use crate::level::LevelActor;
+use crate::mesh::colored_mesh;
+use crate::web::LANE_UNIT;
+use crate::web::WORLD_UNIT;
+use crate::web::Web;
+use bevy::camera::visibility::RenderLayers;
+use bevy::prelude::*;
 
 #[derive(Component)]
 #[require(LevelActor, Enemy)]
@@ -9,23 +31,23 @@ pub(crate) struct Tanker {
 }
 
 #[derive(Component)]
-pub(super) struct Released {
-    pub(super) burst: bool,
-    pub(super) fast: bool,
-    pub(super) remaining: u8,
-    pub(super) direction: i32,
+pub(crate) struct Released {
+    pub(crate) burst: bool,
+    pub(crate) fast: bool,
+    pub(crate) remaining: u8,
+    pub(crate) direction: i32,
 }
 
 #[derive(Resource, Default)]
-pub(super) struct TankerAssets {
-    body: Handle<Mesh>,
-    pub(super) fast: Handle<Mesh>,
-    point: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-    shades: Vec<Handle<StandardMaterial>>,
+pub(crate) struct TankerAssets {
+    pub(crate) body: Handle<Mesh>,
+    pub(crate) fast: Handle<Mesh>,
+    pub(crate) point: Handle<Mesh>,
+    pub(crate) material: Handle<StandardMaterial>,
+    pub(crate) shades: Vec<Handle<StandardMaterial>>,
 }
 
-pub(super) fn setup(
+pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
@@ -114,7 +136,7 @@ pub(super) fn setup(
     });
 }
 
-pub(super) fn transform(tanker: &Tanker, web: &level::Web) -> Transform {
+pub(crate) fn transform(tanker: &Tanker, web: &Web) -> Transform {
     let mut transform = web.glider_transform(tanker.lane as i32 * LANE_UNIT);
     transform.translation.z = -(tanker.depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
     transform.rotation = web.orientation(tanker.lane);
@@ -122,7 +144,7 @@ pub(super) fn transform(tanker: &Tanker, web: &level::Web) -> Transform {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn spawn(
+pub(crate) fn spawn(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -167,89 +189,7 @@ pub(super) fn spawn(
     game.tanker_timer = generator.spawn_interval_ticks - 1;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn mixed_generators_share_the_original_seventeen_spawn_budget() {
-        let mut app = super::super::tests::app();
-        let level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
-        reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
-        app.world_mut().resource_mut::<Game>().status = Status::Playing;
-        app.world_mut().resource_mut::<Game>().entry = None;
-        app.insert_resource(level)
-            .add_systems(FixedUpdate, (spawn_enemies, spawn).chain());
-        for _ in 0..222 {
-            app.world_mut().run_schedule(FixedUpdate);
-        }
-        assert_eq!(
-            app.world_mut().query::<&Tanker>().iter(app.world()).count(),
-            0
-        );
-        assert_eq!(app.world().resource::<Game>().remaining, 15);
-        app.world_mut().run_schedule(FixedUpdate);
-        let tanker = app
-            .world_mut()
-            .query::<&Tanker>()
-            .single(app.world())
-            .unwrap();
-        assert!((1..10).contains(&tanker.lane));
-        assert_eq!(app.world().resource::<Game>().remaining, 14);
-    }
-
-    #[test]
-    fn shooting_a_tanker_releases_two_children_without_advancing_the_drop_counter() {
-        let mut app = super::super::tests::app();
-        let mut level = Level::parse(include_str!("../levels/03.toml"), "level3").unwrap();
-        level.tankers.as_mut().unwrap().super_chance = 0;
-        app.insert_resource(level)
-            .add_systems(FixedUpdate, resolve_hits);
-        app.world_mut().spawn((
-            Tanker {
-                lane: 5,
-                depth: 60 * LANE_UNIT,
-                approach: false,
-            },
-            Transform::default(),
-        ));
-        app.world_mut()
-            .spawn((Bullet { lane: 5 }, Transform::from_xyz(0., 0., -10.)));
-        app.world_mut().run_schedule(FixedUpdate);
-        assert_eq!(app.world().resource::<Game>().score, 100);
-        assert_eq!(
-            app.world_mut().query::<&Tanker>().iter(app.world()).count(),
-            0
-        );
-        assert_eq!(
-            app.world_mut()
-                .query::<&powerups::PowerUp>()
-                .iter(app.world())
-                .count(),
-            0
-        );
-        let mut lanes = app
-            .world_mut()
-            .query::<&Flipper>()
-            .iter(app.world())
-            .map(|f| f.lane)
-            .collect::<Vec<_>>();
-        lanes.sort();
-        assert_eq!(lanes, [4, 6]);
-        app.add_systems(FixedUpdate, move_enemies);
-        for _ in 0..34 {
-            app.world_mut().run_schedule(FixedUpdate);
-        }
-        assert!(
-            app.world_mut()
-                .query::<&Flipper>()
-                .iter(app.world())
-                .all(|f| matches!(f.motion, Motion::Climb) && f.depth < 60 * LANE_UNIT)
-        );
-    }
-}
-
-pub(super) fn open(
+pub(crate) fn open(
     commands: &mut Commands,
     game: &mut Game,
     level: &Level,
@@ -299,7 +239,7 @@ pub(super) fn open(
 }
 
 #[allow(clippy::type_complexity)]
-pub(super) fn move_tankers(
+pub(crate) fn move_tankers(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -342,7 +282,7 @@ pub(super) fn move_tankers(
 }
 
 #[allow(clippy::type_complexity)]
-pub(super) fn draw_points(
+pub(crate) fn draw_points(
     assets: Res<TankerAssets>,
     cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Tanker>)>,
     mut tankers: Query<(
@@ -363,3 +303,7 @@ pub(super) fn draw_points(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests/tankers.rs"]
+mod tests;

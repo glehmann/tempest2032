@@ -1,23 +1,41 @@
-use super::*;
+//! Beasties are armored, layered enemies that move as Flippers. Shooting their
+//! armor detaches horns that return toward the glider as reflected shots.
+
+use crate::cry;
+use crate::enemies::flipper_render::FlipperAssets;
+use crate::enemies::flippers::Flipper;
+use crate::enemies::flippers::Motion;
+use crate::enemies::flippers::flipper_transform;
+use crate::enemies::fuseballs;
+use crate::enemies::spikers;
+use crate::enemies::tankers;
+use crate::game::Game;
+use crate::game::Status;
+use crate::level::Level;
+use crate::mesh::colored_mesh;
+use crate::weapons::ShotSlot;
+use crate::web::LANE_UNIT;
+use bevy::camera::visibility::RenderLayers;
+use bevy::prelude::*;
 
 #[derive(Component)]
-pub(super) struct Beast {
-    pub(super) stage: usize,
+pub(crate) struct Beast {
+    pub(crate) stage: usize,
 }
 
 #[derive(Component)]
 #[require(ShotSlot)]
-pub(super) struct Reflected {
-    pub(super) speed: i32,
+pub(crate) struct Reflected {
+    pub(crate) speed: i32,
 }
 
 #[derive(Resource, Default)]
-pub(super) struct BeastAssets {
-    pub(super) frames: [Handle<Mesh>; 3],
-    pub(super) parts: [Handle<Mesh>; 2],
+pub(crate) struct BeastAssets {
+    pub(crate) frames: [Handle<Mesh>; 3],
+    pub(crate) parts: [Handle<Mesh>; 2],
 }
 
-fn part(
+pub(crate) fn part(
     points: &[(f32, f32)],
     faces: &[(u8, [usize; 3], [u8; 3])],
     z: f32,
@@ -36,7 +54,7 @@ fn part(
         .collect()
 }
 
-pub(super) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
+pub(crate) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
     let body = part(
         &[
             (3., 7.),
@@ -117,7 +135,7 @@ pub(super) fn setup(commands: &mut Commands, meshes: &mut Assets<Mesh>) {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn spawn(
+pub(crate) fn spawn(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -165,76 +183,5 @@ pub(super) fn spawn(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn three_rail_hits_strip_two_horns_then_kill_the_core() {
-        let mut app = super::super::tests::app();
-        app.insert_resource(Level::parse(include_str!("../levels/10.toml"), "level10").unwrap())
-            .add_systems(FixedUpdate, resolve_hits);
-        let beast = app
-            .world_mut()
-            .spawn((
-                Beast { stage: 2 },
-                Flipper {
-                    lane: 5,
-                    depth: 60 * LANE_UNIT,
-                    motion: Motion::Climb,
-                    pause: 0,
-                },
-                Transform::default(),
-                Mesh3d::default(),
-            ))
-            .id();
-        for stage in [1, 0] {
-            app.world_mut()
-                .spawn((Bullet { lane: 5 }, Transform::from_xyz(0., 0., -10.)));
-            app.world_mut().run_schedule(FixedUpdate);
-            assert_eq!(app.world().get::<Beast>(beast).unwrap().stage, stage);
-            assert_eq!(app.world().resource::<Game>().score, 0);
-        }
-        assert_eq!(
-            app.world_mut()
-                .query::<&Reflected>()
-                .iter(app.world())
-                .count(),
-            2
-        );
-        assert_eq!(
-            app.world_mut()
-                .query_filtered::<Entity, With<ShotSlot>>()
-                .iter(app.world())
-                .count(),
-            2
-        );
-        app.world_mut()
-            .spawn((Bullet { lane: 5 }, Transform::from_xyz(0., 0., -10.)));
-        app.world_mut().run_schedule(FixedUpdate);
-        assert!(app.world().get_entity(beast).is_err());
-        assert_eq!(app.world().resource::<Game>().score, 150);
-    }
-    #[test]
-    fn reflected_horns_absorb_normal_shots_without_disappearing() {
-        let mut app = super::super::tests::app();
-        app.add_systems(FixedUpdate, resolve_hits);
-        let fragment = app
-            .world_mut()
-            .spawn((
-                EnemyShot {
-                    lane: 3,
-                    depth: 60 * LANE_UNIT,
-                    angle: 0,
-                },
-                Reflected { speed: 0x1c000 },
-                Transform::default(),
-            ))
-            .id();
-        let shot = app
-            .world_mut()
-            .spawn((Bullet { lane: 3 }, Transform::from_xyz(0., 0., -10.)))
-            .id();
-        app.world_mut().run_schedule(FixedUpdate);
-        assert!(app.world().get_entity(fragment).is_ok());
-        assert!(app.world().get_entity(shot).is_err());
-    }
-}
+#[path = "tests/beasts.rs"]
+mod tests;

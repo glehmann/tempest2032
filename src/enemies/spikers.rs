@@ -1,7 +1,25 @@
-use super::*;
+//! Spikers are spiral enemies that build persistent spikes along web lanes.
+//! Handles spawning, movement, spike growth, and persistent spike graphics.
+
+use crate::cry;
+use crate::enemies::Enemy;
+use crate::enemies::flippers::Flipper;
+use crate::enemies::fuseballs;
+use crate::enemies::tankers;
+use crate::game::Game;
+use crate::game::Status;
+use crate::level::Level;
+use crate::level::LevelActor;
+use crate::mesh::colored_mesh;
+use crate::mesh::segment_transform;
+use crate::web::LANE_UNIT;
+use crate::web::WORLD_UNIT;
+use bevy::camera::visibility::RenderLayers;
+use bevy::prelude::*;
+use std::f32::consts::TAU;
 
 #[derive(Clone, Copy, Debug)]
-enum Motion {
+pub(crate) enum Motion {
     Seek,
     Climb,
     Descend,
@@ -12,33 +30,33 @@ enum Motion {
 pub(crate) struct Spiker {
     pub(crate) lane: usize,
     pub(crate) depth: i32,
-    motion: Motion,
-    spike: Option<Entity>,
-    build: u16,
-    angle: u8,
+    pub(crate) motion: Motion,
+    pub(crate) spike: Option<Entity>,
+    pub(crate) build: u16,
+    pub(crate) angle: u8,
 }
 
 impl Spiker {
-    pub(super) fn firing(&self) -> bool {
+    pub(crate) fn firing(&self) -> bool {
         !matches!(self.motion, Motion::Seek)
     }
 }
 
 #[derive(Component)]
 #[require(LevelActor)]
-pub(super) struct Spike {
-    pub(super) lane: usize,
-    pub(super) length: i32,
+pub(crate) struct Spike {
+    pub(crate) lane: usize,
+    pub(crate) length: i32,
 }
 
 #[derive(Resource, Default)]
-pub(super) struct SpikerAssets {
-    body: Handle<Mesh>,
-    line: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
+pub(crate) struct SpikerAssets {
+    pub(crate) body: Handle<Mesh>,
+    pub(crate) line: Handle<Mesh>,
+    pub(crate) material: Handle<StandardMaterial>,
 }
 
-pub(super) fn setup(
+pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
@@ -77,7 +95,7 @@ pub(super) fn setup(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn spawn(
+pub(crate) fn spawn(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -132,7 +150,7 @@ pub(super) fn spawn(
 }
 
 #[allow(clippy::type_complexity)]
-pub(super) fn advance(
+pub(crate) fn advance(
     level: Res<Level>,
     mut commands: Commands,
     mut game: ResMut<Game>,
@@ -217,7 +235,7 @@ pub(super) fn advance(
     }
 }
 
-pub(super) fn draw(
+pub(crate) fn draw(
     level: Res<Level>,
     mut spikes: Query<(&Spike, &mut Transform, &mut Visibility)>,
 ) {
@@ -244,168 +262,5 @@ pub(super) fn draw(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    fn app() -> App {
-        let mut app = super::super::tests::app();
-        app.insert_resource(Level::parse(include_str!("../levels/04.toml"), "level4").unwrap())
-            .init_resource::<SpikerAssets>();
-        app
-    }
-    fn ticks(app: &mut App, count: usize) {
-        for _ in 0..count {
-            app.world_mut().run_schedule(FixedUpdate);
-        }
-    }
-
-    #[test]
-    fn spiker_builds_fifty_one_extensions_then_returns_to_the_rear() {
-        let mut app = app();
-        app.add_systems(FixedUpdate, advance);
-        let entity = app
-            .world_mut()
-            .spawn((
-                Spiker {
-                    lane: 7,
-                    depth: 160 * LANE_UNIT,
-                    motion: Motion::Seek,
-                    spike: None,
-                    build: 50,
-                    angle: 0,
-                },
-                Transform::default(),
-            ))
-            .id();
-        ticks(&mut app, 1);
-        assert_eq!(
-            app.world_mut()
-                .query::<&Spike>()
-                .single(app.world())
-                .unwrap()
-                .length,
-            30 * LANE_UNIT
-        );
-        ticks(&mut app, 87);
-        assert!(matches!(
-            app.world().get::<Spiker>(entity).unwrap().motion,
-            Motion::Descend
-        ));
-        assert_eq!(
-            app.world_mut()
-                .query::<&Spike>()
-                .single(app.world())
-                .unwrap()
-                .length,
-            30 * LANE_UNIT + 51 * 0xd000
-        );
-        assert_eq!(
-            app.world().get::<Spiker>(entity).unwrap().depth,
-            (160 * LANE_UNIT) - 87 * 0xd000
-        );
-        ticks(&mut app, 87);
-        assert!(
-            matches!(
-                app.world().get::<Spiker>(entity).unwrap().motion,
-                Motion::Seek
-            ),
-            "depth={}, motion={:?}",
-            app.world().get::<Spiker>(entity).unwrap().depth,
-            app.world().get::<Spiker>(entity).unwrap().motion
-        );
-        assert_eq!(
-            app.world().get::<Spiker>(entity).unwrap().depth,
-            160 * LANE_UNIT
-        );
-    }
-
-    #[test]
-    fn shots_trim_spikes_by_three_units_and_leave_particle_shots_alive() {
-        for particle in [false, true] {
-            let mut app = app();
-            app.add_systems(FixedUpdate, resolve_hits);
-            let spike = app
-                .world_mut()
-                .spawn(Spike {
-                    lane: 7,
-                    length: 30 * LANE_UNIT,
-                })
-                .id();
-            for _ in 0..11 {
-                let length = app.world().get::<Spike>(spike).unwrap().length;
-                let shot = app
-                    .world_mut()
-                    .spawn((
-                        Bullet { lane: 7 },
-                        Transform::from_xyz(
-                            0.,
-                            0.,
-                            0.06 - (160. - length as f32 / LANE_UNIT as f32) * WORLD_UNIT,
-                        ),
-                    ))
-                    .id();
-                if particle {
-                    app.world_mut()
-                        .entity_mut(shot)
-                        .insert(ParticleShot::default());
-                }
-                ticks(&mut app, 1);
-                assert_eq!(app.world().get_entity(shot).is_ok(), particle);
-                if particle {
-                    app.world_mut().despawn(shot);
-                }
-            }
-            assert!(app.world().get_entity(spike).is_err());
-            assert_eq!(app.world().resource::<Game>().score, 36);
-            assert_eq!(
-                app.world_mut()
-                    .query::<&powerups::PowerUp>()
-                    .iter(app.world())
-                    .count(),
-                0
-            );
-        }
-    }
-
-    #[test]
-    fn spikes_do_not_hold_the_wave_open_but_can_kill_the_claw_during_exit() {
-        let mut app = app();
-        app.add_systems(FixedUpdate, (exit::animate, check_game).chain());
-        app.world_mut().resource_mut::<Game>().remaining = 0;
-        app.world_mut().spawn(Spike {
-            lane: 7,
-            length: 150 * LANE_UNIT,
-        });
-        ticks(&mut app, 1);
-        assert!(app.world().resource::<Game>().status == Status::Exiting);
-        ticks(&mut app, 36);
-        assert!(app.world().resource::<Game>().status == Status::Spiked);
-        assert_eq!(app.world().resource::<Game>().lives, 3);
-        ticks(&mut app, 100);
-        assert_eq!(app.world().resource::<Game>().lives, 2);
-        assert!(app.world().resource::<Game>().status == Status::Entering);
-    }
-
-    #[test]
-    fn a_living_spiker_blocks_completion_and_only_one_is_generated_at_a_time() {
-        let mut app = app();
-        let level = app.world().resource::<Level>().clone();
-        reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
-        app.world_mut().resource_mut::<Game>().status = Status::Playing;
-        app.world_mut().resource_mut::<Game>().entry = None;
-        app.add_systems(FixedUpdate, spawn);
-        ticks(&mut app, 400);
-        assert_eq!(app.world().resource::<Game>().remaining, 25);
-        ticks(&mut app, 1);
-        assert_eq!(app.world().resource::<Game>().remaining, 24);
-        ticks(&mut app, 801);
-        assert_eq!(app.world().resource::<Game>().remaining, 23);
-        assert_eq!(
-            app.world_mut().query::<&Spiker>().iter(app.world()).count(),
-            1
-        );
-        app.world_mut().resource_mut::<Game>().remaining = 0;
-        app.add_systems(FixedUpdate, check_game);
-        ticks(&mut app, 1);
-        assert!(app.world().resource::<Game>().status == Status::Playing);
-    }
-}
+#[path = "tests/spikers.rs"]
+mod tests;

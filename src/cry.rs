@@ -1,8 +1,10 @@
+//! Jaguar CRY color decoding, converting chroma and intensity into RGB colors.
+
 use bevy::prelude::*;
 
 // Jaguar TOM chroma tables, also used by Virtual Jaguar's tom.c.
 #[rustfmt::skip]
-const RED: [[u8; 16]; 16] = [
+pub(crate) const RED: [[u8; 16]; 16] = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [34,34,34,34,34,34,34,34,34,34,34,34,34,34,19,0],
     [68,68,68,68,68,68,68,68,68,68,68,68,64,43,21,0],
@@ -22,7 +24,7 @@ const RED: [[u8; 16]; 16] = [
 ];
 
 #[rustfmt::skip]
-const GREEN: [[u8; 16]; 16] = [
+pub(crate) const GREEN: [[u8; 16]; 16] = [
     [0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255],
     [0,19,38,57,77,96,115,134,154,173,192,211,231,250,255,255],
     [0,21,43,64,86,107,129,150,172,193,215,236,255,255,255,255],
@@ -42,7 +44,7 @@ const GREEN: [[u8; 16]; 16] = [
 ];
 
 #[rustfmt::skip]
-const BLUE: [[u8; 16]; 16] = [
+pub(crate) const BLUE: [[u8; 16]; 16] = [
     [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255],
     [255,255,255,255,255,255,255,255,255,255,255,255,255,255,240,221],
     [255,255,255,255,255,255,255,255,255,255,255,255,252,230,208,187],
@@ -61,7 +63,7 @@ const BLUE: [[u8; 16]; 16] = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 ];
 
-pub(super) fn color(hue: u8, intensity: u8) -> Color {
+pub(crate) fn color(hue: u8, intensity: u8) -> Color {
     let cyan = (hue >> 4) as usize;
     let red = (hue & 15) as usize;
     let channel =
@@ -70,13 +72,5 @@ pub(super) fn color(hue: u8, intensity: u8) -> Color {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn powerup_and_particle_laser_hues_use_all_three_channels() {
-        assert_eq!(color(0x8a, 255), Color::srgb_u8(180, 254, 163));
-        assert_eq!(color(0xaa, 255), Color::srgb_u8(226, 254, 140));
-        assert_eq!(color(0x8a, 0), Color::srgb_u8(0, 0, 0));
-    }
-}
+#[path = "tests/cry.rs"]
+mod tests;

@@ -395,21 +395,29 @@ cargo test
 cargo clippy -- -D warnings
 ```
 
-`src/main.rs` contains the scene setup, claw movement, and firing systems.
-`src/enemies.rs` contains the Flipper geometry, wave generator, enemy state
-machine, collisions, score, and lives. `src/explosion.rs` contains the death
-rings, the sine table, and the CRY palette lookup behind them. `src/stars.rs`
-contains the moving background star field. `src/powerups.rs`, a child module of
-`enemies`, contains drops, collection effects, rewards, jumping, and the droid.
-`src/entry.rs` contains the approaching web and wireframe claw entry animation.
-`src/exit.rs` contains the accelerating fly-through, claw warp, flash, and replay.
-`src/shot_death.rs` contains the glider's starburst and camera retreat after an
-enemy-shot hit.
-`src/level.rs` contains TOML definitions, validation, web geometry calculations,
-and the level catalog. The game uses one loader for advancement, death retries,
-and restarts, rebuilding the web and clearing level-owned actors each time.
-`src/tankers.rs` and `src/spikers.rs` are child modules of `enemies` and contain
-shell splitting, fast released Flippers, spiral builders, and persistent spikes.
+Each Rust file starts with module documentation explaining its role and game
+terminology. The source is organized by responsibility:
+
+| Module | Contents |
+| --- | --- |
+| `src/main.rs`, `src/cli.rs` | Entry point and command-line options |
+| `src/app.rs` | App construction and ordered input, fixed-tick simulation, and rendering schedules |
+| `src/game.rs`, `src/hud.rs` | Game state, score, lives, level loading, retries, restarts, and status messages |
+| `src/glider.rs`, `src/weapons.rs` | Player claw movement and poses, firing, bullets, and particle-laser graphics |
+| `src/collisions.rs` | Shot hits, armor reflections, shell releases, spike trimming, and kill rewards |
+| `src/scene.rs`, `src/camera.rs`, `src/mesh.rs` | Scene setup, web rendering, lane highlights, cameras, and shared mesh helpers |
+| `src/web.rs`, `src/level.rs` | Lane topology and geometry, TOML definitions, validation, and the level catalog |
+| `src/capture.rs` | Screenshots, recordings, scripted input, and transition previews |
+| `src/enemies/` | Flippers, enemy shots, Tankers, Spikers and spikes, Beasties, and Fuseballs |
+| `src/powerups/` | Reward state, pickups, particle rings, jumping, and the AI droid |
+| `src/animations/` | Web entry, level exit and warp, Flipper capture, and glider death |
+| `src/explosion.rs`, `src/cry.rs`, `src/stars.rs` | Enemy-death rings, Jaguar color decoding, and background stars |
+| `src/test_support.rs`, `src/**/tests/` | Headless fixtures and focused unit tests, compiled only for testing |
+
+The game uses one loader for advancement, death retries, and restarts,
+rebuilding the web and clearing level-owned actors each time. System ordering
+is kept together in `app.rs` so movement, firing, collisions, and transitions
+retain their fixed-tick timing.
 The prototype has no audio.
 Actors render in a separate camera pass over the web, matching the original
 renderer's draw order and keeping complete enemy silhouettes visible.
