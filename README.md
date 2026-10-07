@@ -36,6 +36,17 @@ in the range until it ages out. The same line reports this process's average
 CPU usage as a percentage of total CPU capacity and its resident memory in
 MiB, once their first readings arrive.
 
+Presentation uses FIFO VSync to avoid tearing. With `--fps`, late application
+updates also produce warnings when their interval exceeds 1.5 display refresh
+periods, or 25 ms at 60 Hz. The threshold follows the window's current monitor;
+if its refresh rate is unavailable, the log states that 60 Hz is assumed.
+Warnings are limited to once per second and include the number of late
+intervals and the worst interval. Unfocused, hidden, and minimized windows
+are ignored, as is the first interval after resuming or changing refresh rate.
+These warnings indicate possible missed refreshes. Bevy does not expose actual
+display presentation timing, so they cannot confirm or detect every dropped
+frame. Simulation runs at 60 Hz without render interpolation.
+
 On Linux, the build needs a C/C++ toolchain and X11 and Wayland development
 libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 `libx11-dev`, `libxi-dev`, `libxrandr-dev`, `libxcursor-dev`,

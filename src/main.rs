@@ -11,6 +11,7 @@ mod collisions;
 mod cry;
 mod enemies;
 mod explosion;
+mod frame_pacing;
 mod game;
 mod glider;
 mod hud;

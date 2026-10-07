@@ -4,7 +4,7 @@
 use crate::enemies::{pulsar_render, pulsars};
 use bevy::diagnostic::SystemInformationDiagnosticsPlugin;
 use bevy::prelude::*;
-use bevy::window::{MonitorSelection, WindowMode};
+use bevy::window::{MonitorSelection, PresentMode, WindowMode};
 
 use crate::{
     animations::{
@@ -27,6 +27,7 @@ use crate::{
         spikers, tankers,
     },
     explosion,
+    frame_pacing::warn_late_frames,
     game::{Game, Status, check_game, controlling, load_level, restart_game},
     glider::{animate_glider, move_glider},
     hud::{FpsMeter, spawn_fps_label, update_fps, update_hud},
@@ -46,7 +47,7 @@ pub(crate) fn run(args: cli::Cli) {
         app.add_plugins(SystemInformationDiagnosticsPlugin)
             .init_resource::<FpsMeter>()
             .add_systems(Startup, spawn_fps_label)
-            .add_systems(Update, update_fps);
+            .add_systems(Update, (update_fps, warn_late_frames));
     }
     if let Some(path) = args.screenshot {
         app.insert_resource(CapturePath(path))
@@ -105,6 +106,7 @@ pub(crate) fn run(args: cli::Cli) {
             primary_window: Some(Window {
                 title: format!("T2K | Level {starting_level}"),
                 resolution: (1100, 850).into(),
+                present_mode: PresentMode::Fifo,
                 mode: if args.fullscreen {
                     // A new window has no monitor yet, so this must not use Current.
                     WindowMode::BorderlessFullscreen(MonitorSelection::Primary)
