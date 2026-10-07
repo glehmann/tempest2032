@@ -160,3 +160,22 @@ fn level_28_has_a_closed_cat_head_and_inward_facing_ear_corners() {
     assert_eq!(level.fuseballs.unwrap().spawn_interval_ticks, 701);
     assert_eq!(level.tankers.unwrap().super_chance, 108);
 }
+
+#[test]
+fn level_29_preserves_the_teardrops_tip_and_six_tick_pulsar_phases() {
+    let level = level(29);
+    assert!(level.web.closed);
+    assert_eq!(level.web.lanes(), 15);
+    assert_eq!(level.web.start_lane, 7);
+    assert_eq!(level.web.vertices[0], [8., -1.]);
+    assert_eq!(level.web.vertices[1], level.web.vertices[14]);
+    assert_eq!(level.web.orientations[0], -64);
+    assert_eq!(level.web.orientations[14], 64);
+    assert_eq!(level.flippers.climb_speed, 0xb400);
+    assert_eq!(level.tankers.unwrap().climb_speed, 0x9800);
+    assert_eq!(level.spikers.unwrap().climb_speed, 0x12000);
+    assert_eq!(level.fuseballs.unwrap().climb_speed, 0xc000);
+    let pulsars = level.pulsars.unwrap();
+    assert_eq!(pulsars.phase_ticks, 6);
+    assert_eq!(pulsars.generator.spawn_interval_ticks, 367);
+}
