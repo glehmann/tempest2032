@@ -324,6 +324,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/70.toml`: open fifteen-lane U-shaped `web3`, with primary Pulsar
   Tankers every 71 ticks instead of Super Flippers. Fuseballs return every
   301 ticks, while Mirrors and Alien Droids retain their previous intervals.
+- `levels/71.toml`: fourteen-lane T2K lemon `web18`, replacing Fuseballs with
+  Beasties every 501 ticks. Primary Pulsar Tankers remain on their 71-tick
+  interval, alongside Mirrors and faster `0x16C00` Alien Droids.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
