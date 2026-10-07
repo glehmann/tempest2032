@@ -1,0 +1,66 @@
+# Original _nw43 on the open parabolic web14.
+number = 43
+enemy_count = 41
+
+[web]
+closed = false
+start_lane = 5
+depth = 160
+vertices = [[19,15],[18,13],[17,11],[16,9],[15,7],[13,5],[11,4],[9,4],[7,5],[5,7],[4,9],[3,11],[2,13],[1,15]]
+orientations = [80,80,80,80,96,112,-128,-112,-96,-80,-80,-80,-80]
+
+[flippers]
+first_spawn_ticks = 43
+spawn_interval_ticks = 86
+climb_speed = 0.7265625
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 136
+spawn_interval_ticks = 271
+climb_speed = 0.625
+super_chance = 168
+
+[fuse_tankers]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.625
+
+[pulsar_tankers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 0.625
+phase_ticks = 5
+propagation_ticks = 5
+
+[pulsars]
+first_spawn_ticks = 551
+spawn_interval_ticks = 1101
+climb_speed = 0.5
+phase_ticks = 5
+propagation_ticks = 5
+
+[spikers]
+first_spawn_ticks = 426
+spawn_interval_ticks = 851
+climb_speed = 1.0625
+
+[beasts]
+first_spawn_ticks = 351
+spawn_interval_ticks = 701
+climb_speed = 0.7265625
+
+[fuseballs]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 0.78125
+
+[appearance]
+surface = [1.0, 1.0, 0.0]
+lines = [0.78, 0.78, 0.015]
+flipper = [248, 255, 95]
+
+[powerups]
+kill_interval = 9

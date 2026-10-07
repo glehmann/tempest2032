@@ -226,6 +226,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/42.toml`: sixteen-lane clover `web4`, retaining its inward corners.
   Beasties repeat every 701 ticks, Spikers every 851, and Fuseball Tankers
   every 2,001. Direct Pulsars still repeat every 1,101 ticks.
+- `levels/43.toml`: open thirteen-lane parabolic `web14`, with `0xBA00`
+  Flippers and `0xC800` Fuseballs. Fuseball Tankers repeat every 301 ticks,
+  Fuseballs every 401, and Pulsar Tankers every 501.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
