@@ -342,6 +342,9 @@ no Rust changes are needed. The supplied levels are:
   701 ticks. The fast-child threshold is capped at 252 out of 256; an
   independent 148-in-256 check can turn a mutated child into type 3.
   Spiral children descend during their release flip and then flee the player.
+- `levels/76.toml`: closed cross `web10`, adding direct Pulsars every 301
+  ticks with five-tick phases to the full type-2/type-3, Mirror, Alien Droid,
+  Spiker, Fuseball, and Flipper Tanker wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

@@ -17,6 +17,7 @@ const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
     (73, 21, 751, 601, 301, 0, 0, 501),
     (74, 21, 751, 601, 301, 0, 0, 501),
     (75, 21, 751, 601, 301, 0, 0, 501),
+    (76, 21, 751, 601, 301, 0, 0, 501),
 ];
 
 #[test]
@@ -77,7 +78,13 @@ fn fifth_set_matches_the_original_dispatch_table_and_speed_groups() {
             level.spikers.as_ref().map_or(0, |g| g.spawn_interval_ticks),
             spikers
         );
-        assert!(level.pulsars.is_none());
+        assert_eq!(
+            level
+                .pulsars
+                .as_ref()
+                .map_or(0, |p| p.generator.spawn_interval_ticks),
+            if number == 76 || number >= 78 { 301 } else { 0 }
+        );
         assert!(level.extra_spikers.is_none());
         let droids = level.aliens.as_ref().unwrap();
         assert_eq!(droids.spawn_interval_ticks, aliens);
