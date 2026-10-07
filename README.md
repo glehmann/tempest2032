@@ -290,6 +290,9 @@ no Rust changes are needed. The supplied levels are:
   a second Spiker generator every 1,501 ticks. Both Spiker timers share the
   original one-active-Spiker limit; blocked attempts still consume budget.
   Mirrors, Pulsars, and Fuseballs keep level fifty-nine's intervals.
+- `levels/61.toml`: closed teardrop `web34`, retaining the retraced tip.
+  Mirrors and Fuseballs climb at `0xD000`, Spikers at `0x12000`, and Pulsar
+  phases drop to four ticks. Generator intervals remain those of level 60.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
