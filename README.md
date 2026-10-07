@@ -238,6 +238,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/46.toml`: open fifteen-lane distorted-W `web6`, with Flippers every
   76 ticks and a 180-in-256 fast-child threshold. Other generator intervals
   and speeds remain in level forty-five's group.
+- `levels/47.toml`: open fifteen-lane `web16`, with `0xBE00` Flippers,
+  `0x13000` Spikers, and `0xD800` Fuseballs. Direct Pulsars now repeat every
+  351 ticks while Pulsar Tankers remain at 301.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
