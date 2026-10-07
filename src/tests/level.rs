@@ -7,6 +7,41 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn original_level_nineteen_has_the_pentagon_and_restores_flipper_tankers() {
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/19.toml")),
+        "level19",
+    )
+    .unwrap();
+    assert!(level.web.closed);
+    assert_eq!(level.web.lanes(), 15);
+    assert_eq!(level.web.start_lane, 7);
+    assert_eq!(level.web.vertices[0], [8., 2.]);
+    assert_eq!(level.web.vertices[7], [9., 14.]);
+    assert_eq!(level.web.neighbor(14, 1), Some(0));
+    assert_eq!(level.web.flip_angle(2, 3, 1), 80);
+    assert_eq!(level.flippers.count, 31);
+    assert_eq!(level.flippers.first_spawn_ticks, 61);
+    assert_eq!(level.flippers.spawn_interval_ticks, 121);
+    assert_eq!(level.flippers.climb_speed, 0xaa00);
+    let tankers = level.tankers.unwrap();
+    assert_eq!(tankers.first_spawn_ticks, 223);
+    assert_eq!(tankers.spawn_interval_ticks, 445);
+    assert_eq!(tankers.climb_speed, 0x8000);
+    assert_eq!(tankers.super_chance, 72);
+    let pulsars = level.pulsars.unwrap();
+    assert_eq!(pulsars.generator.first_spawn_ticks, 301);
+    assert_eq!(pulsars.generator.spawn_interval_ticks, 601);
+    assert_eq!(pulsars.phase_ticks, 9);
+    assert_eq!(level.spikers.unwrap().climb_speed, 0xd000);
+    assert_eq!(level.beasts.unwrap().climb_speed, 0xaa00);
+    assert_eq!(level.fuseballs.unwrap().climb_speed, 0x9800);
+    assert_eq!(level.enemy_shots, 3);
+    assert_eq!(level.appearance.surface, [1., 0., 0.]);
+    assert_eq!(level.powerups.kill_interval, 7);
+}
+
+#[test]
 fn original_level_eighteen_has_the_open_spiraloid_and_a_denser_pulsar_wave() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/18.toml")),

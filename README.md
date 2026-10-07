@@ -142,6 +142,10 @@ no Rust changes are needed. The supplied levels are:
   budget. Flippers repeat every 101 ticks and Pulsars every 501. It retains
   level seventeen's red surfaces, cyan Flippers, climbing speeds, and other
   generators. Pulsar sparks bounce at the open ends.
+- `levels/19.toml`: the closed fifteen-lane pentagon `web27`, with a 31-spawn
+  budget. Flipper Tankers return every 445 ticks with a 72-in-256 fast-child
+  threshold. Flippers climb at `0xAA00`, Fuseballs at `0x9800`, and Pulsars
+  repeat every 601 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
