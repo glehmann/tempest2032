@@ -16,6 +16,7 @@ const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
     (72, 21, 751, 601, 0, 0, 0, 501),
     (73, 21, 751, 601, 301, 0, 0, 501),
     (74, 21, 751, 601, 301, 0, 0, 501),
+    (75, 21, 751, 601, 301, 0, 0, 501),
 ];
 
 #[test]
@@ -27,6 +28,14 @@ fn fifth_set_matches_the_original_dispatch_table_and_speed_groups() {
         assert_eq!(level.web.vertices, earlier.web.vertices);
         assert_eq!(level.web.closed, earlier.web.closed);
         assert_eq!(level.flippers.count, 61);
+        assert_eq!(
+            level.tankers.as_ref().map_or(0, |g| g.spawn_interval_ticks),
+            if number >= 75 { 701 } else { 0 }
+        );
+        if let Some(tankers) = &level.tankers {
+            assert_eq!(tankers.super_chance, 252);
+            assert_eq!(tankers.spiral_chance, 2 * (number as u8 - 1));
+        }
         assert!(!level.flippers.enabled);
         assert_eq!(
             level

@@ -369,7 +369,11 @@ pub(crate) fn move_enemies(
                 {
                     if released.remaining == 0 {
                         released.burst = false;
-                        flipper.motion = Motion::Climb;
+                        if spiral.is_some() {
+                            start_spiral_flip(&mut flipper, player_lane, &level.web);
+                        } else {
+                            flipper.motion = Motion::Climb;
+                        }
                     } else {
                         released.remaining -= 1;
                         let from = flipper.lane;

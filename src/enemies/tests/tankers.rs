@@ -18,6 +18,54 @@ use crate::weapons::Bullet;
 use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
+#[test]
+fn tanker_children_can_mutate_into_spiral_flippers_without_fast_scatter() {
+    use crate::enemies::flippers::SpiralFlipper;
+    use crate::enemies::tankers::Released;
+    let mut app = crate::test_support::app();
+    let mut level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/75.toml")),
+        "level75",
+    )
+    .unwrap();
+    level.tankers.as_mut().unwrap().super_chance = 255;
+    level.tankers.as_mut().unwrap().spiral_chance = 255;
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, resolve_hits);
+    app.world_mut().spawn((
+        Tanker {
+            lane: 5,
+            depth: 60 * LANE_UNIT,
+            approach: false,
+        },
+        Transform::default(),
+    ));
+    app.world_mut()
+        .spawn((Bullet { lane: 5 }, Transform::from_xyz(0., 0., -10.)));
+    crate::test_support::ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<SpiralFlipper>>()
+            .iter(app.world())
+            .count(),
+        2
+    );
+    assert!(
+        app.world_mut()
+            .query::<&Released>()
+            .iter(app.world())
+            .all(|r| !r.fast && r.remaining == 0)
+    );
+    app.add_systems(FixedUpdate, move_enemies.after(resolve_hits));
+    crate::test_support::ticks(&mut app, 1);
+    assert!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .all(|f| f.depth < 60 * LANE_UNIT)
+    );
+}
+
 fn pulsar_level() -> Level {
     Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/33.toml")),

@@ -338,6 +338,10 @@ no Rust changes are needed. The supplied levels are:
   while descending, stop descending when aligned, and pursue normally at
   the rim. Unlike type 2, they use the normal four-unit angular step. The
   source's extra firing call is commented out and remains inactive here.
+- `levels/75.toml`: open parabolic `web14`, restoring Flipper Tankers every
+  701 ticks. The fast-child threshold is capped at 252 out of 256; an
+  independent 148-in-256 check can turn a mutated child into type 3.
+  Spiral children descend during their release flip and then flee the player.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
@@ -383,6 +387,8 @@ The TOML fields use these conventions:
   legacy `flippers.count` value when supplied. Released Tanker contents do not
   consume this budget. Optional `tankers` tables specify spawn times, climbing
   speed, and the fast-child probability out of 256.
+  `tankers.spiral_chance` defaults to zero and sets the second mutation check
+  for a child that already passed `super_chance`.
   Optional `spikers` tables specify their spawn times and climbing speed.
   Optional `extra_spikers` tables add a second timer sharing the one-Spiker
   limit and require a `spikers` table with the same climbing speed.

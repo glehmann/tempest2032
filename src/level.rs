@@ -60,6 +60,7 @@ impl PulsarDefinition {
                 spawn_interval_ticks: self.spawn_interval_ticks,
                 climb_speed: self.climb_speed,
                 super_chance: 0,
+                spiral_chance: 0,
             }
             .compile(name)?,
             phase_ticks: self.phase_ticks,
@@ -74,6 +75,7 @@ pub(crate) struct Generator {
     pub(crate) spawn_interval_ticks: u16,
     pub(crate) climb_speed: i32,
     pub(crate) super_chance: u8,
+    pub(crate) spiral_chance: u8,
 }
 
 #[derive(Deserialize)]
@@ -84,6 +86,8 @@ struct GeneratorDefinition {
     pub(crate) climb_speed: f32,
     #[serde(default)]
     pub(crate) super_chance: u8,
+    #[serde(default)]
+    spiral_chance: u8,
 }
 
 impl GeneratorDefinition {
@@ -102,6 +106,7 @@ impl GeneratorDefinition {
             spawn_interval_ticks: self.spawn_interval_ticks,
             climb_speed: (self.climb_speed * LANE_UNIT as f32).round() as i32,
             super_chance: self.super_chance,
+            spiral_chance: self.spiral_chance,
         })
     }
 }

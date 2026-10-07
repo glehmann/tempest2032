@@ -7,6 +7,7 @@ use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flipper_render::approach_dot_style;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
+use crate::enemies::flippers::SpiralFlipper;
 use crate::enemies::flippers::flipper_transform;
 use crate::enemies::fuseballs;
 use crate::enemies::pulsar_render::{CYCLE, PulsarAssets};
@@ -310,6 +311,14 @@ pub(crate) fn open(
         game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
         let fast =
             (game.random >> 24) < u32::from(level.tankers.as_ref().map_or(0, |g| g.super_chance));
+        let scatter = ((game.random >> 16) & 3) as u8 + 1;
+        let chance = level.tankers.as_ref().map_or(0, |g| g.spiral_chance);
+        let spiral = if fast && chance > 0 {
+            game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+            (game.random >> 24) < u32::from(chance)
+        } else {
+            false
+        };
         let lane = level.web.neighbor(tanker.lane, direction).unwrap();
         let flipper = Flipper {
             lane,
@@ -321,28 +330,29 @@ pub(crate) fn open(
             },
             pause: if fast { 0 } else { level.flippers.pause_ticks },
         };
-        let remaining = if fast {
-            ((game.random >> 16) & 3) as u8 + 1
-        } else {
-            0
-        };
-        commands.spawn((
+        let remaining = if fast && !spiral { scatter } else { 0 };
+        let mut child = commands.spawn((
             flipper_transform(&flipper, &level.web),
             flipper,
             Released {
                 burst: true,
-                fast,
+                fast: fast && !spiral,
                 remaining,
                 direction,
             },
             RenderLayers::layer(1),
-            Mesh3d(if fast {
+            Mesh3d(if spiral {
+                shells.spiral.clone()
+            } else if fast {
                 shells.fast.clone()
             } else {
                 assets.body.clone()
             }),
             MeshMaterial3d(assets.shaded.clone()),
         ));
+        if spiral {
+            child.insert(SpiralFlipper);
+        }
     }
 }
 
