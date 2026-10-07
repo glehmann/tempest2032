@@ -299,6 +299,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/63.toml`: closed thirteen-lane kiss-of-death `web36`, with Pulsar
   Tankers every 252 ticks. Mirrors and Fuseballs climb at `0xD800`, while
   Spikers use the final fourth-set `0x13000` speed group.
+- `levels/64.toml`: open fifteen-lane backwards-C `web37`, ending the fourth
+  web set with primary Pulsars every 31 ticks and Beasties every 401. Normal
+  Flippers, Mirrors, Spikers, and Tankers are absent from this 51-spawn wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

@@ -18,6 +18,40 @@ use crate::{
 };
 use bevy::prelude::*;
 
+#[test]
+fn level_64_uses_pulsars_as_the_primary_generator_without_normal_flippers() {
+    use crate::enemies::flippers::spawn_enemies;
+    use crate::game::reset_wave;
+    let mut app = app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/64.toml")),
+        "level64",
+    )
+    .unwrap();
+    reset_wave(&mut app.world_mut().resource_mut::<Game>(), &level);
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.insert_resource(level)
+        .add_systems(FixedUpdate, (spawn_enemies, spawn).chain());
+    ticks(&mut app, 15);
+    assert_eq!(
+        app.world_mut().query::<&Pulsar>().iter(app.world()).count(),
+        0
+    );
+    ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut().query::<&Pulsar>().iter(app.world()).count(),
+        1
+    );
+    assert_eq!(
+        app.world_mut()
+            .query::<&Flipper>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    assert_eq!(app.world().resource::<Game>().remaining, 50);
+}
+
 fn app() -> App {
     let mut app = crate::test_support::app();
     let level = Level::parse(
