@@ -8,6 +8,7 @@ const WAVES: &[(usize, u16, u16, u16, u16, u16, u16, u16, u16)] = &[
     // Level, budget, Super Flippers, Mirrors, Spikers, Pulsars, Pulsar Tankers, Fuseballs, Beasties.
     (57, 61, 26, 401, 0, 0, 0, 0, 0),
     (58, 41, 0, 401, 51, 152, 0, 0, 0),
+    (59, 41, 0, 401, 51, 152, 0, 524, 0),
 ];
 
 #[test]

@@ -283,6 +283,9 @@ no Rust changes are needed. The supplied levels are:
   ticks, despite its "Flippers" comment. Only one Spiker can be active;
   blocked attempts still count against the budget, as in `launch1`.
   Mirrors repeat every 401 ticks and Pulsars every 152, with five-tick phases.
+- `levels/59.toml`: open twelve-lane diagonal double-curve `web32`, adding
+  Fuseballs every 524 ticks. Mirrors and Fuseballs use the `0xC800` climbing
+  speed group, while the primary Spiker attempts retain their 51-tick interval.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
