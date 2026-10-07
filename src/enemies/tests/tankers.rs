@@ -154,6 +154,69 @@ fn pulsar_tankers_release_two_flipping_children_at_the_rim() {
     );
 }
 
+#[test]
+fn all_three_tanker_generators_share_one_budget_and_children_keep_the_pulsar_speed() {
+    use crate::enemies::pulsars::{Pulsar, advance};
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/41.toml")),
+        "level41",
+    )
+    .unwrap();
+    let mut app = crate::test_support::app();
+    app.world_mut().resource_mut::<Game>().remaining = level.flippers.count;
+    app.insert_resource(level).add_systems(FixedUpdate, spawn);
+    crate::test_support::ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut().query::<&Tanker>().iter(app.world()).count(),
+        3
+    );
+    assert_eq!(app.world().resource::<Game>().remaining, 38);
+    let id = app
+        .world_mut()
+        .query::<(Entity, &Contents)>()
+        .iter(app.world())
+        .find(|(_, c)| **c == Contents::Pulsars)
+        .unwrap()
+        .0;
+    let lane = app.world().get::<Tanker>(id).unwrap().lane;
+    let mut tanker = app.world_mut().get_mut::<Tanker>(id).unwrap();
+    tanker.approach = false;
+    tanker.depth = 60 * LANE_UNIT;
+    app.world_mut()
+        .spawn((Bullet { lane }, Transform::from_xyz(0., 0., -10.)));
+    app.add_systems(FixedUpdate, resolve_hits.after(spawn));
+    crate::test_support::ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut().query::<&Pulsar>().iter(app.world()).count(),
+        2
+    );
+    app.add_systems(FixedUpdate, advance.after(resolve_hits));
+    crate::test_support::ticks(&mut app, 50);
+    assert!(
+        app.world_mut()
+            .query::<&Pulsar>()
+            .iter(app.world())
+            .all(|p| p.climbing())
+    );
+    let depth = app
+        .world_mut()
+        .query::<&Pulsar>()
+        .iter(app.world())
+        .next()
+        .unwrap()
+        .depth;
+    crate::test_support::ticks(&mut app, 1);
+    assert_eq!(
+        app.world_mut()
+            .query::<&Pulsar>()
+            .iter(app.world())
+            .next()
+            .unwrap()
+            .depth,
+        depth - 0x8000
+    );
+}
+
 fn fuse_level() -> Level {
     Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/25.toml")),
