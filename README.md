@@ -316,6 +316,8 @@ no Rust changes are needed. The supplied levels are:
 - `levels/67.toml`: open eleven-lane flat `web1`, adding Fuseballs every 501
   ticks. Alien Droids climb at `0x16400`, twice the `0xB200` Super Flipper
   speed; Mirrors and Fuseballs use `0xA800`.
+- `levels/68.toml`: open fifteen-lane V-shaped `web2`, preserving level 67's
+  Super Flipper, Mirror, Alien Droid, and Fuseball intervals in a 61-spawn wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
