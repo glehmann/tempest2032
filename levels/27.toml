@@ -1,0 +1,59 @@
+# Original _nw27 on the open diagonal double-curve web32.
+number = 27
+enemy_count = 41
+
+[web]
+closed = false
+start_lane = 7
+depth = 160
+vertices = [[9,16],[7,17],[5,17],[3,16],[2,14],[2,12],[3,10],[1,11],[-1,11],[-3,10],[-4,8],[-4,6],[-3,4]]
+orientations = [-112,-128,112,80,64,48,-112,-128,112,80,64,48]
+
+[flippers]
+first_spawn_ticks = 43
+spawn_interval_ticks = 86
+climb_speed = 0.6953125
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[tankers]
+first_spawn_ticks = 186
+spawn_interval_ticks = 371
+climb_speed = 0.5625
+super_chance = 104
+
+[fuse_tankers]
+first_spawn_ticks = 1001
+spawn_interval_ticks = 2001
+climb_speed = 0.5625
+
+[pulsars]
+first_spawn_ticks = 195
+spawn_interval_ticks = 389
+climb_speed = 0.5
+phase_ticks = 7
+propagation_ticks = 5
+
+[spikers]
+first_spawn_ticks = 426
+spawn_interval_ticks = 851
+climb_speed = 1.0625
+
+[beasts]
+first_spawn_ticks = 501
+spawn_interval_ticks = 1001
+climb_speed = 0.6953125
+
+[fuseballs]
+first_spawn_ticks = 501
+spawn_interval_ticks = 1001
+climb_speed = 0.71875
+
+[appearance]
+surface = [1.0, 0.0, 0.0]
+lines = [0.78, 0.01, 0.015]
+flipper = [135, 208, 255]
+
+[powerups]
+kill_interval = 8

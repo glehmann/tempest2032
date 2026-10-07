@@ -173,6 +173,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/26.toml`: open seventeen-lane mouse-pointer `web31`, including its
   folded tail. Pulsars repeat every 400 ticks and Spikers every 851; Fuseball
   Tankers retain their 2,001-tick interval.
+- `levels/27.toml`: open twelve-lane diagonal double-curve `web32`, with
+  `0xB200` Flippers, `0x11000` Spikers, and `0xB800` Fuseballs. Pulsars repeat
+  every 389 ticks and Tankers every 371.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

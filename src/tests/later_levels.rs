@@ -127,3 +127,20 @@ fn level_26_preserves_the_open_mouse_pointers_seventeen_lanes() {
     assert_eq!(level.spikers.unwrap().spawn_interval_ticks, 851);
     assert_eq!(level.fuse_tankers.unwrap().spawn_interval_ticks, 2001);
 }
+
+#[test]
+fn level_27_keeps_both_open_curves_and_the_next_speed_group() {
+    let level = level(27);
+    assert!(!level.web.closed);
+    assert_eq!(level.web.lanes(), 12);
+    assert_eq!(level.web.start_lane, 7);
+    assert_eq!(level.web.vertices[0], [9., 16.]);
+    assert_eq!(level.web.vertices[12], [-3., 4.]);
+    assert_eq!(level.web.orientations[5], 48);
+    assert_eq!(level.web.orientations[6], -112);
+    assert_eq!(level.flippers.climb_speed, 0xb200);
+    assert_eq!(level.spikers.unwrap().climb_speed, 0x11000);
+    assert_eq!(level.fuseballs.unwrap().climb_speed, 0xb800);
+    assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 389);
+    assert_eq!(level.tankers.unwrap().spawn_interval_ticks, 371);
+}
