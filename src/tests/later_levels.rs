@@ -66,3 +66,20 @@ fn level_23_keeps_the_tiny_stars_retraced_tips_and_lane_orientations() {
     assert_eq!(level.pulsars.unwrap().generator.spawn_interval_ticks, 463);
     assert_eq!(level.tankers.unwrap().super_chance, 88);
 }
+
+#[test]
+fn level_24_has_the_closed_d_and_shorter_generator_delays() {
+    let level = level(24);
+    assert!(level.web.closed);
+    assert_eq!(level.web.lanes(), 15);
+    assert_eq!(level.web.start_lane, 12);
+    assert_eq!(level.web.vertices[0], [2., 12.]);
+    assert_eq!(level.web.vertices[9], [14., 12.]);
+    assert_eq!(&level.web.orientations[9..], &[-128; 6]);
+    assert_eq!(level.tankers.unwrap().spawn_interval_ticks, 241);
+    assert_eq!(level.spikers.unwrap().spawn_interval_ticks, 651);
+    let pulsars = level.pulsars.unwrap();
+    assert_eq!(pulsars.generator.first_spawn_ticks, 206);
+    assert_eq!(pulsars.generator.spawn_interval_ticks, 412);
+    assert_eq!(level.flippers.count, 36);
+}

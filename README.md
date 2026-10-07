@@ -160,6 +160,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/23.toml`: closed sixteen-lane tiny-star `web26`, retaining its
   retraced tips and sharp lane reversals. Flippers climb at `0xAE00`, Spikers
   at `0xF000`, and Fuseballs at `0xA800`; Pulsars repeat every 463 ticks.
+- `levels/24.toml`: closed fifteen-lane D-shaped `web29`, with six flat lanes
+  along its base. Tankers repeat every 241 ticks, Spikers every 651, and
+  Pulsars every 412, with the same 36-spawn budget as levels 22 and 23.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
