@@ -345,6 +345,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/76.toml`: closed cross `web10`, adding direct Pulsars every 301
   ticks with five-tick phases to the full type-2/type-3, Mirror, Alien Droid,
   Spiker, Fuseball, and Flipper Tanker wave.
+- `levels/77.toml`: open giraffe-neck `web20`, introducing Fuseball Tankers
+  every 624 ticks in place of direct Pulsars. Alien Droids climb at `0x17800`,
+  while Mirrors and Fuseballs use the `0xD000` group.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

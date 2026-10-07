@@ -1,0 +1,69 @@
+# Original _nw77 on T2K's open giraffe-neck web20.
+number = 77
+enemy_count = 61
+
+[web]
+closed = false
+start_lane = 6
+depth = 160
+vertices = [[14,-3],[12,-3],[10,-2],[9,0],[8,2],[7,4],[5,6],[3,7],[1,8],[-1,9],[-3,11],[-3,13],[-3,15],[-1,16]]
+orientations = [-128,-112,-80,-80,-80,-96,-112,-112,-112,-96,-64,-64,-16]
+
+[flippers]
+enabled = false
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.734375
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[super_flippers]
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.734375
+
+[spiral_flippers]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 0.734375
+
+[mirrors]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.8125
+
+[aliens]
+first_spawn_ticks = 301
+spawn_interval_ticks = 601
+climb_speed = 1.46875
+
+[spikers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 1.375
+
+[fuseballs]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.8125
+
+[tankers]
+first_spawn_ticks = 351
+spawn_interval_ticks = 701
+climb_speed = 0.71875
+super_chance = 252
+spiral_chance = 152
+
+[fuse_tankers]
+first_spawn_ticks = 312
+spawn_interval_ticks = 624
+climb_speed = 0.71875
+
+[appearance]
+surface = [1.0, 0.0, 0.6627451]
+lines = [0.78, 0.015, 0.52]
+flipper = [247, 255, 230]
+
+[powerups]
+kill_interval = 9
