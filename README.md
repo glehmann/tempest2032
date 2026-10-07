@@ -204,6 +204,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/35.toml`: open eleven-lane flat `web1`, restoring Flipper Tankers
   every 445 ticks with a 136-in-256 mutation threshold. Flippers climb at
   `0xB200` and Fuseballs at `0xA800`.
+- `levels/36.toml`: open fifteen-lane V-shaped `web2`, with 33 shared spawns.
+  Flippers repeat every 81 ticks, Flipper Tankers every 334, Pulsar Tankers
+  every 401, and Fuseballs every 951.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
