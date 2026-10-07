@@ -146,6 +146,10 @@ no Rust changes are needed. The supplied levels are:
   budget. Flipper Tankers return every 445 ticks with a 72-in-256 fast-child
   threshold. Flippers climb at `0xAA00`, Fuseballs at `0x9800`, and Pulsars
   repeat every 601 ticks.
+- `levels/20.toml`: the open twelve-lane hook `web25`, with a 33-spawn budget.
+  Flippers repeat every 81 ticks, Tankers every 334, and Pulsars every 501.
+  The Tanker-child mutation threshold rises to 76 out of 256. Climbing speeds
+  stay in level nineteen's group, and Pulsar sparks bounce at the open ends.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
