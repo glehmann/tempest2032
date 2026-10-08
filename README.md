@@ -392,6 +392,8 @@ no Rust changes are needed. The supplied levels are:
 - `levels/97.toml`: ring `web5`, starting the final cream-surface/magenta-
   Flipper group. Pickups now repeat every sixteenth kill, Pulsar phases reset
   to seven ticks, and Fuseball Tankers repeat every 424 ticks.
+- `levels/98.toml`: square `web11`, shortening Fuseball Tankers to 324 ticks
+  in the 91-spawn cream-palette wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
