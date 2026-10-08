@@ -151,7 +151,7 @@ fn ticks(app: &mut App, count: usize) {
 }
 
 #[test]
-fn exit_keeps_controls_until_the_rear_then_flashes_and_reenters_without_losing_rewards() {
+fn exit_keeps_controls_until_the_rear_then_reenters_with_fresh_powerups() {
     let mut app = app();
     app.world_mut().resource_mut::<powerups::Upgrades>().laser = true;
     app.world_mut()
@@ -222,8 +222,8 @@ fn exit_keeps_controls_until_the_rear_then_flashes_and_reenters_without_losing_r
     assert_eq!(game.entry, Some(0));
     assert!(game.exit.is_none());
     assert_eq!((game.score, game.lives, game.remaining), (9000, 2, 25));
-    assert!(app.world().resource::<powerups::Upgrades>().laser);
-    assert!(app.world().resource::<powerups::Upgrades>().jump_enabled);
+    assert!(!app.world().resource::<powerups::Upgrades>().laser);
+    assert!(!app.world().resource::<powerups::Upgrades>().jump_enabled);
     assert_eq!(app.world().resource::<stars::Warp>().copies, 0);
     assert_eq!(
         app.world_mut()

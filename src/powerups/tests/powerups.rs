@@ -3,7 +3,7 @@
 use crate::powerups::{Reward, Upgrades};
 
 #[test]
-fn configurable_drops_restart_the_counter_but_preserve_rewards_between_levels() {
+fn web_entry_resets_the_pickup_sequence_and_acquired_upgrades() {
     let mut upgrades = Upgrades::default();
     let drops = (1..=10)
         .filter(|_| upgrades.drop_due(3))
@@ -13,8 +13,25 @@ fn configurable_drops_restart_the_counter_but_preserve_rewards_between_levels() 
     upgrades.stage = 2;
     upgrades.begin_level();
     assert!(upgrades.drop_due(5));
-    assert!(upgrades.laser);
-    assert_eq!(upgrades.stage, 2);
+    assert!(!upgrades.laser);
+    assert_eq!(upgrades.stage, 0);
+}
+
+#[test]
+fn three_webs_can_award_tokens_that_survive_death() {
+    let mut upgrades = Upgrades::default();
+    let mut score = 0;
+    for tokens in 1..=3 {
+        upgrades.begin_level();
+        for _ in 0..6 {
+            upgrades.collect(&mut score);
+        }
+        assert_eq!(upgrades.warp_tokens(), tokens);
+    }
+    upgrades.lose_life();
+    assert_eq!(upgrades.warp_tokens(), 3);
+    upgrades.begin_level();
+    assert_eq!(upgrades.warp_tokens(), 3);
 }
 
 #[test]

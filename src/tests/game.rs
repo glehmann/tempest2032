@@ -59,13 +59,13 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
         (9000, 2, 10)
     );
     assert_eq!(app.world().resource::<Game>().spawn_timer, 10);
-    assert!(app.world().resource::<powerups::Upgrades>().laser);
+    assert!(!app.world().resource::<powerups::Upgrades>().laser);
     assert_eq!(
         app.world_mut()
             .query::<&powerups::Droid>()
             .iter(app.world())
             .count(),
-        1
+        0
     );
     assert_eq!(
         app.world_mut()

@@ -402,7 +402,8 @@ no Rust changes are needed. The supplied levels are:
   The configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
-level one, carrying score, lives, and upgrades. A death retries the current
+level one, carrying score, lives, and unspent warp tokens. Acquired upgrades
+and the pickup sequence reset on each web entry. A death retries the current
 level and removes upgrades. R starts a fresh run from level one.
 
 Start directly on the second level with:
@@ -497,7 +498,8 @@ depth-spaced samples per star, with separation growing by a quarter unit per
 tick. Reaching the source's 2,000-unit claw depth triggers the warp flash.
 
 After the flash, the next configured level begins with score, lives, and
-upgrades preserved. The last level loops back to the first. R cancels the exit
+unspent warp tokens preserved. Upgrades reset on entry to the next web.
+The last level loops back to the first. R cancels the exit
 and starts a fresh game.
 
 ## Controls

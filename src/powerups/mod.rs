@@ -133,7 +133,15 @@ impl Upgrades {
     }
 
     pub(crate) fn begin_level(&mut self) {
-        self.delay = 0;
+        let (tokens, random, frame) = (self.warp_tokens, self.random, self.frame);
+        *self = Self::default();
+        self.warp_tokens = tokens;
+        self.random = random;
+        self.frame = frame;
+    }
+
+    pub(crate) fn warp_tokens(&self) -> u8 {
+        self.warp_tokens
     }
 }
 
@@ -199,7 +207,10 @@ pub(crate) fn update_notice(upgrades: Res<Upgrades>, mut hud: Single<&mut Text, 
     } else {
         ""
     };
-    let text = format!("{active}\n{notice}");
+    let text = format!(
+        "{active}\nWARP TOKENS {}/3\n{notice}",
+        upgrades.warp_tokens()
+    );
     if hud.0 != text {
         hud.0 = text;
     }
