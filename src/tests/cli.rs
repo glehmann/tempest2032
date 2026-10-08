@@ -29,6 +29,14 @@ fn direct_warp_selection_validates_zone_course_and_capture_options() {
             Some(crate::warp::ZoneKind::Tunnel)
         );
     }
+    for zone in ["rings", "psychedelic-rings", "3"] {
+        assert_eq!(
+            Cli::try_parse_from(["t2k", "--warp-zone", zone, "--warp-course", "8"])
+                .unwrap()
+                .warp_zone,
+            Some(crate::warp::ZoneKind::Rings)
+        );
+    }
     for args in [
         vec!["t2k", "--warp-zone", "gate-flight", "--record-exit", "out"],
         vec![
@@ -39,7 +47,7 @@ fn direct_warp_selection_validates_zone_course_and_capture_options() {
             "out",
         ],
         vec!["t2k", "--warp-course", "1"],
-        vec!["t2k", "--warp-zone", "rings"],
+        vec!["t2k", "--warp-zone", "unknown"],
         vec!["t2k", "--warp-zone", "gate", "--warp-course", "0"],
         vec!["t2k", "--warp-zone", "gate", "--warp-course", "9"],
     ] {

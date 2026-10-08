@@ -1,4 +1,4 @@
-//! Warp-zone selection, entry/return transactions, and fixed-tick gate flight.
+//! Warp-zone selection, entry/return transactions, and fixed-tick bonus gameplay.
 
 use crate::{
     game::{Game, Status},
@@ -10,6 +10,7 @@ use std::collections::VecDeque;
 
 mod courses;
 pub(crate) mod render;
+mod rings;
 mod tunnel;
 
 fn sine(angle: i32) -> i32 {
@@ -26,7 +27,7 @@ pub(crate) enum ZoneKind {
     GateFlight,
     #[value(alias = "green-track", alias = "2")]
     Tunnel,
-    #[value(skip)]
+    #[value(alias = "psychedelic-rings", alias = "3")]
     Rings,
 }
 
@@ -51,9 +52,6 @@ impl ZoneKind {
             1 | 3 => Self::Tunnel,
             _ => Self::Rings,
         }
-    }
-    pub(crate) fn available(self) -> bool {
-        self != Self::Rings
     }
 }
 
@@ -124,6 +122,7 @@ pub(crate) struct Session {
     pub(crate) tick: u32,
     pub(crate) notice: &'static str,
     pub(crate) tunnel: Option<tunnel::Tunnel>,
+    pub(crate) rings: Option<rings::Rings>,
     notice_ticks: u16,
     cursor: usize,
     generation_distance: i32,
@@ -157,17 +156,24 @@ impl Session {
                 position: 8 * UNIT,
                 velocity: 0x80000,
             },
-            speed: 0x8000 + ((attempt.wrapping_mul(0x200) & 0xffff) as i32),
+            speed: (if kind == ZoneKind::Rings {
+                0xa000
+            } else {
+                0x8000
+            }) + ((attempt.wrapping_mul(0x200) & 0xffff) as i32),
             distance: 0,
             gates: VecDeque::new(),
             passed: 0,
             tick: 0,
             notice: if kind == ZoneKind::Tunnel {
                 "STAY ON THE GREEN TRACK"
+            } else if kind == ZoneKind::Rings {
+                "FLY THROUGH EVERY RING"
             } else {
                 "FLY THROUGH EVERY GATE"
             },
             tunnel: (kind == ZoneKind::Tunnel).then(tunnel::Tunnel::default),
+            rings: (kind == ZoneKind::Rings).then(rings::Rings::default),
             notice_ticks: 180,
             cursor: 0,
             generation_distance: 0,
@@ -183,7 +189,11 @@ impl Session {
     pub(crate) fn spec(&self, index: usize) -> (i8, i8, u8) {
         let record = courses::COURSES[self.course][index];
         (
-            (record >> 16) as u8 as i8,
+            if self.kind == ZoneKind::Rings {
+                -((record >> 16) as u8 as i8)
+            } else {
+                (record >> 16) as u8 as i8
+            },
             (record >> 8) as u8 as i8,
             record as u8,
         )
@@ -216,9 +226,19 @@ impl Session {
                 self.phase = Phase::Success(151);
                 "COURSE COMPLETE"
             }
-            _ => "GATE PASSED",
+            _ => {
+                if self.kind == ZoneKind::Rings {
+                    "RING PASSED"
+                } else {
+                    "GATE PASSED"
+                }
+            }
         };
         self.notice_ticks = 120;
+        if let Some(rings) = &mut self.rings {
+            rings.pass();
+            return Some([250, 500, 750, 1][(error >> 2) as usize]);
+        }
         Some(if error < 4 {
             750
         } else if error < 8 {
@@ -256,7 +276,11 @@ impl Session {
             self.generation_distance += 12 * UNIT;
             self.generation_wait -= 1;
             if self.generation_wait < 0 && self.cursor < GATES {
-                self.generation_wait = (courses::COURSES[self.course][self.cursor] >> 24) as i16;
+                self.generation_wait = if self.kind == ZoneKind::Rings {
+                    8
+                } else {
+                    (courses::COURSES[self.course][self.cursor] >> 24) as i16
+                };
                 self.gates.push_back(Gate {
                     index: self.cursor,
                     distance: 255 * UNIT,
@@ -334,6 +358,22 @@ pub(crate) fn advance(
         }
         Phase::Success(ticks) => session.phase = Phase::Success(ticks - 1),
         Phase::Victory(ticks) => session.phase = Phase::Victory(ticks - 1),
+    }
+    if let Some(mut rings) = session.rings.take() {
+        let position = session.position();
+        let specs: Vec<_> = session
+            .gates
+            .iter()
+            .map(|gate| session.spec(gate.index))
+            .collect();
+        rings.advance(
+            session.tick,
+            position,
+            &session.gates,
+            &specs,
+            session.phase,
+        );
+        session.rings = Some(rings);
     }
     game.bonus = Some(session);
 }

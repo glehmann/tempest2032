@@ -62,6 +62,69 @@ fn all_original_courses_have_fifty_three_gates_and_a_final_pyramid() {
 }
 
 #[test]
+fn rings_mirror_courses_use_fixed_spacing_and_keep_original_scoring() {
+    for course in 1..=8 {
+        let gates = Session::new(ZoneKind::GateFlight, 0, Some(course), 0);
+        let rings = Session::new(ZoneKind::Rings, 0, Some(course), 0);
+        assert_eq!(rings.speed, 0xa000);
+        for index in 0..GATES {
+            let (x, y, kind) = gates.spec(index);
+            assert_eq!(rings.spec(index), (-x, y, kind));
+        }
+    }
+    for (dx, dy, score) in [(0, 0, 250), (4, 0, 500), (7, 1, 750), (7, 7, 1)] {
+        let mut session = Session::new(ZoneKind::Rings, 0, None, 0);
+        aim(&mut session, 0, dx, dy);
+        assert_eq!(session.pass(0), Some(score));
+        assert_eq!(session.rings.as_ref().unwrap().rotation, 1);
+    }
+    let mut session = Session::new(ZoneKind::Rings, 0, Some(8), 0);
+    session.step_flight(0, 0);
+    assert_eq!(session.generation_wait, 8);
+    for _ in 0..171 {
+        session.step_flight(0, 0);
+    }
+    assert_eq!(session.cursor, 1);
+    session.step_flight(0, 0);
+    assert_eq!(session.cursor, 2);
+}
+
+#[test]
+fn all_ring_courses_complete_and_settle_the_shared_completion_reward_once() {
+    for course in 1..=8 {
+        let mut session = Session::new(ZoneKind::Rings, 0, Some(course), 0);
+        for _ in 0..100_000 {
+            if let Some(index) = session.gates.front().map(|g| g.index) {
+                aim(&mut session, index, 0, 0);
+            }
+            session.step_flight(0, 0);
+            if !matches!(session.phase, Phase::Flying) {
+                break;
+            }
+        }
+        assert!(
+            matches!(session.phase, Phase::Success(_)),
+            "course {course}"
+        );
+        assert_eq!(session.passed, GATES);
+    }
+    let mut app = app(33);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+        kind: ZoneKind::Rings,
+        course: Some(1),
+        destination: 32,
+    });
+    ticks(&mut app, 1);
+    let mut game = app.world_mut().resource_mut::<Game>();
+    game.score = 1234;
+    game.bonus.as_mut().unwrap().phase = Phase::Success(1);
+    ticks(&mut app, 3);
+    let game = app.world().resource::<Game>();
+    assert_eq!(game.score, 21_234);
+    assert_eq!(game.bonus.as_ref().unwrap().destination, 36);
+}
+
+#[test]
 fn generator_spacing_counts_distance_blocks_and_counter_underflow() {
     let mut session = Session::new(ZoneKind::GateFlight, 0, None, 1);
     session.step_flight(0, 0);
@@ -178,7 +241,9 @@ fn natural_entry_spends_tokens_once_only_in_an_implemented_level_band() {
         (1, true),
         (16, true),
         (64, true),
-        (96, false),
+        (32, true),
+        (48, true),
+        (96, true),
         (99, false),
         (100, false),
     ] {

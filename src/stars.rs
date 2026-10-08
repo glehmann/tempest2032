@@ -185,8 +185,8 @@ pub(crate) fn draw_stars(
     } else {
         camera.translation.truncate() * (24.0 / FRONT_RADIUS)
     };
-    let tunnel = bonus.is_some_and(|session| session.kind == crate::warp::ZoneKind::Tunnel);
-    let triangles = stars.iter().filter(|_| !tunnel).flat_map(|star| {
+    let particles = bonus.is_some_and(|session| session.kind != crate::warp::ZoneKind::GateFlight);
+    let triangles = stars.iter().filter(|_| !particles).flat_map(|star| {
         (0..=warp.copies).flat_map(move |index| {
             let star = Star {
                 position: star.position,

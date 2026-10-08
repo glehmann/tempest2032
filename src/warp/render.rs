@@ -1,4 +1,4 @@
-//! Gate-flight polygons, a scrolling rippled ground surface, crosshair, and bonus HUD.
+//! Warp-zone polygons, particle scenes, CRY feedback, crosshair, and bonus HUD.
 
 use super::{GATES, Phase, SCALE, ZoneKind};
 use crate::{
@@ -33,6 +33,7 @@ pub(crate) enum WarpNode {
     Icon(usize),
     Victory,
     Tunnel,
+    Rings,
 }
 
 #[derive(Component)]
@@ -45,6 +46,9 @@ pub(crate) struct Crosshair;
 pub(crate) struct WarpAssets {
     ground: Handle<Mesh>,
     tunnel: Handle<Mesh>,
+    rings: Handle<Mesh>,
+    feedback: Handle<Image>,
+    feedback_material: Handle<StandardMaterial>,
     gates: [Handle<Mesh>; 2],
     icons: [Handle<Mesh>; 5],
 }
@@ -257,6 +261,25 @@ fn pixel_mesh(pixels: impl IntoIterator<Item = (Vec2, Color)>, fov: f32) -> Mesh
     )
 }
 
+fn screen_mesh(aspect_ratio: f32) -> Mesh {
+    let y = 10. * (1.2_f32 * 0.5).tan();
+    let x = y * aspect_ratio;
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![[-x, -y, -10.], [x, -y, -10.], [x, y, -10.], [-x, y, -10.]],
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 0., 1.]; 4])
+    .with_inserted_attribute(
+        Mesh::ATTRIBUTE_UV_0,
+        vec![[0., 1.], [1., 1.], [1., 0.], [0., 0.]],
+    )
+    .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
+}
+
 pub(crate) fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -272,6 +295,35 @@ pub(crate) fn setup(
     });
     let ground = meshes.add(ground_mesh(0., 0));
     let tunnel = meshes.add(colored_mesh([]));
+    let rings = meshes.add(screen_mesh(1.6));
+    let mut feedback_image = Image::new_fill(
+        Extent3d {
+            width: super::rings::WIDTH as u32,
+            height: super::rings::HEIGHT as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &[0, 0, 0, 255],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    feedback_image.sampler = bevy::image::ImageSampler::nearest();
+    let feedback = images.add(feedback_image);
+    let feedback_material = materials.add(StandardMaterial {
+        base_color_texture: Some(feedback.clone()),
+        unlit: true,
+        cull_mode: None,
+        ..default()
+    });
+    commands.spawn((
+        WarpNode::Rings,
+        Mesh3d(rings.clone()),
+        MeshMaterial3d(feedback_material.clone()),
+        Transform::default(),
+        Visibility::Hidden,
+        RenderLayers::layer(1),
+        bevy::camera::visibility::NoFrustumCulling,
+    ));
     commands.spawn((
         WarpNode::Tunnel,
         Mesh3d(tunnel.clone()),
@@ -324,6 +376,9 @@ pub(crate) fn setup(
     commands.insert_resource(WarpAssets {
         ground,
         tunnel,
+        rings,
+        feedback,
+        feedback_material,
         gates,
         icons,
     });
@@ -375,7 +430,9 @@ pub(crate) fn draw(
     level: Res<Level>,
     assets: Res<WarpAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut cameras: Query<(&mut Transform, &mut Projection), (With<Camera3d>, Without<WarpNode>)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut nodes: Query<
         (&WarpNode, &mut Transform, &mut Mesh3d, &mut Visibility),
         (Without<Camera3d>, With<WarpNode>),
@@ -421,13 +478,18 @@ pub(crate) fn draw(
                 text.0 = if let Some(tunnel) = &session.tunnel {
                     format!(
                         "TRACK {}/64   TAIL {:.1}\n{}",
-                        tunnel.segments / 16,
+                        tunnel.segments.min(1024) / 16,
                         tunnel.tail.max(0) as f32 / 65536.,
                         session.notice
                     )
                 } else {
                     format!(
-                        "GATES {}/{}   SPEED {:.2}\n{}",
+                        "{} {}/{}   SPEED {:.2}\n{}",
+                        if session.kind == ZoneKind::Rings {
+                            "RINGS"
+                        } else {
+                            "GATES"
+                        },
                         session.passed,
                         GATES,
                         session.speed as f32 / 65536.,
@@ -459,7 +521,7 @@ pub(crate) fn draw(
             session.course + 1
         );
     }
-    let position = if session.tunnel.is_some() {
+    let position = if session.kind != ZoneKind::GateFlight {
         Vec2::ZERO
     } else {
         session.position()
@@ -470,13 +532,41 @@ pub(crate) fn draw(
             perspective.fov = 1.2;
             perspective.near = 0.01;
             perspective.far = 500.;
+            if session.rings.is_some()
+                && let Some(mesh) = meshes.get_mut(&assets.rings)
+            {
+                *mesh = screen_mesh(perspective.aspect_ratio);
+            }
         }
     }
-    if let Some(mesh) = meshes.get_mut(&assets.ground) {
+    if session.kind == ZoneKind::GateFlight
+        && let Some(mesh) = meshes.get_mut(&assets.ground)
+    {
         *mesh = ground_mesh(session.distance as f32 / 65536. * SCALE, session.tick);
+    }
+    if let Some(rings) = &session.rings
+        && let Some(image) = images.get_mut(&assets.feedback)
+    {
+        // Updating the texture replaces its GPU view; refresh the material binding too.
+        let _ = materials.get_mut(&assets.feedback_material);
+        let data = image
+            .data
+            .get_or_insert_with(|| vec![0; super::rings::WIDTH * super::rings::HEIGHT * 4]);
+        for (pixel, rgba) in rings.pixels.iter().zip(data.as_chunks_mut::<4>().0) {
+            let hue = (pixel >> 8) as usize;
+            for (channel, table) in [&cry::RED, &cry::GREEN, &cry::BLUE].iter().enumerate() {
+                rgba[channel] = ((u16::from(table[hue >> 4][hue & 15]) * (pixel & 255)) >> 8) as u8;
+            }
+            rgba[3] = 255;
+        }
     }
     for (node, mut pose, mut mesh, mut visible) in &mut nodes {
         match *node {
+            WarpNode::Rings => {
+                if session.rings.is_some() {
+                    *visible = Visibility::Visible;
+                }
+            }
             WarpNode::Tunnel => {
                 if let Some(tunnel) = &session.tunnel {
                     if let Some(mesh) = meshes.get_mut(&assets.tunnel) {
@@ -491,6 +581,9 @@ pub(crate) fn draw(
                 }
             }
             WarpNode::Gate(index) | WarpNode::Icon(index) => {
+                if session.kind != ZoneKind::GateFlight {
+                    continue;
+                }
                 let Some(gate) = session.gates.iter().find(|g| g.index == index) else {
                     continue;
                 };
@@ -529,6 +622,85 @@ pub(crate) fn draw(
 mod tests {
     use super::*;
     use crate::warp::{Gate, Session, ZoneKind};
+
+    #[test]
+    fn rings_and_tunnel_isolate_their_scene_and_upload_visible_feedback() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Game>()
+            .init_resource::<Level>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, draw);
+        app.world_mut().spawn((
+            Camera3d::default(),
+            Transform::from_xyz(5., 5., 0.),
+            Projection::Perspective(PerspectiveProjection::default()),
+        ));
+        for kind in [ZoneKind::Tunnel, ZoneKind::Rings] {
+            let mut session = Session::new(kind, 0, Some(1), 0);
+            if let Some(rings) = &mut session.rings {
+                for tick in 1..=60 {
+                    rings.advance(
+                        tick,
+                        Vec2::ZERO,
+                        &std::collections::VecDeque::from([Gate {
+                            index: 0,
+                            distance: 200 * 65536,
+                            age: 0,
+                        }]),
+                        &[(0, 16, 0)],
+                        Phase::Flying,
+                    );
+                }
+            }
+            let mut game = app.world_mut().resource_mut::<Game>();
+            game.status = Status::Bonus;
+            game.bonus = Some(session);
+            app.update();
+            let visible: Vec<_> = app
+                .world_mut()
+                .query::<(&WarpNode, &Visibility)>()
+                .iter(app.world())
+                .filter(|(_, visibility)| **visibility == Visibility::Visible)
+                .map(|(node, _)| node)
+                .collect();
+            assert_eq!(visible.len(), 1);
+            assert!(matches!(
+                (kind, visible[0]),
+                (ZoneKind::Tunnel, WarpNode::Tunnel) | (ZoneKind::Rings, WarpNode::Rings)
+            ));
+            if kind == ZoneKind::Rings {
+                let assets = app.world().resource::<WarpAssets>();
+                let pixels = app
+                    .world()
+                    .resource::<Assets<Image>>()
+                    .get(&assets.feedback)
+                    .unwrap()
+                    .data
+                    .as_ref()
+                    .unwrap();
+                assert!(
+                    pixels
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .filter(|rgba| rgba[..3] != [0, 0, 0])
+                        .count()
+                        > 128
+                );
+            }
+        }
+        app.world_mut().resource_mut::<Game>().status = Status::Playing;
+        app.update();
+        assert!(
+            app.world_mut()
+                .query::<(&WarpNode, &Visibility)>()
+                .iter(app.world())
+                .all(|(_, v)| *v == Visibility::Hidden)
+        );
+    }
 
     #[test]
     fn gate_and_icon_sizes_match_the_original_polygon_renderer() {

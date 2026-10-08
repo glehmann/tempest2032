@@ -695,12 +695,11 @@ pickup-eligible kills through released Tanker contents.
 
 ## Warp zones
 
-Gate flight and the green-track tunnel are playable bonus zones. Ready tokens are checked after
+All three warp zones are playable. Ready tokens are checked after
 the normal exit and its flash, then consumed once when the bonus starts.
 The upcoming web selects the zone in sixteen-level bands. Gate flight covers
 upcoming webs 1–16 and 65–80; the green-track tunnel covers 17–32, 49–64,
-and 81–96. Psychedelic rings are deferred, and tokens remain unspent in
-their bands, 33–48 and 97–100. Natural bonus entry
+and 81–96. Psychedelic rings cover 33–48 and 97–100. Natural bonus entry
 is suppressed at the final two normal levels.
 
 Fly automatically forward and steer with the arrow keys or W/A/S/D. Controls
@@ -730,16 +729,29 @@ level 91, without the gate-flight 20,000-point award. Colored particle arcs,
 scrolling star planes, a trailing player marker, and the collapsing failure
 tunnel reproduce the source drawing routines.
 
+Psychedelic rings use the same two-axis inertial controls as gate flight.
+The original courses are mirrored horizontally, every ring uses the original
+eight-block generation delay, and initial forward speed is `0xA000` rather
+than gate flight's `0x8000`. Rings remain visible on both sides of the surface
+height. Their particle outlines, special icons, and pulsating tilted sphere
+are drawn into a 384×240 CRY feedback image that scales, rotates, and fades
+each fixed tick. Passing rings brightens the feedback and cycles its rotation.
+The source's ring-score lookup is preserved: combined integer axis errors
+0–3, 4–7, 8–11, and 12–14 award 250, 500, 750, and 1 point respectively.
+Missing a ring costs no life; completion awards 20,000 points and uses the
+same extra-web advance rule as gate flight.
+
 Start a bonus directly for testing:
 
 ```sh
 cargo run --release -- --warp-zone gate-flight
 cargo run --release -- --warp-zone gate-flight --warp-course 8 --level 65
 cargo run --release -- --warp-zone tunnel --warp-course 7 --level 17
+cargo run --release -- --warp-zone rings --warp-course 3 --level 33
 ```
 
 `--warp-zone gate` and `--warp-zone 1` select gate flight; `green-track` and
-`2` select the tunnel. `--warp-course` chooses
+`2` select the tunnel; `psychedelic-rings` and `3` select rings. `--warp-course` chooses
 the original course number from 1 to 8 and requires direct warp startup.
 `--level` is the web reached after a failed direct-start run; success adds
 four to that destination subject to the late-game restriction. Direct entry

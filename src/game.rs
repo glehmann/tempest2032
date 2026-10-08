@@ -311,7 +311,7 @@ pub(crate) fn load_level(
         LoadReason::Advance if level.number < 99 && upgrades.warp_tokens() == 3 => {
             let destination = (game.level_index + 1) % levels.0.len();
             let kind = crate::warp::ZoneKind::for_web(levels.0[destination].number);
-            kind.available().then_some((kind, None, destination, true))
+            Some((kind, None, destination, true))
         }
         _ => None,
     };
