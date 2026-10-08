@@ -389,6 +389,9 @@ no Rust changes are needed. The supplied levels are:
   ticks and using the final sixth-set `0xCE00`/`0xF800` speed groups.
 - `levels/96.toml`: backwards-C `web37`, ending the sixth set with 91 spawns
   and Mirrors every 351 ticks alongside the rapid Alien Droid and Pulsar generators.
+- `levels/97.toml`: ring `web5`, starting the final cream-surface/magenta-
+  Flipper group. Pickups now repeat every sixteenth kill, Pulsar phases reset
+  to seven ticks, and Fuseball Tankers repeat every 424 ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
