@@ -30,8 +30,8 @@ impl Active {
         if matches!(self.event.id, Id::GreenTrack | Id::WarpFive | Id::GameOver) {
             return 1.;
         }
-        (1. - self.age.saturating_sub(u32::from(self.event.id.hold()) + 1) as f32 / 50.)
-            .clamp(0., 1.)
+        let scale = self.scale();
+        (scale.x * scale.y).recip()
     }
     pub(super) fn scale(self) -> Vec2 {
         Vec2::new(
@@ -179,7 +179,7 @@ fn advance(
 mod tests {
     use super::*;
     #[test]
-    fn stretching_fades_progressively_without_changing_scale_or_static_instructions() {
+    fn stretching_preserves_coverage_with_inverse_area_opacity() {
         let active = |id: Id, age| Active {
             event: id.into(),
             age,
@@ -194,8 +194,14 @@ mod tests {
                     .all(|pair| pair[0].opacity() > pair[1].opacity())
             );
             assert_eq!(stages[25].scale(), Vec2::new(1., 13.5));
-            assert_eq!(stages[25].opacity(), 0.5);
-            assert_eq!(stages[50].opacity(), 0.);
+            assert_eq!(stages[2].scale(), Vec2::new(1., 2.));
+            assert_eq!(stages[2].opacity(), 0.5);
+            assert_eq!(stages[6].scale(), Vec2::new(1., 4.));
+            assert_eq!(stages[6].opacity(), 0.25);
+            for stage in stages {
+                let scale = stage.scale();
+                assert!((stage.opacity() * scale.x * scale.y - 1.).abs() < 1e-6);
+            }
         }
         for id in [Id::GreenTrack, Id::WarpFive, Id::GameOver] {
             assert_eq!(active(id, 300).opacity(), 1.);
@@ -309,7 +315,7 @@ mod tests {
         assert_eq!(messages.banner.unwrap().opacity(), 1.);
         messages.step();
         assert_eq!(messages.banner.unwrap().scale(), Vec2::new(1., 1.5));
-        assert!((messages.banner.unwrap().opacity() - 0.98).abs() < 1e-6);
+        assert!((messages.banner.unwrap().opacity() - 1. / 1.5).abs() < 1e-6);
         for _ in 0..50 {
             messages.step();
         }

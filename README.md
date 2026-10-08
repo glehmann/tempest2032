@@ -702,8 +702,9 @@ in a native-resolution overlay above the game and warp imagery. The ordinary
 messages hold for the original 100-tick counter, then stretch vertically for
 the 50-tick counter, including the source's inclusive expiry. Oscillating shear
 is applied around each letter's own center. During the stretch phase, the
-lettering and its shadow become progressively transparent; the smooth stretch
-geometry is retained. The two-line recharge message
+lettering and its shadow use opacity `1 / (scale_x * scale_y)`, preserving
+coverage as their area grows: a 2× stretch gives 50% opacity and a 4× stretch
+gives 25%. The smooth stretch geometry is retained. The two-line recharge message
 shares one timer and deformation. Spike avoidance and recharge use the longer
 250-tick hold.
 
