@@ -381,6 +381,8 @@ no Rust changes are needed. The supplied levels are:
   to 351 ticks and moving into `0xCA00`/`0xE800` movement groups.
 - `levels/92.toml`: cat-head `web33`, shortening Flipper Tankers to 251 ticks
   within the 81-spawn wave.
+- `levels/93.toml`: teardrop `web34`, increasing direct Pulsars to every
+  101 ticks with four-tick phases and `0xCC00` Flipper movement.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
