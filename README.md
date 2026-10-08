@@ -383,6 +383,8 @@ no Rust changes are needed. The supplied levels are:
   within the 81-spawn wave.
 - `levels/93.toml`: teardrop `web34`, increasing direct Pulsars to every
   101 ticks with four-tick phases and `0xCC00` Flipper movement.
+- `levels/94.toml`: open crinkly-L `web35`, retaining the rapid Pulsar and
+  dense Tanker settings of level 93 in an 81-spawn wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
