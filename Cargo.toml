@@ -8,6 +8,7 @@ rust-version = "1.89"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
+lyon_tessellation = "1"
 bevy = { version = "0.18", default-features = false, features = [
     "std", "async_executor", "multi_threaded", "bevy_asset", "bevy_log",
     "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render",
