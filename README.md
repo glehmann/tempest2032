@@ -377,6 +377,8 @@ no Rust changes are needed. The supplied levels are:
   Flippers use `0xC800`, Fuseballs `0xE000`, and Pulsar phases drop to five ticks.
 - `levels/90.toml`: mouse-pointer `web31`, increasing the full enemy-mix
   budget to 81 spawns while retaining level-89 speeds and intervals.
+- `levels/91.toml`: diagonal double-curve `web32`, shortening type-3 Flippers
+  to 351 ticks and moving into `0xCA00`/`0xE800` movement groups.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
