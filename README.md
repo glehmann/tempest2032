@@ -356,6 +356,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/80.toml`: compact eight-lane `web21`, ending the fifth set with
   both Super Flipper types, all three Tanker types, Mirrors, Alien Droids,
   Fuseballs, Pulsars, and Beasties. Pulsar Tankers replace Spikers at 501 ticks.
+- `levels/81.toml`: big oval `web24`, beginning the sixth set with orange
+  surfaces, amber Flippers, and pickups every eleventh kill. It retains the
+  full level-80 enemy mix with `0xC000` Flippers and seven-tick Pulsar phases.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

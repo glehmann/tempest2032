@@ -456,3 +456,7 @@ mod fourth_set_late;
 #[cfg(test)]
 #[path = "tests/fifth_set.rs"]
 mod fifth_set;
+
+#[cfg(test)]
+#[path = "tests/final_sets.rs"]
+mod final_sets;
