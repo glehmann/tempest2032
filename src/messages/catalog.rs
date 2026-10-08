@@ -40,6 +40,17 @@ pub(crate) enum Id {
 }
 
 impl Id {
+    pub(crate) fn reward(self) -> bool {
+        matches!(
+            self,
+            Self::Excellent
+                | Self::Points2000
+                | Self::Points250
+                | Self::Points500
+                | Self::Points750
+                | Self::OneUp
+        )
+    }
     pub(crate) fn text(self) -> &'static str {
         match self {
             Self::CollectPowerups => "COLLECT POWERUPS!",

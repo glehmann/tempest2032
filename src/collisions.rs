@@ -160,7 +160,9 @@ pub(crate) fn resolve_hits(
                     commands.entity(entity).despawn();
                     killed.insert(entity);
                     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-                    game.score += 250 * (1 + ((game.random >> 16) % 3));
+                    let points = 250 * (1 + ((game.random >> 16) % 3));
+                    game.score += points;
+                    game.score_popup(points, pose.translation);
                     explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
                 } else {
                     commands.entity(entity).insert(alien.transform(&level.web));
@@ -177,7 +179,9 @@ pub(crate) fn resolve_hits(
                     commands.entity(entity).despawn();
                     killed.insert(entity);
                     game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-                    game.score += 250 * (1 + ((game.random >> 16) % 3));
+                    let points = 250 * (1 + ((game.random >> 16) % 3));
+                    game.score += points;
+                    game.score_popup(points, pose.translation);
                     explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
                     continue;
                 }
@@ -247,6 +251,9 @@ pub(crate) fn resolve_hits(
             commands.entity(entity).despawn();
             killed.insert(entity);
             game.score += points;
+            if let Some((_, position)) = centre {
+                game.score_popup(points, position);
+            }
             if let Ok((_, tanker, contents, pose)) = tankers.get(entity) {
                 tankers::open(
                     &mut commands,

@@ -8,11 +8,18 @@ use lyon_tessellation::{
 use std::collections::HashMap;
 
 #[derive(Resource)]
-pub(super) struct Font(HashMap<char, Vec<[Vec2; 3]>>);
+pub(super) struct Font(HashMap<char, Vec<[Vec2; 3]>>, HashMap<super::Id, WordArt>);
+
+struct WordArt {
+    size: Vec2,
+    triangles: Vec<[Vec2; 3]>,
+    colors: Vec<Color>,
+}
 
 pub(super) struct GlyphTriangle {
     pub(super) points: [Vec2; 3],
     pub(super) origin: Vec2,
+    pub(super) colors: [Color; 3],
 }
 
 pub(super) fn color(y: f32) -> Color {
@@ -33,61 +40,68 @@ impl Default for Font {
     fn default() -> Self {
         let mut data = &include_bytes!("../../assets/messages/afont.bin")[4..];
         let mut glyphs = HashMap::new();
-        fn word(data: &mut &[u8]) -> u16 {
-            let value = u16::from_be_bytes(data[..2].try_into().unwrap());
-            *data = &data[2..];
-            value
-        }
         while !data.is_empty() {
             let character = data[0] as char;
             data = &data[1..];
-            let count = word(&mut data);
-            let mut path = Path::builder();
-            for _ in 0..count {
-                let count = word(&mut data);
-                let points: Vec<_> = (0..count)
-                    .map(|_| {
-                        Vec2::new(word(&mut data) as i16 as f32, word(&mut data) as i16 as f32)
-                    })
-                    .collect();
-                let midpoint = (points[0] + points[points.len() - 1]) / 2.;
-                path.begin(point(midpoint.x, midpoint.y));
-                for (i, control) in points.iter().enumerate() {
-                    let end = (*control + points[(i + 1) % points.len()]) / 2.;
-                    path.quadratic_bezier_to(point(control.x, control.y), point(end.x, end.y));
-                }
-                path.end(true);
-            }
-            let mut geometry = VertexBuffers::<Vec2, u32>::new();
-            if count > 0 {
-                FillTessellator::new()
-                    .tessellate_path(
-                        &path.build(),
-                        &FillOptions::default()
-                            .with_fill_rule(FillRule::EvenOdd)
-                            .with_tolerance(0.02),
-                        &mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
-                            Vec2::new(vertex.position().x, vertex.position().y)
-                        }),
-                    )
-                    .unwrap();
-            }
-            glyphs.insert(
-                character,
-                geometry
-                    .indices
-                    .as_chunks::<3>()
-                    .0
-                    .iter()
-                    .map(|face| std::array::from_fn(|i| geometry.vertices[face[i] as usize]))
-                    .collect(),
+            glyphs.insert(character, decode(&mut data));
+        }
+        let mut data = &include_bytes!("../../assets/messages/wordart.bin")[4..];
+        let mut art = HashMap::new();
+        let ids = [
+            super::Id::Excellent,
+            super::Id::Points2000,
+            super::Id::GameOver,
+            super::Id::OneUp,
+            super::Id::Points250,
+            super::Id::Points500,
+            super::Id::Points750,
+        ];
+        while !data.is_empty() {
+            let id = ids[data[0] as usize];
+            data = &data[1..];
+            let size = Vec2::new(f32::from(word(&mut data)), f32::from(word(&mut data)));
+            let colors = (0..size.y as usize)
+                .map(|_| {
+                    let raw = word(&mut data);
+                    crate::cry::color((raw >> 8) as u8, raw as u8)
+                })
+                .collect();
+            art.insert(
+                id,
+                WordArt {
+                    size,
+                    colors,
+                    triangles: decode(&mut data),
+                },
             );
         }
-        Self(glyphs)
+        Self(glyphs, art)
     }
 }
 
 impl Font {
+    pub(super) fn width(&self, id: super::Id) -> f32 {
+        self.1.get(&id).map_or_else(
+            || id.text().lines().map(|l| l.len()).max().unwrap_or(0) as f32 * 17.,
+            |art| art.size.x,
+        )
+    }
+    pub(super) fn layout(&self, id: super::Id) -> Vec<GlyphTriangle> {
+        self.1.get(&id).map_or_else(
+            || self.triangles(id.text()),
+            |art| {
+                art.triangles
+                    .iter()
+                    .map(|triangle| GlyphTriangle {
+                        points: triangle.map(|p| p - art.size / 2.),
+                        origin: Vec2::ZERO,
+                        colors: triangle
+                            .map(|p| art.colors[(p.y as usize).min(art.colors.len() - 1)]),
+                    })
+                    .collect()
+            },
+        )
+    }
     pub(super) fn triangles(&self, text: &str) -> Vec<GlyphTriangle> {
         text.lines()
             .enumerate()
@@ -102,6 +116,7 @@ impl Font {
                             .flatten()
                             .map(move |triangle| GlyphTriangle {
                                 points: triangle.map(|p| p - Vec2::new(7.5, 9.)),
+                                colors: triangle.map(|p| color(p.y)),
                                 origin: Vec2::new(
                                     left + 7.5 + index as f32 * 17.,
                                     line as f32 * 20.,
@@ -111,6 +126,50 @@ impl Font {
             })
             .collect()
     }
+}
+
+fn word(data: &mut &[u8]) -> u16 {
+    let value = u16::from_be_bytes(data[..2].try_into().unwrap());
+    *data = &data[2..];
+    value
+}
+
+fn decode(data: &mut &[u8]) -> Vec<[Vec2; 3]> {
+    let count = word(data);
+    let mut path = Path::builder();
+    for _ in 0..count {
+        let points: Vec<_> = (0..word(data))
+            .map(|_| Vec2::new(word(data) as i16 as f32, word(data) as i16 as f32))
+            .collect();
+        let midpoint = (points[0] + points[points.len() - 1]) / 2.;
+        path.begin(point(midpoint.x, midpoint.y));
+        for (i, control) in points.iter().enumerate() {
+            let end = (*control + points[(i + 1) % points.len()]) / 2.;
+            path.quadratic_bezier_to(point(control.x, control.y), point(end.x, end.y));
+        }
+        path.end(true);
+    }
+    let mut geometry = VertexBuffers::<Vec2, u32>::new();
+    if count > 0 {
+        FillTessellator::new()
+            .tessellate_path(
+                &path.build(),
+                &FillOptions::default()
+                    .with_fill_rule(FillRule::EvenOdd)
+                    .with_tolerance(0.02),
+                &mut BuffersBuilder::new(&mut geometry, |v: FillVertex| {
+                    Vec2::new(v.position().x, v.position().y)
+                }),
+            )
+            .unwrap();
+    }
+    geometry
+        .indices
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|face| std::array::from_fn(|i| geometry.vertices[face[i] as usize]))
+        .collect()
 }
 
 #[cfg(test)]

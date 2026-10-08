@@ -3,6 +3,7 @@
 import re
 import struct
 import sys
+from collections import Counter
 from pathlib import Path
 
 
@@ -46,6 +47,34 @@ def contours(mask):
 
 def main():
     source, output = map(Path, sys.argv[1:])
+    if output.name == "wordart.bin":
+        binary = bytearray(b"T2KA")
+        for key, image, ox, oy, width, height in [
+            (0,"beasty3.cry",137,110,178,42),
+            (1,"beasty7.cry",4,84,197,65),
+            (2,"beasty4.cry",148,21,145,68),
+            (3,"beasty4.cry",148,0,50,21),
+            (4,"beasty5.cry",0,110,45,44),
+            (5,"beasty5.cry",46,110,44,44),
+            (6,"beasty5.cry",90,110,45,44),
+        ]:
+            pixels = (source / "images" / image).read_bytes()
+            mask = [[pixels[((oy+y)*320+ox+x)*2+1] > 80 for x in range(width)] for y in range(height)]
+            paths = contours(mask)
+            assert paths
+            binary.extend(struct.pack(">BHH",key,width,height))
+            for y in range(height):
+                row = [pixels[((oy+y)*320+ox+x)*2] for x in range(width) if mask[y][x]]
+                hue = Counter(row).most_common(1)[0][0] if row else 0
+                binary.extend(struct.pack(">H",(hue << 8) | 240))
+            binary.extend(struct.pack(">H",len(paths)))
+            for points in paths:
+                binary.extend(struct.pack(">H",len(points)))
+                for x,y in points:
+                    binary.extend(struct.pack(">hh",x,y))
+        output.write_bytes(binary)
+        print(f"{output}: {len(binary)} bytes, 7 vector word-art graphics")
+        return
     table = (source / "afont.s").read_text().split("afont:", 1)[1]
     values = [int(v, 16) for v in re.findall(r"dc\.l\s+\$([0-9a-f]+)", table, re.I)]
     height, width = values[0] >> 16, values[0] & 65535

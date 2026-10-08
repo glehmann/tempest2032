@@ -107,6 +107,20 @@ impl Game {
     pub(crate) fn announce(&mut self, id: crate::messages::Id) {
         self.announcements.push(id.into());
     }
+
+    pub(crate) fn score_popup(&mut self, points: u32, origin: Vec3) {
+        use crate::messages::Id;
+        let id = match points {
+            250 => Id::Points250,
+            500 => Id::Points500,
+            750 => Id::Points750,
+            _ => return,
+        };
+        self.announcements.push(crate::messages::Event {
+            id,
+            origin: Some(origin),
+        });
+    }
 }
 
 pub(crate) fn playing(game: Res<Game>) -> bool {

@@ -10,11 +10,12 @@ pub(crate) use catalog::Id;
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Event {
     pub(crate) id: Id,
+    pub(crate) origin: Option<Vec3>,
 }
 
 impl From<Id> for Event {
     fn from(id: Id) -> Self {
-        Self { id }
+        Self { id, origin: None }
     }
 }
 
@@ -40,9 +41,11 @@ impl Active {
 #[derive(Resource, Default)]
 pub(crate) struct Messages {
     pub(super) banner: Option<Active>,
+    pub(super) rewards: Vec<Active>,
     pub(super) clock: u32,
     pub(crate) events: Vec<Event>,
     epoch: u32,
+    lives: Option<u8>,
 }
 
 #[derive(Resource)]
@@ -62,8 +65,28 @@ impl Messages {
             active.age += 1;
         }
         self.banner = self.banner.filter(|active| active.alive());
+        for active in &mut self.rewards {
+            active.age += 1;
+        }
+        self.rewards.retain(|active| {
+            active.age
+                < if matches!(
+                    active.event.id,
+                    Id::Points250 | Id::Points500 | Id::Points750
+                ) {
+                    80
+                } else {
+                    151
+                }
+        });
         for event in self.events.drain(..) {
-            self.banner = Some(Active { event, age: 0 });
+            if event.id.reward() {
+                if self.rewards.len() < 32 {
+                    self.rewards.push(Active { event, age: 0 });
+                }
+            } else {
+                self.banner = Some(Active { event, age: 0 });
+            }
         }
     }
 }
@@ -92,6 +115,12 @@ fn advance(
         };
     }
     if preview.is_none() {
+        if let Some(lives) = messages.lives {
+            for _ in lives..game.lives {
+                messages.send(Id::OneUp);
+            }
+        }
+        messages.lives = Some(game.lives);
         for id in upgrades.announcements.drain(..) {
             messages.send(id);
         }
@@ -121,6 +150,25 @@ fn advance(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reward_effects_coexist_with_announcements_and_expire_independently() {
+        let mut messages = Messages::default();
+        messages.send(Id::ParticleLaser);
+        messages.send(Id::Excellent);
+        messages.send(Id::Points250);
+        messages.step();
+        assert_eq!(messages.banner.unwrap().event.id, Id::ParticleLaser);
+        assert_eq!(messages.rewards.len(), 2);
+        for _ in 0..80 {
+            messages.step();
+        }
+        assert_eq!(messages.rewards.len(), 1);
+        assert_eq!(messages.rewards[0].event.id, Id::Excellent);
+        for _ in 0..71 {
+            messages.step();
+        }
+        assert!(messages.rewards.is_empty());
+    }
     #[test]
     fn game_events_are_consumed_once_and_restart_clears_old_messages() {
         let mut app = App::new();

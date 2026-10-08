@@ -76,7 +76,11 @@ fn pickups_emit_original_announcements_in_collection_order() {
     for stage in 0..8 {
         upgrades.random = 0x2000;
         upgrades.collect(&mut score);
-        let id = upgrades.announcements.pop().unwrap();
+        let id = upgrades
+            .announcements
+            .drain(..)
+            .find(|id| !id.reward())
+            .unwrap();
         let expected = [
             Id::ParticleLaser,
             Id::Zappo,

@@ -92,6 +92,7 @@ impl Upgrades {
                 Reward::Droid
             }
             5 => {
+                self.message(crate::messages::Id::Excellent);
                 self.warp_tokens = (self.warp_tokens + 1).min(3);
                 self.message(match self.warp_tokens {
                     1 => crate::messages::Id::WarpTwo,
@@ -105,6 +106,7 @@ impl Upgrades {
                 if self.random >> 24 <= 8 {
                     *score += 3000;
                     self.message(crate::messages::Id::OuttaHere);
+                    self.message(crate::messages::Id::Excellent);
                     Reward::Skip
                 } else {
                     *score += 2000;
@@ -113,6 +115,7 @@ impl Upgrades {
                         3 => crate::messages::Id::Outstanding,
                         _ => crate::messages::Id::Dude,
                     });
+                    self.message(crate::messages::Id::Points2000);
                     Reward::Bonus
                 }
             }
