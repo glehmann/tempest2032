@@ -373,6 +373,8 @@ no Rust changes are needed. The supplied levels are:
   and moving into the `0xC600` Flipper and `0xD800` Fuseball speed groups.
 - `levels/88.toml`: D-shaped `web29`, retaining the 71-spawn full enemy mix
   and level-87 speed and interval settings.
+- `levels/89.toml`: curved-L `web30`, shortening Flipper Tankers to 301 ticks.
+  Flippers use `0xC800`, Fuseballs `0xE000`, and Pulsar phases drop to five ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
