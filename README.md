@@ -394,6 +394,9 @@ no Rust changes are needed. The supplied levels are:
   to seven ticks, and Fuseball Tankers repeat every 424 ticks.
 - `levels/98.toml`: square `web11`, shortening Fuseball Tankers to 324 ticks
   in the 91-spawn cream-palette wave.
+- `levels/99.toml`: open flat `web1`, with 101 shared spawns consisting only
+  of type-2 Super Flippers every 21 ticks and Beasties every 101. The original
+  `_nw99` label aliases `_nw100`; its commented-out alternate wave is unused.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
