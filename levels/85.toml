@@ -1,0 +1,82 @@
+# Original _nw85 on the compact web21.
+number = 85
+enemy_count = 71
+
+[web]
+start_lane = 4
+depth = 160
+vertices = [[7,5],[9,5],[11,7],[11,9],[9,11],[7,11],[5,9],[5,7]]
+orientations = [0,-32,-64,-96,-128,96,64,32]
+
+[flippers]
+enabled = false
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.765625
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[super_flippers]
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.765625
+
+[spiral_flippers]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 0.765625
+
+[mirrors]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.8125
+
+[aliens]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 1.53125
+
+[fuseballs]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.8125
+
+[tankers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 0.71875
+super_chance = 252
+spiral_chance = 168
+
+[fuse_tankers]
+first_spawn_ticks = 262
+spawn_interval_ticks = 524
+climb_speed = 0.71875
+
+[pulsars]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.5
+phase_ticks = 6
+propagation_ticks = 5
+
+[pulsar_tankers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 0.71875
+phase_ticks = 6
+propagation_ticks = 5
+
+[beasts]
+first_spawn_ticks = 401
+spawn_interval_ticks = 801
+climb_speed = 0.765625
+
+[appearance]
+surface = [1.0, 0.53333336, 0.0]
+lines = [0.78, 0.416, 0.015]
+flipper = [255, 187, 0]
+
+[powerups]
+kill_interval = 11

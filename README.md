@@ -365,6 +365,8 @@ no Rust changes are needed. The supplied levels are:
   `0x18400` Alien Droids, and `0xC800` Mirrors and Fuseballs.
 - `levels/84.toml`: open hook `web25`, shortening Fuseball Tanker generation
   to 524 ticks while retaining the 61-spawn budget and level-83 speeds.
+- `levels/85.toml`: compact `web21`, increasing the budget to 71 spawns.
+  Flippers use `0xC400`, Alien Droids `0x18800`, and Pulsar phases drop to six ticks.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
