@@ -33,6 +33,14 @@ pub(crate) struct Cli {
     #[arg(long,requires="warp_zone",value_parser=clap::value_parser!(u8).range(1..=8))]
     pub(crate) warp_course: Option<u8>,
 
+    /// Preview an original animated announcement or reward
+    #[arg(long, value_enum, value_name = "MESSAGE")]
+    pub(crate) message_preview: Option<crate::messages::Id>,
+
+    /// Freeze the preview at this fixed animation tick (screenshots default to 60)
+    #[arg(long, requires = "message_preview")]
+    pub(crate) message_tick: Option<u16>,
+
     /// Save the settled level or warp scene to a screenshot and exit
     #[arg(long, value_name = "FILE", conflicts_with = "recording")]
     pub(crate) screenshot: Option<PathBuf>,

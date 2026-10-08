@@ -50,8 +50,16 @@ pub(crate) fn capture_frame(
     mut frames: Local<u32>,
     glider: Single<&Visibility, With<Glider>>,
     game: Res<Game>,
+    preview: Option<Res<crate::messages::Preview>>,
 ) {
-    if game.status == crate::game::Status::Bonus {
+    if let Some(preview) = preview {
+        if preview.elapsed <= preview.capture_tick.unwrap_or(60) {
+            return;
+        }
+        if *frames < 60 {
+            *frames = 59;
+        }
+    } else if game.status == crate::game::Status::Bonus {
         if game.bonus.as_ref().is_none_or(|session| session.tick < 60) {
             return;
         }

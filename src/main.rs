@@ -17,6 +17,7 @@ mod glider;
 mod hud;
 mod level;
 mod mesh;
+mod messages;
 mod powerups;
 mod scene;
 mod stars;

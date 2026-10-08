@@ -56,7 +56,8 @@ def main():
     for character in " !(),-.:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
         offset = values[ord(character) - 32 + 1]
         ox, oy = offset & 65535, offset >> 16
-        mask = [[pixels[((oy + y) * 320 + ox + x) * 2 + 1] > 8 for x in range(width)] for y in range(height)]
+        # The sheet's dark bevel/background is intensity 74, not transparent zero.
+        mask = [[pixels[((oy + y) * 320 + ox + x) * 2 + 1] > 80 for x in range(width)] for y in range(height)]
         paths = contours(mask) if character != " " else []
         assert paths or character == " "
         binary.extend(struct.pack(">BH", ord(character), len(paths)))

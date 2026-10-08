@@ -12,7 +12,7 @@ lyon_tessellation = "1"
 bevy = { version = "0.18", default-features = false, features = [
     "std", "async_executor", "multi_threaded", "bevy_asset", "bevy_log",
     "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render",
-    "default_font", "x11", "wayland", "png", "sysinfo_plugin",
+    "default_font", "bevy_sprite_render", "x11", "wayland", "png", "sysinfo_plugin",
 ] }
 
 [profile.dev]

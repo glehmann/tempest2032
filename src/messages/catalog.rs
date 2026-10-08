@@ -2,7 +2,7 @@
 
 use clap::ValueEnum;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, ValueEnum)]
 pub(crate) enum Id {
     CollectPowerups,
     ParticleLaser,

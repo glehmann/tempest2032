@@ -53,6 +53,14 @@ fn normal_scene(game: Res<Game>) -> bool {
 
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
+    crate::messages::add_systems(&mut app);
+    if let Some(id) = args.message_preview {
+        app.insert_resource(crate::messages::Preview {
+            id,
+            capture_tick: args.message_tick.or(args.screenshot.as_ref().map(|_| 60)),
+            elapsed: 0,
+        });
+    }
     if args.fps {
         app.add_plugins(SystemInformationDiagnosticsPlugin)
             .init_resource::<FpsMeter>()
