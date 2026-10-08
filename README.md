@@ -363,6 +363,8 @@ no Rust changes are needed. The supplied levels are:
   Flipper Tanker intervals to 501 ticks while retaining the full enemy mix.
 - `levels/83.toml`: closed pentagon `web27`, with `0xC200` Flippers,
   `0x18400` Alien Droids, and `0xC800` Mirrors and Fuseballs.
+- `levels/84.toml`: open hook `web25`, shortening Fuseball Tanker generation
+  to 524 ticks while retaining the 61-spawn budget and level-83 speeds.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
