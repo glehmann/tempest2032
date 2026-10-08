@@ -1,0 +1,82 @@
+# Original _nw88 on the closed D-shaped web29.
+number = 88
+enemy_count = 71
+
+[web]
+start_lane = 12
+depth = 160
+vertices = [[2,12],[2,10],[3,8],[5,6],[7,5],[9,5],[11,6],[13,8],[14,10],[14,12],[12,12],[10,12],[8,12],[6,12],[4,12]]
+orientations = [64,48,32,16,0,-16,-32,-48,-64,-128,-128,-128,-128,-128,-128]
+
+[flippers]
+enabled = false
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.7734375
+flip_speed = 4
+pause_ticks = 8
+max_active = 11
+
+[super_flippers]
+first_spawn_ticks = 11
+spawn_interval_ticks = 21
+climb_speed = 0.7734375
+
+[spiral_flippers]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 0.7734375
+
+[mirrors]
+first_spawn_ticks = 376
+spawn_interval_ticks = 751
+climb_speed = 0.84375
+
+[aliens]
+first_spawn_ticks = 201
+spawn_interval_ticks = 401
+climb_speed = 1.546875
+
+[fuseballs]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.84375
+
+[tankers]
+first_spawn_ticks = 251
+spawn_interval_ticks = 501
+climb_speed = 0.71875
+super_chance = 252
+spiral_chance = 174
+
+[fuse_tankers]
+first_spawn_ticks = 262
+spawn_interval_ticks = 524
+climb_speed = 0.71875
+
+[pulsars]
+first_spawn_ticks = 151
+spawn_interval_ticks = 301
+climb_speed = 0.5
+phase_ticks = 6
+propagation_ticks = 5
+
+[pulsar_tankers]
+first_spawn_ticks = 226
+spawn_interval_ticks = 451
+climb_speed = 0.71875
+phase_ticks = 6
+propagation_ticks = 5
+
+[beasts]
+first_spawn_ticks = 401
+spawn_interval_ticks = 801
+climb_speed = 0.7734375
+
+[appearance]
+surface = [1.0, 0.53333336, 0.0]
+lines = [0.78, 0.416, 0.015]
+flipper = [255, 187, 0]
+
+[powerups]
+kill_interval = 11

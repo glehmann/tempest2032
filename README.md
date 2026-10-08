@@ -371,6 +371,8 @@ no Rust changes are needed. The supplied levels are:
   generation to 401 ticks within the 71-spawn wave.
 - `levels/87.toml`: tiny-star `web26`, shortening Pulsar Tankers to 451 ticks
   and moving into the `0xC600` Flipper and `0xD800` Fuseball speed groups.
+- `levels/88.toml`: D-shaped `web29`, retaining the 71-spawn full enemy mix
+  and level-87 speed and interval settings.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
