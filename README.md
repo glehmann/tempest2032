@@ -369,6 +369,8 @@ no Rust changes are needed. The supplied levels are:
   Flippers use `0xC400`, Alien Droids `0x18800`, and Pulsar phases drop to six ticks.
 - `levels/86.toml`: open inverted-bird `web28`, shortening Alien Droid
   generation to 401 ticks within the 71-spawn wave.
+- `levels/87.toml`: tiny-star `web26`, shortening Pulsar Tankers to 451 ticks
+  and moving into the `0xC600` Flipper and `0xD800` Fuseball speed groups.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
