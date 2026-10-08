@@ -387,6 +387,8 @@ no Rust changes are needed. The supplied levels are:
   dense Tanker settings of level 93 in an 81-spawn wave.
 - `levels/95.toml`: kiss-of-death `web36`, shortening Alien Droids to 201
   ticks and using the final sixth-set `0xCE00`/`0xF800` speed groups.
+- `levels/96.toml`: backwards-C `web37`, ending the sixth set with 91 spawns
+  and Mirrors every 351 ticks alongside the rapid Alien Droid and Pulsar generators.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
