@@ -34,12 +34,22 @@ use crate::{
     level::{Level, Levels},
     powerups,
     scene::{setup, sync_web, update_lane},
-    stars,
+    stars, warp,
     weapons::{draw_particle_shots, fire_bullets, move_bullets},
 };
 
 #[derive(Resource)]
 struct StartingLevel(usize);
+
+#[derive(Resource)]
+struct StartingWarp {
+    kind: warp::ZoneKind,
+    course: Option<u8>,
+}
+
+fn normal_scene(game: Res<Game>) -> bool {
+    game.status != Status::Bonus
+}
 
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
@@ -55,7 +65,13 @@ pub(crate) fn run(args: cli::Cli) {
     }
     let recording = args
         .record_motion
-        .map(|directory| (directory, 6, CapturePreview::Motion))
+        .map(|directory| {
+            (
+                directory,
+                if args.warp_zone.is_some() { 30 } else { 6 },
+                CapturePreview::Motion,
+            )
+        })
         .or_else(|| {
             args.record_exit
                 .map(|directory| (directory, 14, CapturePreview::Exit))
@@ -100,6 +116,12 @@ pub(crate) fn run(args: cli::Cli) {
     app.insert_resource(initial)
         .insert_resource(levels)
         .insert_resource(StartingLevel(starting_level - 1));
+    if let Some(kind) = args.warp_zone {
+        app.insert_resource(StartingWarp {
+            kind,
+            course: args.warp_course,
+        });
+    }
     app.insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -117,7 +139,7 @@ pub(crate) fn run(args: cli::Cli) {
             }),
             ..default()
         }))
-        .add_systems(Startup, setup);
+        .add_systems(Startup, (setup, warp::render::setup));
     add_systems(&mut app);
     stars::add_systems(&mut app);
     app.run();
@@ -139,10 +161,19 @@ fn add_systems(app: &mut App) {
         .world()
         .get_resource::<StartingLevel>()
         .map_or(0, |start| start.0);
+    let start_warp =
+        app.world()
+            .get_resource::<StartingWarp>()
+            .map(|start| crate::level::LoadReason::Warp {
+                kind: start.kind,
+                course: start.course,
+                destination: index,
+            });
     app.init_resource::<Level>()
         .init_resource::<Levels>()
         .insert_resource(Game {
             status: Status::Entering,
+            load: start_warp,
             pulsar_timer: initial
                 .pulsars
                 .as_ref()
@@ -201,7 +232,9 @@ fn add_systems(app: &mut App) {
         .init_resource::<pulsars::Pulse>()
         .add_systems(
             PreUpdate,
-            powerups::queue_jump.after(bevy::input::InputSystems),
+            powerups::queue_jump
+                .after(bevy::input::InputSystems)
+                .run_if(normal_scene),
         )
         .add_systems(
             FixedUpdate,
@@ -224,6 +257,7 @@ fn add_systems(app: &mut App) {
                                 | Status::Spiked
                                 | Status::Fried
                                 | Status::Exiting
+                                | Status::Bonus
                         )
                     }),
                     move_bullets,
@@ -263,6 +297,7 @@ fn add_systems(app: &mut App) {
                     animate_capture,
                     shot_death::animate,
                     exit::animate,
+                    warp::advance,
                     check_game,
                     load_level,
                 )
@@ -273,7 +308,7 @@ fn add_systems(app: &mut App) {
         .add_systems(
             Update,
             (
-                fit_camera,
+                fit_camera.run_if(normal_scene),
                 quit_on_escape,
                 restart_game,
                 load_level,
@@ -282,6 +317,13 @@ fn add_systems(app: &mut App) {
                 .chain(),
         )
         .add_systems(Update, sync_web.after(load_level))
+        .add_systems(
+            Update,
+            warp::render::draw
+                .after(load_level)
+                .after(fit_camera)
+                .after(sync_web),
+        )
         .add_systems(Update, update_enemy_colors.after(load_level))
         .add_systems(Update, draw_approaching_flippers.after(fit_camera))
         .add_systems(Update, tankers::draw_points.after(fit_camera))

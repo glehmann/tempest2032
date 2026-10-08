@@ -140,6 +140,9 @@ pub(crate) fn animate(
     mut warp: Option<ResMut<stars::Warp>>,
     spikes: Query<&spikers::Spike>,
 ) {
+    if game.status == Status::Bonus {
+        return;
+    }
     let Some(mut exit) = game.exit else {
         if let Some(warp) = &mut warp {
             **warp = stars::Warp::default();

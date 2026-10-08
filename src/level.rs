@@ -428,6 +428,14 @@ pub(crate) enum LoadReason {
     Restart,
     Retry,
     Advance,
+    Warp {
+        kind: crate::warp::ZoneKind,
+        course: Option<u8>,
+        destination: usize,
+    },
+    ReturnWarp {
+        destination: usize,
+    },
 }
 
 #[derive(Component, Default)]

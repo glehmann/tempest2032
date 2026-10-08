@@ -11,6 +11,76 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn bonus_uses_original_ring_population_and_six_samples_without_steering_parallax() {
+    use crate::game::{Game, Status};
+    use crate::stars::BonusStars;
+    use crate::warp::{Session, ZoneKind};
+
+    let mut app = App::new();
+    let mut meshes = Assets::<Mesh>::default();
+    let mesh = meshes.add(colored_mesh([]));
+    let mut session = Session::new(ZoneKind::GateFlight, 0, Some(1), 0);
+    session.tick = 60;
+    app.insert_resource(meshes)
+        .insert_resource(Stars::default())
+        .insert_resource(Warp::default())
+        .insert_resource(BonusStars::default())
+        .insert_resource(Game {
+            status: Status::Bonus,
+            bonus: Some(session),
+            ..default()
+        })
+        .add_systems(Update, draw_stars);
+    let camera = app
+        .world_mut()
+        .spawn((
+            Camera3d::default(),
+            Transform::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+        ))
+        .id();
+    app.world_mut()
+        .spawn((StarField, Mesh3d(mesh.clone()), Transform::default()));
+    app.update();
+    let before = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&mesh)
+        .unwrap()
+        .clone();
+    assert_eq!(app.world().resource::<BonusStars>().0.len(), 256);
+    let stars = &app.world().resource::<BonusStars>().0;
+    for axis in 0..2 {
+        assert!(stars.iter().any(|star| star.position[axis] > 90.));
+        assert!(stars.iter().any(|star| star.position[axis] < -90.));
+    }
+    assert!(before.count_vertices() > COUNT * 6);
+    app.world_mut()
+        .get_mut::<Transform>(camera)
+        .unwrap()
+        .translation = Vec3::new(12., -4., 0.);
+    app.update();
+    assert_eq!(
+        before.attribute(Mesh::ATTRIBUTE_POSITION),
+        app.world()
+            .resource::<Assets<Mesh>>()
+            .get(&mesh)
+            .unwrap()
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+    );
+    app.world_mut().resource_mut::<Game>().status = Status::Playing;
+    app.update();
+    assert!(
+        app.world()
+            .resource::<Assets<Mesh>>()
+            .get(&mesh)
+            .unwrap()
+            .count_vertices()
+            <= COUNT * 6
+    );
+}
+
+#[test]
 fn warp_draws_four_depth_spaced_samples_and_returns_to_single_dots() {
     let mut app = App::new();
     let mut meshes = Assets::<Mesh>::default();

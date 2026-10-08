@@ -49,8 +49,16 @@ pub(crate) fn capture_frame(
     path: Res<CapturePath>,
     mut frames: Local<u32>,
     glider: Single<&Visibility, With<Glider>>,
+    game: Res<Game>,
 ) {
-    if *glider != Visibility::Visible {
+    if game.status == crate::game::Status::Bonus {
+        if game.bonus.as_ref().is_none_or(|session| session.tick < 60) {
+            return;
+        }
+        if *frames < 60 {
+            *frames = 59;
+        }
+    } else if *glider != Visibility::Visible {
         return;
     }
     *frames += 1;
@@ -81,11 +89,58 @@ pub(crate) fn preview_input(
     mirrors: Query<&crate::enemies::mirrors::Mirror>,
     aliens: Query<&crate::enemies::aliens::AlienDroid>,
     upgrades: Res<Upgrades>,
+    game: Res<Game>,
 ) {
     keys.release(KeyCode::KeyD);
     keys.release(KeyCode::KeyA);
     keys.release(KeyCode::Space);
     keys.release(KeyCode::KeyJ);
+    if game.status == crate::game::Status::Bonus {
+        for key in [
+            KeyCode::ArrowUp,
+            KeyCode::ArrowDown,
+            KeyCode::KeyW,
+            KeyCode::KeyS,
+        ] {
+            keys.release(key);
+        }
+        if let Some(session) = &game.bonus
+            && let Some(gate) = session.gates.front()
+        {
+            let (x, y, _) = session.spec(gate.index);
+            let position = session.position();
+            let target = Vec2::new(f32::from(x), f32::from(y));
+            let predicted = position
+                + Vec2::new(
+                    session.x.velocity as f32 / 65536. * 16.,
+                    session.y.velocity as f32 / (8. * 65536.) * 4.,
+                );
+            if (target.x - predicted.x).abs() > 0.5 {
+                keys.press(if target.x > predicted.x {
+                    KeyCode::KeyD
+                } else {
+                    KeyCode::KeyA
+                });
+            }
+            if (target.y - predicted.y).abs() > 0.5 {
+                keys.press(if target.y > predicted.y {
+                    KeyCode::KeyS
+                } else {
+                    KeyCode::KeyW
+                });
+            }
+        }
+        capture.tick += 1;
+        return;
+    }
+    for key in [
+        KeyCode::ArrowUp,
+        KeyCode::ArrowDown,
+        KeyCode::KeyW,
+        KeyCode::KeyS,
+    ] {
+        keys.release(key);
+    }
     if upgrades.jump_enabled && pickups.is_empty() && capture.tick.is_multiple_of(120) {
         keys.press(KeyCode::KeyJ);
     }
@@ -186,6 +241,9 @@ pub(crate) fn preview_transition(
     let Some(capture) = capture else {
         return;
     };
+    if game.status == crate::game::Status::Bonus {
+        return;
+    }
     if capture.tick == 360 && capture.preview != CapturePreview::Motion {
         for entity in &actors {
             commands.entity(entity).despawn();

@@ -37,6 +37,9 @@ pub(crate) struct WebAssets {
 #[derive(Component)]
 pub(crate) struct LevelLabel;
 
+#[derive(Component)]
+pub(crate) struct ControlsLegend;
+
 pub(crate) fn tunnel_mesh(web: &Web, color: [f32; 3]) -> Mesh {
     let mut triangles = Vec::new();
     for lane in 0..web.lanes() {
@@ -182,6 +185,7 @@ pub(crate) fn setup(
         },
     ));
     commands.spawn((
+        ControlsLegend,
         Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit"),
         TextFont {
             font_size: 14.0,

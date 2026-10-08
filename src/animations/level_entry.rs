@@ -241,6 +241,20 @@ pub(crate) fn draw(
     >,
 ) {
     let tick = game.entry.unwrap_or(APPROACH_TICKS + REZ_TICKS);
+    if game.status == Status::Bonus {
+        *web.1 = Visibility::Hidden;
+        *player.2 = Visibility::Hidden;
+        for (_, _, _, mut visibility) in &mut trails {
+            *visibility = Visibility::Hidden;
+        }
+        for mut visibility in &mut highlights {
+            *visibility = Visibility::Hidden;
+        }
+        for mut visibility in &mut droids {
+            *visibility = Visibility::Hidden;
+        }
+        return;
+    }
     let (web_transform, web_visibility) = &mut *web;
     **web_transform = self::web_transform(tick, &level.web);
     **web_visibility = if game

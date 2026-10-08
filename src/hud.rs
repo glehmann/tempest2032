@@ -57,6 +57,7 @@ pub(crate) fn update_hud(
         Status::Exiting if level.spikers.is_some() => "\nLEVEL CLEAR\nAVOID THE SPIKES",
         Status::Exiting => "\nLEVEL CLEAR",
         Status::GameOver => "\nGAME OVER   R to restart",
+        Status::Bonus => "",
     };
     let text = format!("{}\nLIVES {}{}", game.score, game.lives, status);
     if hud.0 != text {

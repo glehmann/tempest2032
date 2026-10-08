@@ -25,11 +25,19 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
-    /// Save the settled level to a screenshot and exit
+    /// Start directly in a playable warp zone (gate-flight, alias: 1)
+    #[arg(long, value_enum, value_name = "ZONE",conflicts_with_all=["record_exit","record_shot_hit"])]
+    pub(crate) warp_zone: Option<crate::warp::ZoneKind>,
+
+    /// Choose an original gate-flight course for direct warp startup
+    #[arg(long,requires="warp_zone",value_parser=clap::value_parser!(u8).range(1..=8))]
+    pub(crate) warp_course: Option<u8>,
+
+    /// Save the settled level or warp scene to a screenshot and exit
     #[arg(long, value_name = "FILE", conflicts_with = "recording")]
     pub(crate) screenshot: Option<PathBuf>,
 
-    /// Record scripted movement, default duration 6 seconds
+    /// Record scripted movement, default 6 seconds (30 for direct warp startup)
     #[arg(long, value_name = "DIRECTORY")]
     pub(crate) record_motion: Option<PathBuf>,
 

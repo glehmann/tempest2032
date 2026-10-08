@@ -1,6 +1,7 @@
 //! Moving background stars and warp depth samples. Draws screen-sized dots
 //! behind the web with seeded positions and original depth-cued brightness.
 
+use crate::game::{Game, Status};
 use crate::mesh::colored_mesh;
 use crate::web::FRONT_RADIUS;
 use crate::web::LANE_UNIT;
@@ -52,6 +53,36 @@ impl Star {
 #[derive(Resource)]
 pub(crate) struct Stars(pub(crate) Vec<Star>);
 
+#[derive(Resource)]
+pub(crate) struct BonusStars(Vec<Star>);
+
+impl Default for BonusStars {
+    fn default() -> Self {
+        let sines = include_bytes!("../assets/warp/sines.bin");
+        let sin = |angle: usize| i32::from(sines[angle & 255] as i8);
+        // rs400 runs 33 iterations per ring but the GPU reads only 256 stars.
+        Self(
+            (0..8)
+                .rev()
+                .flat_map(|ring| {
+                    (0..=32).rev().map(move |step| {
+                        let angle = step * 8;
+                        let phase = ((angle + 64) & 255) * 4;
+                        let hue = ((7 - ring) * 0x20 + (((sin(phase) + 128) & 0xf0) >> 4)) as u8;
+                        Star {
+                            position: Vec2::new(sin(angle) as f32, -sin(angle + 64) as f32)
+                                * (400. / 512.),
+                            depth: ring * 64 * LANE_UNIT + sin(phase).abs() * LANE_UNIT / 2,
+                            color: crate::cry::color(hue, 255),
+                        }
+                    })
+                })
+                .take(256)
+                .collect(),
+        )
+    }
+}
+
 impl Default for Stars {
     fn default() -> Self {
         let mut random = 0x2_000_u32;
@@ -86,6 +117,7 @@ pub(crate) fn setup(
     materials: &mut Assets<StandardMaterial>,
 ) {
     commands.insert_resource(Stars::default());
+    commands.insert_resource(BonusStars::default());
     commands.insert_resource(Warp::default());
     commands.spawn((
         StarField,
@@ -104,7 +136,7 @@ pub(crate) fn setup(
 
 pub(crate) fn add_systems(app: &mut App) {
     app.add_systems(FixedUpdate, advance_stars)
-        .add_systems(Update, draw_stars);
+        .add_systems(Update, draw_stars.after(crate::warp::render::draw));
 }
 
 pub(crate) fn advance_stars(mut stars: ResMut<Stars>) {
@@ -119,6 +151,8 @@ pub(crate) fn advance_stars(mut stars: ResMut<Stars>) {
 pub(crate) fn draw_stars(
     stars: Res<Stars>,
     warp: Res<Warp>,
+    game: Option<Res<Game>>,
+    bonus_stars: Option<Res<BonusStars>>,
     mut meshes: ResMut<Assets<Mesh>>,
     cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<StarField>)>,
     mut fields: Query<(&Mesh3d, &mut Transform), With<StarField>>,
@@ -129,8 +163,29 @@ pub(crate) fn draw_stars(
     let half_height = BACKGROUND_DISTANCE * (projection.fov * 0.5).tan();
     let half_width = half_height * projection.aspect_ratio;
     let pixel = 2.0 * half_width / 384.0;
-    let warp = &*warp;
-    let triangles = stars.0.iter().flat_map(|star| {
+    let bonus = game
+        .as_ref()
+        .filter(|game| game.status == Status::Bonus)
+        .and_then(|game| game.bonus.as_ref());
+    let bonus_warp = Warp {
+        distance: bonus.map_or(0, |session| {
+            ((session.tick % 512 * 3) % 512) as i32 * LANE_UNIT
+        }),
+        spacing: 26 * LANE_UNIT,
+        copies: 5,
+    };
+    let warp = if bonus.is_some() { &bonus_warp } else { &*warp };
+    let stars = if bonus.is_some() {
+        bonus_stars.as_ref().map_or(&stars.0, |stars| &stars.0)
+    } else {
+        &stars.0
+    };
+    let viewpoint = if bonus.is_some() {
+        Vec2::ZERO
+    } else {
+        camera.translation.truncate() * (24.0 / FRONT_RADIUS)
+    };
+    let triangles = stars.iter().flat_map(|star| {
         (0..=warp.copies).flat_map(move |index| {
             let star = Star {
                 position: star.position,
@@ -138,8 +193,7 @@ pub(crate) fn draw_stars(
                     .rem_euclid(DEPTH_WRAP),
                 color: star.color,
             };
-            let centre =
-                star.projected(camera.translation.truncate() * (24.0 / FRONT_RADIUS)) * pixel;
+            let centre = star.projected(viewpoint) * pixel;
             if centre.x.abs() > half_width || centre.y.abs() > half_height {
                 return Vec::new();
             }

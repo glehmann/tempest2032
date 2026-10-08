@@ -2,6 +2,42 @@
 
 use crate::cli::Cli;
 use clap::Parser;
+
+#[test]
+fn direct_warp_selection_validates_zone_course_and_capture_options() {
+    let args = crate::cli::Cli::try_parse_from([
+        "t2k",
+        "--warp-zone",
+        "gate-flight",
+        "--warp-course",
+        "8",
+        "--level",
+        "65",
+        "--fps",
+        "--screenshot",
+        "warp.png",
+    ])
+    .unwrap();
+    assert_eq!(args.warp_zone, Some(crate::warp::ZoneKind::GateFlight));
+    assert_eq!(args.warp_course, Some(8));
+    assert!(crate::cli::Cli::try_parse_from(["t2k", "--warp-zone", "1"]).is_ok());
+    for args in [
+        vec!["t2k", "--warp-zone", "gate-flight", "--record-exit", "out"],
+        vec![
+            "t2k",
+            "--warp-zone",
+            "gate-flight",
+            "--record-shot-hit",
+            "out",
+        ],
+        vec!["t2k", "--warp-course", "1"],
+        vec!["t2k", "--warp-zone", "tunnel"],
+        vec!["t2k", "--warp-zone", "gate", "--warp-course", "0"],
+        vec!["t2k", "--warp-zone", "gate", "--warp-course", "9"],
+    ] {
+        assert!(crate::cli::Cli::try_parse_from(args).is_err());
+    }
+}
 use clap::{CommandFactory, error::ErrorKind};
 use std::path::PathBuf;
 

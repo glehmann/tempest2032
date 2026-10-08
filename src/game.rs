@@ -26,6 +26,7 @@ pub(crate) enum Status {
     Respawning,
     Exiting,
     GameOver,
+    Bonus,
 }
 
 #[derive(Resource)]
@@ -56,6 +57,8 @@ pub(crate) struct Game {
     pub(crate) mirror_timer: u16,
     pub(crate) extra_spiker_timer: u16,
     pub(crate) alien_timer: u16,
+    pub(crate) bonus: Option<crate::warp::Session>,
+    pub(crate) bonus_attempts: [u32; 3],
 }
 
 impl Default for Game {
@@ -88,6 +91,8 @@ impl Default for Game {
             mirror_timer: 0,
             extra_spiker_timer: 0,
             alien_timer: 0,
+            bonus: None,
+            bonus_attempts: [0; 3],
         }
     }
 }
@@ -281,7 +286,15 @@ pub(crate) fn load_level(
     mut upgrades: ResMut<powerups::Upgrades>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
     actors: Query<Entity, With<LevelActor>>,
-    mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
+    mut cameras: Query<
+        (
+            Entity,
+            &mut Transform,
+            Option<&mut Projection>,
+            Option<&crate::warp::render::SavedCamera>,
+        ),
+        (With<Camera3d>, Without<Glider>),
+    >,
     power_assets: Option<Res<powerups::PowerAssets>>,
     mut warp: Option<ResMut<stars::Warp>>,
     mut pulse: Option<ResMut<Pulse>>,
@@ -289,6 +302,70 @@ pub(crate) fn load_level(
     let Some(reason) = game.load.take() else {
         return;
     };
+    let bonus = match reason {
+        LoadReason::Warp {
+            kind,
+            course,
+            destination,
+        } => Some((kind, course, destination, false)),
+        LoadReason::Advance if level.number < 99 && upgrades.warp_tokens() == 3 => {
+            let destination = (game.level_index + 1) % levels.0.len();
+            let kind = crate::warp::ZoneKind::for_web(levels.0[destination].number);
+            kind.available().then_some((kind, None, destination, true))
+        }
+        _ => None,
+    };
+    if let Some((kind, course, destination, spend)) = bonus {
+        if spend {
+            upgrades.take_warp_tokens();
+        }
+        let index = kind.index();
+        let attempt = game.bonus_attempts[index];
+        game.bonus_attempts[index] = attempt.wrapping_add(1);
+        game.bonus = Some(crate::warp::Session::new(
+            kind,
+            attempt,
+            course,
+            destination % levels.0.len(),
+        ));
+        info!(
+            "Entering {:?} warp zone, returning to web {}",
+            kind,
+            levels.0[destination % levels.0.len()].number
+        );
+        game.status = Status::Bonus;
+        game.entry = None;
+        game.exit = None;
+        game.capture = None;
+        game.death = None;
+        game.invulnerable = 0;
+        upgrades.land();
+        for entity in &actors {
+            commands.entity(entity).despawn();
+        }
+        let (glider, weapon, _, visibility) = &mut *player;
+        glider.velocity = 0;
+        **weapon = Weapon::default();
+        **visibility = Visibility::Hidden;
+        for (entity, mut pose, projection, saved) in &mut cameras {
+            if saved.is_none() {
+                commands
+                    .entity(entity)
+                    .insert(crate::warp::render::SavedCamera {
+                        pose: *pose,
+                        projection: projection.as_deref().cloned(),
+                    });
+            }
+            *pose = Transform::from_xyz(0., -crate::warp::SCALE, 0.);
+        }
+        if let Some(warp) = &mut warp {
+            **warp = stars::Warp::default();
+        }
+        if let Some(pulse) = &mut pulse {
+            **pulse = Pulse::default();
+        }
+        return;
+    }
     match reason {
         LoadReason::Restart => {
             *game = Game::default();
@@ -303,6 +380,11 @@ pub(crate) fn load_level(
             game.level_index = (game.level_index + 1) % levels.0.len();
             upgrades.land();
         }
+        LoadReason::ReturnWarp { destination } => {
+            game.level_index = destination % levels.0.len();
+            game.invulnerable = 0;
+        }
+        LoadReason::Warp { .. } => unreachable!("warp entry handled above"),
     }
     for entity in &actors {
         commands.entity(entity).despawn();
@@ -313,6 +395,7 @@ pub(crate) fn load_level(
     game.death = None;
     game.exit = None;
     game.entry = None;
+    game.bonus = None;
     if game.lives > 0 {
         reset_wave(&mut game, &level);
     } else {
@@ -330,7 +413,16 @@ pub(crate) fn load_level(
     **weapon = Weapon::default();
     **transform = level.web.glider_transform(level.web.start());
     **visibility = Visibility::Visible;
-    for mut camera in &mut cameras {
+    for (entity, mut camera, projection, saved) in &mut cameras {
+        if let Some(saved) = saved {
+            *camera = saved.pose;
+            if let (Some(mut projection), Some(restore)) = (projection, saved.projection.as_ref()) {
+                *projection = restore.clone();
+            }
+            commands
+                .entity(entity)
+                .remove::<crate::warp::render::SavedCamera>();
+        }
         camera.translation = level.web.camera_position(transform.translation);
     }
     if upgrades.droid

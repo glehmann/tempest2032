@@ -143,6 +143,19 @@ impl Upgrades {
     pub(crate) fn warp_tokens(&self) -> u8 {
         self.warp_tokens
     }
+
+    pub(crate) fn take_warp_tokens(&mut self) -> bool {
+        if self.warp_tokens < 3 {
+            return false;
+        }
+        self.warp_tokens = 0;
+        true
+    }
+
+    #[cfg(test)]
+    pub(crate) fn seed_warp_tokens(&mut self, tokens: u8) {
+        self.warp_tokens = tokens.min(3);
+    }
 }
 
 #[derive(Resource, Default)]
@@ -176,6 +189,7 @@ pub(crate) fn setup(
     });
     commands.spawn((
         PowerHud,
+        Visibility::Visible,
         Text::default(),
         TextFont {
             font_size: 25.0,
@@ -191,7 +205,16 @@ pub(crate) fn setup(
     ));
 }
 
-pub(crate) fn update_notice(upgrades: Res<Upgrades>, mut hud: Single<&mut Text, With<PowerHud>>) {
+pub(crate) fn update_notice(
+    upgrades: Res<Upgrades>,
+    game: Res<crate::game::Game>,
+    mut hud: Single<(&mut Text, &mut Visibility), With<PowerHud>>,
+) {
+    if game.status == crate::game::Status::Bonus {
+        *hud.1 = Visibility::Hidden;
+        return;
+    }
+    *hud.1 = Visibility::Visible;
     let active = format!(
         "{}{}{}",
         if upgrades.laser { "LASER  " } else { "" },
@@ -211,8 +234,8 @@ pub(crate) fn update_notice(upgrades: Res<Upgrades>, mut hud: Single<&mut Text, 
         "{active}\nWARP TOKENS {}/3\n{notice}",
         upgrades.warp_tokens()
     );
-    if hud.0 != text {
-        hud.0 = text;
+    if hud.0.0 != text {
+        hud.0.0 = text;
     }
 }
 

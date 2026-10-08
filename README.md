@@ -12,7 +12,8 @@ vertex ordering. It holds its pose when stopped.
 An offset perspective camera follows half the claw's displacement at a capped
 speed, so it continues settling after the claw stops. A sparse colored
 starfield fills the background. Geometry is generated in code from editable
-level definitions; no external models or textures are needed.
+level definitions. Gate flight embeds the original Jaguar CRY surface texture;
+no external asset directory is needed at runtime.
 
 ## Run
 
@@ -686,11 +687,61 @@ and droid and restarts the collection sequence. Restarting with R clears all
 power-ups. The wave waits for remaining pickups to be collected or missed
 before displaying level clear.
 
-The original enters a bonus round after accumulating three warp tokens across
-waves. Token tracking is included here, but this prototype cycles through its
-configured levels without a bonus-round transition. Level one normally provides
-at most five drops; mixed waves can provide more pickup-eligible kills through
-released Tanker contents.
+Warp tokens accumulate across webs and survive deaths, up to three. The pickup
+sequence and acquired laser, jump, and droid reset on every web entry, so later
+webs can award additional tokens. R clears both upgrades and tokens. Level one
+normally provides at most five drops; mixed waves can provide more
+pickup-eligible kills through released Tanker contents.
+
+## Warp zones
+
+Gate flight is the first playable bonus zone. Ready tokens are checked after
+the normal exit and its flash, then consumed once when the bonus starts.
+The upcoming web selects the zone in sixteen-level bands. Gate flight covers
+upcoming webs 1–16 and 65–80; the green-track and psychedelic-ring variants
+are deferred, and tokens remain unspent in those bands. Natural bonus entry
+is suppressed at the final two normal levels.
+
+Fly automatically forward and steer with the arrow keys or W/A/S/D. Controls
+use the original inertia, acceleration, and friction. The eight original
+53-gate courses retain their spacing and special gates: up/down velocity
+kicks, speed boosts, and a final pyramid. Every gate must be passed within
+the original rectangular tolerance. Accurate passes award 750, 500, or 250
+points. Missing a gate ends the bonus without losing a life; earned points
+remain. Completion awards 20,000 points and advances four additional webs
+when the pending destination is below level 91. The bonus returns through
+normal web entry with fresh power-ups and restored cameras.
+
+The scene uses the original eight-arm polygon-gate and icon layouts, a
+crosshair, stars, and a scrolling Mode-7-style surface using the original
+`beasty6.cry` texture. The surface lies at zero height, appearing overhead
+when flying below it and beneath the player when flying above it. Course
+order and difficulty progress independently of normal webs.
+
+Start a bonus directly for testing:
+
+```sh
+cargo run --release -- --warp-zone gate-flight
+cargo run --release -- --warp-zone gate-flight --warp-course 8 --level 65
+```
+
+`--warp-zone gate` and `--warp-zone 1` are aliases. `--warp-course` chooses
+the original course number from 1 to 8 and requires direct warp startup.
+`--level` is the web reached after a failed direct-start run; success adds
+four to that destination subject to the late-game restriction. Direct entry
+does not require or consume tokens. R cancels the bonus and restarts level one.
+
+Screenshot and recording options also work in a bonus scene:
+
+```sh
+cargo run -- --warp-zone gate-flight --screenshot target/gate-flight.png
+cargo run -- --warp-zone gate-flight --record-motion target/gate-flight 30
+```
+
+The motion preview supplies scripted bonus steering. Bonus screenshots wait
+for sixty fixed bonus ticks rather than for the hidden normal glider. Direct
+warp motion recordings default to thirty seconds. Normal-web exit and shot-hit
+previews are incompatible with direct warp startup.
 
 ## Development
 
@@ -725,6 +776,7 @@ terminology. The source is organized by responsibility:
 | `src/enemies/` | Flippers, enemy shots, Tankers, Spikers and spikes, Beasties, Fuseballs, and Pulsars with rim sparks |
 | `src/powerups/` | Reward state, pickups, particle rings, jumping, and the AI droid |
 | `src/animations/` | Web entry, level exit and warp, Flipper capture, and glider death |
+| `src/warp/` | Warp-zone routing, original gate courses, flight controls, scoring, bonus rendering, and return to normal webs |
 | `src/explosion.rs`, `src/cry.rs`, `src/stars.rs` | Enemy-death rings, Jaguar color decoding, and background stars |
 | `src/test_support.rs`, `src/**/tests/` | Headless fixtures and focused unit tests, compiled only for testing |
 
