@@ -477,14 +477,13 @@ pub(crate) fn draw(
             if let Some(session) = session {
                 text.0 = if let Some(tunnel) = &session.tunnel {
                     format!(
-                        "TRACK {}/64   TAIL {:.1}\n{}",
+                        "TRACK {}/64   TAIL {:.1}",
                         tunnel.segments.min(1024) / 16,
                         tunnel.tail.max(0) as f32 / 65536.,
-                        session.notice
                     )
                 } else {
                     format!(
-                        "{} {}/{}   SPEED {:.2}\n{}",
+                        "{} {}/{}   SPEED {:.2}",
                         if session.kind == ZoneKind::Rings {
                             "RINGS"
                         } else {
@@ -493,7 +492,6 @@ pub(crate) fn draw(
                         session.passed,
                         GATES,
                         session.speed as f32 / 65536.,
-                        session.notice
                     )
                 };
             }
@@ -510,7 +508,7 @@ pub(crate) fn draw(
                     Color::srgb(0.4, 0.4, 0.5)
                 };
             }
-            text.0 = if session.is_some_and(|s| s.kind == ZoneKind::Tunnel) { "LEFT / RIGHT or A / D  Follow track    R  Restart    ESC  Quit" } else if bonus { "ARROWS / W A S D  Steer    R  Restart    ESC  Quit" } else { "LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit" }.into();
+            text.0 = if game.status == Status::GameOver { "R  Restart    ESC  Quit" } else if session.is_some_and(|s| s.kind == ZoneKind::Tunnel) { "LEFT / RIGHT or A / D  Follow track    R  Restart    ESC  Quit" } else if bonus { "ARROWS / W A S D  Steer    R  Restart    ESC  Quit" } else { "LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit" }.into();
         }
     }
     let Some(session) = session else { return };

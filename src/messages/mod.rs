@@ -34,7 +34,12 @@ impl Active {
     }
 
     pub(super) fn alive(self) -> bool {
-        self.age < self.event.id.hold() + 52
+        match self.event.id {
+            Id::GreenTrack => self.age < 200,
+            Id::WarpFive => self.age < 401,
+            Id::GameOver => true,
+            _ => self.age < self.event.id.hold() + 52,
+        }
     }
 }
 
@@ -42,6 +47,7 @@ impl Active {
 pub(crate) struct Messages {
     pub(super) banner: Option<Active>,
     pub(super) rewards: Vec<Active>,
+    pub(super) game_over: Option<Active>,
     pub(super) clock: u32,
     pub(crate) events: Vec<Event>,
     epoch: u32,
@@ -65,6 +71,9 @@ impl Messages {
             active.age += 1;
         }
         self.banner = self.banner.filter(|active| active.alive());
+        if let Some(active) = &mut self.game_over {
+            active.age = active.age.saturating_add(1);
+        }
         for active in &mut self.rewards {
             active.age += 1;
         }
@@ -80,7 +89,11 @@ impl Messages {
                 }
         });
         for event in self.events.drain(..) {
-            if event.id.reward() {
+            if event.id == Id::GameOver {
+                self.banner = None;
+                self.rewards.clear();
+                self.game_over = Some(Active { event, age: 0 });
+            } else if event.id.reward() {
                 if self.rewards.len() < 32 {
                     self.rewards.push(Active { event, age: 0 });
                 }
@@ -150,6 +163,25 @@ fn advance(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tunnel_instructions_expire_at_200_ticks_and_game_over_persists() {
+        let mut messages = Messages::default();
+        messages.send(Id::GreenTrack);
+        messages.step();
+        for _ in 0..199 {
+            messages.step();
+        }
+        assert!(messages.banner.is_some());
+        messages.step();
+        assert!(messages.banner.is_none());
+        messages.send(Id::GameOver);
+        messages.step();
+        for _ in 0..1000 {
+            messages.step();
+        }
+        assert!(messages.game_over.is_some());
+        assert!(messages.banner.is_none());
+    }
     #[test]
     fn reward_effects_coexist_with_announcements_and_expire_independently() {
         let mut messages = Messages::default();

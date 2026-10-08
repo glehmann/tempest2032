@@ -359,6 +359,9 @@ pub(crate) fn load_level(
             course,
             destination % levels.0.len(),
         ));
+        if kind == crate::warp::ZoneKind::Tunnel {
+            game.announce(crate::messages::Id::GreenTrack);
+        }
         info!(
             "Entering {:?} warp zone, returning to web {}",
             kind,

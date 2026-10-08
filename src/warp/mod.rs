@@ -123,6 +123,7 @@ pub(crate) struct Session {
     pub(crate) notice: &'static str,
     pub(crate) tunnel: Option<tunnel::Tunnel>,
     pub(crate) rings: Option<rings::Rings>,
+    announcements: Vec<crate::messages::Event>,
     notice_ticks: u16,
     cursor: usize,
     generation_distance: i32,
@@ -174,6 +175,7 @@ impl Session {
             },
             tunnel: (kind == ZoneKind::Tunnel).then(tunnel::Tunnel::default),
             rings: (kind == ZoneKind::Rings).then(rings::Rings::default),
+            announcements: Vec::new(),
             notice_ticks: 180,
             cursor: 0,
             generation_distance: 0,
@@ -219,6 +221,10 @@ impl Session {
                 "DOWN BOOST"
             }
             3 => {
+                if self.kind == ZoneKind::GateFlight {
+                    self.announcements
+                        .push(crate::messages::Id::SpeedBoost.into());
+                }
                 self.speed += self.speed >> 3;
                 "SPEED BOOST"
             }
@@ -239,13 +245,27 @@ impl Session {
             rings.pass();
             return Some([250, 500, 750, 1][(error >> 2) as usize]);
         }
-        Some(if error < 4 {
+        let score = if error < 4 {
             750
         } else if error < 8 {
             500
         } else {
             250
-        })
+        };
+        let id = match score {
+            750 => crate::messages::Id::Points750,
+            500 => crate::messages::Id::Points500,
+            _ => crate::messages::Id::Points250,
+        };
+        self.announcements.push(crate::messages::Event {
+            id,
+            origin: Some(Vec3::new(
+                f32::from(x) * SCALE,
+                -f32::from(y) * SCALE,
+                -2. * SCALE,
+            )),
+        });
+        Some(score)
     }
     fn step_flight(&mut self, horizontal: i32, vertical: i32) -> u32 {
         self.notice_ticks = self.notice_ticks.saturating_sub(1);
@@ -337,6 +357,9 @@ pub(crate) fn advance(
         Phase::Failure(ticks) => session.phase = Phase::Failure(ticks - 1),
         Phase::Success(1) => {
             let tunnel = session.kind == ZoneKind::Tunnel;
+            if !tunnel || levels.0[session.destination].number < 91 {
+                game.announce(crate::messages::Id::WarpFive);
+            }
             if !tunnel {
                 game.score += 20_000;
             }
@@ -375,6 +398,7 @@ pub(crate) fn advance(
         );
         session.rings = Some(rings);
     }
+    game.announcements.append(&mut session.announcements);
     game.bonus = Some(session);
 }
 

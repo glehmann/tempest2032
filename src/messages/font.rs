@@ -156,7 +156,7 @@ fn decode(data: &mut &[u8]) -> Vec<[Vec2; 3]> {
                 &path.build(),
                 &FillOptions::default()
                     .with_fill_rule(FillRule::EvenOdd)
-                    .with_tolerance(0.02),
+                .with_tolerance(0.002),
                 &mut BuffersBuilder::new(&mut geometry, |v: FillVertex| {
                     Vec2::new(v.position().x, v.position().y)
                 }),
