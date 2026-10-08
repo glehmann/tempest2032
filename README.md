@@ -379,6 +379,8 @@ no Rust changes are needed. The supplied levels are:
   budget to 81 spawns while retaining level-89 speeds and intervals.
 - `levels/91.toml`: diagonal double-curve `web32`, shortening type-3 Flippers
   to 351 ticks and moving into `0xCA00`/`0xE800` movement groups.
+- `levels/92.toml`: cat-head `web33`, shortening Flipper Tankers to 251 ticks
+  within the 81-spawn wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
