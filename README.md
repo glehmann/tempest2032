@@ -359,6 +359,8 @@ no Rust changes are needed. The supplied levels are:
 - `levels/81.toml`: big oval `web24`, beginning the sixth set with orange
   surfaces, amber Flippers, and pickups every eleventh kill. It retains the
   full level-80 enemy mix with `0xC000` Flippers and seven-tick Pulsar phases.
+- `levels/82.toml`: open spiraloid `web23`, shortening Alien Droid and
+  Flipper Tanker intervals to 501 ticks while retaining the full enemy mix.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to

@@ -7,6 +7,7 @@ use std::path::Path;
 const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16,u16)] = &[
     // Level, budget, Mirrors, Alien Droids, Pulsar Tankers, type 3, Flipper Tankers, Fuseball Tankers, Pulsars.
     (81, 61, 751, 601, 501, 401, 701, 624, 301),
+    (82, 61, 751, 501, 501, 401, 501, 624, 301),
 ];
 
 fn generator(actual: Option<&Generator>, interval: u16, speed: i32) {
