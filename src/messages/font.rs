@@ -8,7 +8,31 @@ use lyon_tessellation::{
 use std::collections::HashMap;
 
 #[derive(Resource)]
-pub(super) struct Font(HashMap<char, Vec<[Vec2; 3]>>, HashMap<super::Id, WordArt>);
+pub(super) struct Font(HashMap<char, Glyph>, HashMap<super::Id, WordArt>);
+
+struct Glyph {
+    triangles: Vec<[Vec2; 3]>,
+    shading: [Color; 15 * 18],
+}
+
+impl Glyph {
+    fn color(&self, position: Vec2) -> Color {
+        let p = (position - Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::new(14., 17.));
+        let x = p.x as usize;
+        let y = p.y as usize;
+        let sample = |x: usize, y: usize| self.shading[y * 15 + x].to_srgba().to_f32_array();
+        let a = sample(x, y);
+        let b = sample((x + 1).min(14), y);
+        let c = sample(x, (y + 1).min(17));
+        let d = sample((x + 1).min(14), (y + 1).min(17));
+        let rgb: [f32; 3] = std::array::from_fn(|i| {
+            let top = a[i] + (b[i] - a[i]) * p.x.fract();
+            let bottom = c[i] + (d[i] - c[i]) * p.x.fract();
+            top + (bottom - top) * p.y.fract()
+        });
+        Color::srgb(rgb[0], rgb[1], rgb[2])
+    }
+}
 
 struct WordArt {
     size: Vec2,
@@ -22,28 +46,26 @@ pub(super) struct GlyphTriangle {
     pub(super) colors: [Color; 3],
 }
 
-pub(super) fn color(y: f32) -> Color {
-    let gradient = [0x01, 0x18, 0x26, 0x53, 0x62, 0x71];
-    let position = (y / 18. * 5.).clamp(0., 5.);
-    let index = position as usize;
-    let a = crate::cry::color(gradient[index], 255).to_srgba();
-    let b = crate::cry::color(gradient[(index + 1).min(5)], 200).to_srgba();
-    let t = position.fract();
-    Color::srgb(
-        a.red + (b.red - a.red) * t,
-        a.green + (b.green - a.green) * t,
-        a.blue + (b.blue - a.blue) * t,
-    )
-}
-
 impl Default for Font {
     fn default() -> Self {
+        assert_eq!(
+            &include_bytes!("../../assets/messages/afont.bin")[..4],
+            b"T2KS"
+        );
         let mut data = &include_bytes!("../../assets/messages/afont.bin")[4..];
         let mut glyphs = HashMap::new();
         while !data.is_empty() {
             let character = data[0] as char;
             data = &data[1..];
-            glyphs.insert(character, decode(&mut data));
+            let mut triangles = Vec::new();
+            for triangle in decode(&mut data) {
+                subdivide(triangle, &mut triangles);
+            }
+            let shading = std::array::from_fn(|_| {
+                let raw = word(&mut data);
+                crate::cry::color((raw >> 8) as u8, raw as u8)
+            });
+            glyphs.insert(character, Glyph { triangles, shading });
         }
         let mut data = &include_bytes!("../../assets/messages/wordart.bin")[4..];
         let mut art = HashMap::new();
@@ -127,19 +149,41 @@ impl Font {
                         self.0
                             .get(&character.to_ascii_uppercase())
                             .into_iter()
-                            .flatten()
-                            .map(move |triangle| GlyphTriangle {
-                                points: triangle.map(|p| p - Vec2::new(7.5, 9.)),
-                                colors: triangle.map(|p| color(p.y)),
-                                origin: Vec2::new(
-                                    left + 7.5 + index as f32 * 17.,
-                                    line as f32 * 20.,
-                                ),
+                            .flat_map(move |glyph| {
+                                glyph.triangles.iter().map(move |triangle| GlyphTriangle {
+                                    points: triangle.map(|p| p - Vec2::new(7.5, 9.)),
+                                    colors: triangle.map(|p| glyph.color(p)),
+                                    origin: Vec2::new(
+                                        left + 7.5 + index as f32 * 17.,
+                                        line as f32 * 20.,
+                                    ),
+                                })
                             })
                     })
             })
             .collect()
     }
+}
+
+// Interior vertices preserve the bitmap's local bevel lighting on smooth outlines.
+fn subdivide(triangle: [Vec2; 3], output: &mut Vec<[Vec2; 3]>) {
+    let edge = (0..3)
+        .max_by(|a, b| {
+            triangle[*a]
+                .distance_squared(triangle[(*a + 1) % 3])
+                .total_cmp(&triangle[*b].distance_squared(triangle[(*b + 1) % 3]))
+        })
+        .unwrap();
+    let a = triangle[edge];
+    let b = triangle[(edge + 1) % 3];
+    let c = triangle[(edge + 2) % 3];
+    if a.distance_squared(b) <= 0.75 * 0.75 {
+        output.push(triangle);
+        return;
+    }
+    let midpoint = (a + b) / 2.;
+    subdivide([a, midpoint, c], output);
+    subdivide([midpoint, b, c], output);
 }
 
 fn word(data: &mut &[u8]) -> u16 {
@@ -191,6 +235,29 @@ mod tests {
     use super::*;
     use clap::ValueEnum;
     #[test]
+    fn original_shading_retains_white_reflections_and_local_bevel_contrast() {
+        let font = Font::default();
+        let layout = font.triangles("COLLECT POWERUPS!");
+        assert!(
+            layout.iter().flat_map(|glyph| glyph.colors).any(|color| {
+                let color = color.to_srgba();
+                color.red > 0.7 && color.green > 0.7 && color.blue > 0.7
+            }),
+            "visible lettering should contain bright neutral reflections"
+        );
+        let a = &font.0[&'A'];
+        assert_ne!(
+            a.color(Vec2::new(2.5, 3.5)),
+            a.color(Vec2::new(7.5, 3.5)),
+            "bevel shading varies across a row, not only with height"
+        );
+        assert!(
+            a.triangles.iter().all(
+                |triangle| (0..3).all(|i| triangle[i].distance(triangle[(i + 1) % 3]) <= 0.751)
+            )
+        );
+    }
+    #[test]
     fn catalog_letters_are_vector_geometry_with_real_counters() {
         let font = Font::default();
         for id in crate::messages::Id::value_variants() {
@@ -198,8 +265,8 @@ mod tests {
                 assert!(font.0.contains_key(&character), "{character}");
             }
         }
-        assert!(font.0[&'O'].len() > 20);
-        assert!(font.0[&' '].is_empty());
+        assert!(font.0[&'O'].triangles.len() > 20);
+        assert!(font.0[&' '].triangles.is_empty());
         assert!(
             font.1[&crate::messages::Id::OneUp]
                 .triangles
@@ -215,11 +282,17 @@ mod tests {
             sides.iter().all(|s| *s >= 0.) || sides.iter().all(|s| *s <= 0.)
         };
         assert!(
-            !font.0[&'O'].iter().any(|t| inside(Vec2::new(7.5, 9.), t)),
+            !font.0[&'O']
+                .triangles
+                .iter()
+                .any(|t| inside(Vec2::new(7.5, 9.), t)),
             "O's counter must stay open"
         );
         assert!(
-            !font.0[&'A'].iter().any(|t| inside(Vec2::new(7.5, 6.5), t)),
+            !font.0[&'A']
+                .triangles
+                .iter()
+                .any(|t| inside(Vec2::new(7.5, 6.5), t)),
             "A's counter must stay open"
         );
     }

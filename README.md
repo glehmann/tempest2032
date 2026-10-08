@@ -696,11 +696,14 @@ pickup-eligible kills through released Tanker contents.
 ## Animated messages
 
 Gameplay announcements use smoothed vector outlines of the original Joby
-lettering, with its 17-unit character spacing and chroma gradients. They render
+lettering, with its 17-unit character spacing and original local CRY shading,
+including white reflections and dark bevels. They render
 in a native-resolution overlay above the game and warp imagery. The ordinary
 messages hold for the original 100-tick counter, then stretch vertically for
 the 50-tick counter, including the source's inclusive expiry. Oscillating shear
-is applied around each letter's own center. The two-line recharge message
+is applied around each letter's own center. During the stretch phase, the
+lettering and its shadow become progressively transparent; the smooth stretch
+geometry is retained. The two-line recharge message
 shares one timer and deformation. Spike avoidance and recharge use the longer
 250-tick hold.
 

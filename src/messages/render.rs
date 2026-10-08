@@ -101,6 +101,7 @@ pub(super) fn draw(
         };
         let fit = ((viewport - 24.) / (width.max(1.) * small)).min(1.) * small;
         let scale = if hint { Vec2::ONE } else { active.scale() };
+        let opacity = active.opacity();
         let shear = if hint {
             0.
         } else {
@@ -130,9 +131,9 @@ pub(super) fn draw(
                         })
                         .extend(0.),
                         if shadow {
-                            Color::BLACK.with_alpha(0.75)
+                            Color::BLACK.with_alpha(0.75 * opacity)
                         } else {
-                            glyph.colors[index]
+                            glyph.colors[index].with_alpha(opacity)
                         },
                     )
                 })

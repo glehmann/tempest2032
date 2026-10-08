@@ -81,7 +81,7 @@ def main():
     height, width = values[0] >> 16, values[0] & 65535
     assert (width, height) == (15, 18)
     pixels = (source / "images/beasty4.cry").read_bytes()
-    binary = bytearray(b"T2KF")
+    binary = bytearray(b"T2KS")
     total = 0
     for character in " !(),-.:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
         offset = values[ord(character) - 32 + 1]
@@ -96,6 +96,9 @@ def main():
             for x, y in points:
                 binary.extend(struct.pack(">hh", x, y))
                 total += 1
+        for y in range(height):
+            start = ((oy + y) * 320 + ox) * 2
+            binary.extend(pixels[start:start + width * 2])
     output.write_bytes(binary)
     print(f"{output}: {len(binary)} bytes, {total} contour vertices")
 
