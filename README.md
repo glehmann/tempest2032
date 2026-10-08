@@ -361,6 +361,8 @@ no Rust changes are needed. The supplied levels are:
   full level-80 enemy mix with `0xC000` Flippers and seven-tick Pulsar phases.
 - `levels/82.toml`: open spiraloid `web23`, shortening Alien Droid and
   Flipper Tanker intervals to 501 ticks while retaining the full enemy mix.
+- `levels/83.toml`: closed pentagon `web27`, with `0xC200` Flippers,
+  `0x18400` Alien Droids, and `0xC800` Mirrors and Fuseballs.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
