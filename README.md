@@ -385,6 +385,8 @@ no Rust changes are needed. The supplied levels are:
   101 ticks with four-tick phases and `0xCC00` Flipper movement.
 - `levels/94.toml`: open crinkly-L `web35`, retaining the rapid Pulsar and
   dense Tanker settings of level 93 in an 81-spawn wave.
+- `levels/95.toml`: kiss-of-death `web36`, shortening Alien Droids to 201
+  ticks and using the final sixth-set `0xCE00`/`0xF800` speed groups.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
