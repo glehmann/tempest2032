@@ -68,3 +68,25 @@ fn rewards_follow_collection_order_and_death_clears_upgrades() {
     assert_eq!(upgrades.stage, 0);
     assert_eq!(upgrades.warp_tokens, 1);
 }
+#[test]
+fn pickups_emit_original_announcements_in_collection_order() {
+    use crate::messages::Id;
+    let mut upgrades = crate::powerups::Upgrades::default();
+    let mut score = 0;
+    for stage in 0..8 {
+        upgrades.random = 0x2000;
+        upgrades.collect(&mut score);
+        let id = upgrades.announcements.pop().unwrap();
+        let expected = [
+            Id::ParticleLaser,
+            Id::Zappo,
+            Id::JumpEnabled,
+            Id::Outstanding,
+            Id::AiDroid,
+            Id::WarpTwo,
+            Id::Zappo,
+            Id::Dude,
+        ][stage];
+        assert_eq!(id, expected);
+    }
+}

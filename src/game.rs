@@ -59,6 +59,9 @@ pub(crate) struct Game {
     pub(crate) alien_timer: u16,
     pub(crate) bonus: Option<crate::warp::Session>,
     pub(crate) bonus_attempts: [u32; 3],
+    pub(crate) announcements: Vec<crate::messages::Event>,
+    pub(crate) message_epoch: u32,
+    pub(crate) outta_here: bool,
 }
 
 impl Default for Game {
@@ -93,7 +96,16 @@ impl Default for Game {
             alien_timer: 0,
             bonus: None,
             bonus_attempts: [0; 3],
+            announcements: Vec::new(),
+            message_epoch: 0,
+            outta_here: false,
         }
+    }
+}
+
+impl Game {
+    pub(crate) fn announce(&mut self, id: crate::messages::Id) {
+        self.announcements.push(id.into());
     }
 }
 
@@ -208,6 +220,7 @@ pub(crate) fn check_game(
             && let Some(flipper) = grabber
         {
             game.status = Status::Captured;
+            game.announce(crate::messages::Id::CaughtYou);
             game.capture = Some(Capture {
                 flipper,
                 depth: 0,
@@ -220,6 +233,7 @@ pub(crate) fn check_game(
         }
         if game.status == Status::Playing {
             game.status = Status::ShotHit;
+            game.announce(crate::messages::Id::ShotYou);
             game.death = Some(shot_death::Death::new(transform.translation, &level.web));
             glider.velocity = 0;
             **weapon = Weapon::default();
@@ -261,6 +275,9 @@ pub(crate) fn check_game(
         && pickups.iter().all(|(_, pickup)| pickup.captured)
     {
         game.status = Status::Exiting;
+        if (4..=16).contains(&level.number) && !game.outta_here {
+            game.announce(crate::messages::Id::AvoidSpikes);
+        }
         game.entry = None;
         game.exit = Some(exit::Exit::new(transform.translation, &level.web));
         **weapon = Weapon::default();
@@ -368,7 +385,9 @@ pub(crate) fn load_level(
     }
     match reason {
         LoadReason::Restart => {
+            let epoch = game.message_epoch.wrapping_add(1);
             *game = Game::default();
+            game.message_epoch = epoch;
             *upgrades = powerups::Upgrades::default();
         }
         LoadReason::Retry => {
@@ -390,6 +409,7 @@ pub(crate) fn load_level(
         commands.entity(entity).despawn();
     }
     *level = levels.0[game.level_index].clone();
+    game.outta_here = false;
     upgrades.begin_level();
     game.capture = None;
     game.death = None;
@@ -398,8 +418,12 @@ pub(crate) fn load_level(
     game.bonus = None;
     if game.lives > 0 {
         reset_wave(&mut game, &level);
+        if !matches!(reason, LoadReason::Retry) {
+            game.announce(crate::messages::Id::SuperzapperRecharge);
+        }
     } else {
         game.status = Status::GameOver;
+        game.announce(crate::messages::Id::GameOver);
     }
     if let Some(warp) = &mut warp {
         **warp = stars::Warp::default();

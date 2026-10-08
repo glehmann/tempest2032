@@ -305,7 +305,6 @@ fn completion_requires_no_remaining_spawns_and_no_live_enemies() {
     app.world_mut().despawn(id);
     powerups::spawn_drop(
         &mut app.world_mut().commands(),
-        &mut powerups::Upgrades::default(),
         &powerups::PowerAssets::default(),
         1,
         REAR,
@@ -334,7 +333,6 @@ fn restart_clears_enemies_shots_score_and_game_over() {
     app.world_mut().resource_mut::<powerups::Upgrades>().laser = true;
     powerups::spawn_drop(
         &mut app.world_mut().commands(),
-        &mut powerups::Upgrades::default(),
         &powerups::PowerAssets::default(),
         3,
         REAR,

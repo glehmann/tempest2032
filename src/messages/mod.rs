@@ -42,6 +42,7 @@ pub(crate) struct Messages {
     pub(super) banner: Option<Active>,
     pub(super) clock: u32,
     pub(crate) events: Vec<Event>,
+    epoch: u32,
 }
 
 #[derive(Resource)]
@@ -75,7 +76,30 @@ pub(crate) fn add_systems(app: &mut App) {
         .add_systems(Update, render::draw.after(crate::warp::render::draw));
 }
 
-fn advance(mut messages: ResMut<Messages>, mut preview: Option<ResMut<Preview>>) {
+fn advance(
+    mut messages: ResMut<Messages>,
+    mut preview: Option<ResMut<Preview>>,
+    mut game: ResMut<crate::game::Game>,
+    mut upgrades: ResMut<crate::powerups::Upgrades>,
+) {
+    if messages.epoch != game.message_epoch {
+        if let Some(preview) = &mut preview {
+            preview.elapsed = 0;
+        }
+        *messages = Messages {
+            epoch: game.message_epoch,
+            ..default()
+        };
+    }
+    if preview.is_none() {
+        for id in upgrades.announcements.drain(..) {
+            messages.send(id);
+        }
+        messages.events.append(&mut game.announcements);
+    } else {
+        upgrades.announcements.clear();
+        game.announcements.clear();
+    }
     if let Some(preview) = &mut preview {
         if preview
             .capture_tick
@@ -97,6 +121,35 @@ fn advance(mut messages: ResMut<Messages>, mut preview: Option<ResMut<Preview>>)
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn game_events_are_consumed_once_and_restart_clears_old_messages() {
+        let mut app = App::new();
+        app.init_resource::<Messages>()
+            .init_resource::<crate::game::Game>()
+            .init_resource::<crate::powerups::Upgrades>()
+            .add_systems(Update, advance);
+        app.world_mut()
+            .resource_mut::<crate::game::Game>()
+            .announce(Id::CaughtYou);
+        app.update();
+        assert_eq!(
+            app.world().resource::<Messages>().banner.unwrap().event.id,
+            Id::CaughtYou
+        );
+        assert!(
+            app.world()
+                .resource::<crate::game::Game>()
+                .announcements
+                .is_empty()
+        );
+        app.update();
+        assert_eq!(app.world().resource::<Messages>().banner.unwrap().age, 1);
+        app.world_mut()
+            .resource_mut::<crate::game::Game>()
+            .message_epoch += 1;
+        app.update();
+        assert!(app.world().resource::<Messages>().banner.is_none());
+    }
     #[test]
     fn announcements_hold_then_stretch_with_original_inclusive_expiry() {
         let mut messages = Messages::default();

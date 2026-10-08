@@ -192,6 +192,7 @@ pub(crate) fn animate(
         })
     {
         game.status = Status::Spiked;
+        game.announce(crate::messages::Id::Spiked);
         game.exit = None;
         game.death = Some(shot_death::Death::retreat(
             exit.camera_z - exit.distance as f32 / LANE_UNIT as f32 * WORLD_UNIT,

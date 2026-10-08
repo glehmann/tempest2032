@@ -323,6 +323,7 @@ pub(crate) fn check_player(
         .any(|alien| alien.lane == lane && matches!(alien.motion, Motion::Zap(_)))
     {
         game.status = Status::Fried;
+        game.announce(crate::messages::Id::FriedYou);
         game.death = Some(Death::new(player.2.translation, &level.web));
         player.0.velocity = 0;
         *player.1 = Weapon::default();

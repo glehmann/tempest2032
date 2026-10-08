@@ -58,13 +58,11 @@ impl PowerUp {
 
 pub(crate) fn spawn_drop(
     commands: &mut Commands,
-    upgrades: &mut Upgrades,
     assets: &PowerAssets,
     lane: usize,
     depth: i32,
     web: &Web,
 ) {
-    upgrades.message("COLLECT POWERUPS!");
     let mut transform = web.glider_transform(lane as i32 * LANE_UNIT);
     transform.translation.z = -(depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
     commands.spawn((
@@ -112,7 +110,6 @@ pub(crate) fn advance_powerups(
     pulsars: Query<(Entity, &Pulsar, &Transform)>,
 ) {
     upgrades.frame = upgrades.frame.wrapping_add(1);
-    upgrades.notice_ticks = upgrades.notice_ticks.saturating_sub(1);
     let lane = level.web.selected_lane(player.progress) as usize;
     for (entity, mut pickup) in &mut pickups {
         if (pickup.captured || game.status == Status::Playing)
@@ -123,6 +120,9 @@ pub(crate) fn advance_powerups(
                     spawn_droid(&mut commands, &assets, &level.web);
                 }
                 reward @ (Reward::Zap | Reward::Skip) => {
+                    if reward == Reward::Skip {
+                        game.outta_here = true;
+                    }
                     for (entity, alien, pose) in &aliens {
                         if reward == Reward::Skip || !alien.climbing() {
                             commands.entity(entity).despawn();

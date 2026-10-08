@@ -263,14 +263,10 @@ pub(crate) fn resolve_hits(
             }
             if let Some((lane, centre)) = centre {
                 if upgrades.drop_due(level.powerups.kill_interval) {
-                    powerups::spawn_drop(
-                        &mut commands,
-                        &mut upgrades,
-                        &power_assets,
-                        lane,
-                        depth,
-                        &level.web,
-                    );
+                    if level.number <= 4 {
+                        game.announce(crate::messages::Id::CollectPowerups);
+                    }
+                    powerups::spawn_drop(&mut commands, &power_assets, lane, depth, &level.web);
                 } else {
                     explosion::spawn_explosion(&mut commands, &bursts, centre);
                 }

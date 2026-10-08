@@ -236,6 +236,7 @@ pub(crate) fn advance(
         if game.invulnerable == 0 && upgrades.jump_height == 0 && fuse.danger() == Some(player_lane)
         {
             game.status = Status::Fried;
+            game.announce(crate::messages::Id::FriedYou);
             game.death = Some(shot_death::Death::new(player_pose.translation, &level.web));
             glider.velocity = 0;
             **weapon = Weapon::default();

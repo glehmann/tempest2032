@@ -287,6 +287,7 @@ fn fry(
 ) {
     let (glider, weapon, pose, visibility) = &mut **player;
     game.status = Status::Fried;
+    game.announce(crate::messages::Id::FriedYou);
     game.death = Some(Death::new(pose.translation, &level.web));
     glider.velocity = 0;
     **weapon = Weapon::default();

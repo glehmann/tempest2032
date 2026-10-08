@@ -26,8 +26,7 @@ pub(crate) struct Upgrades {
     pub(crate) droid: bool,
     warp_tokens: u8,
     frame: u32,
-    notice: &'static str,
-    notice_ticks: u16,
+    pub(crate) announcements: Vec<crate::messages::Id>,
     random: u32,
 }
 
@@ -44,8 +43,7 @@ impl Default for Upgrades {
             droid: false,
             warp_tokens: 0,
             frame: 0,
-            notice: "",
-            notice_ticks: 0,
+            announcements: Vec::new(),
             random: 0x2000,
         }
     }
@@ -72,34 +70,33 @@ impl Upgrades {
         }
     }
 
-    fn message(&mut self, message: &'static str) {
-        self.notice = message;
-        self.notice_ticks = 120;
+    fn message(&mut self, message: crate::messages::Id) {
+        self.announcements.push(message);
     }
 
     fn collect(&mut self, score: &mut u32) -> Reward {
         let reward = match self.stage {
             0 => {
                 self.laser = true;
-                self.message("PARTICLE LASER!");
+                self.message(crate::messages::Id::ParticleLaser);
                 Reward::Laser
             }
             2 => {
                 self.jump_enabled = true;
-                self.message("JUMP ENABLED!  J / SHIFT to jump");
+                self.message(crate::messages::Id::JumpEnabled);
                 Reward::Jump
             }
             4 if !self.droid => {
                 self.droid = true;
-                self.message("A.I. DROID!");
+                self.message(crate::messages::Id::AiDroid);
                 Reward::Droid
             }
             5 => {
                 self.warp_tokens = (self.warp_tokens + 1).min(3);
                 self.message(match self.warp_tokens {
-                    1 => "SUPERZAP!  2 warp tokens to go",
-                    2 => "SUPERZAP!  1 warp token to go",
-                    _ => "SUPERZAP!  WARP READY!",
+                    1 => crate::messages::Id::WarpTwo,
+                    2 => crate::messages::Id::WarpOne,
+                    _ => crate::messages::Id::WarpEnabled,
                 });
                 Reward::Zap
             }
@@ -107,11 +104,15 @@ impl Upgrades {
                 self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
                 if self.random >> 24 <= 8 {
                     *score += 3000;
-                    self.message("OUTTAH HERE!  +3000");
+                    self.message(crate::messages::Id::OuttaHere);
                     Reward::Skip
                 } else {
                     *score += 2000;
-                    self.message("2000 POINTS!");
+                    self.message(match self.stage {
+                        1 | 6 => crate::messages::Id::Zappo,
+                        3 => crate::messages::Id::Outstanding,
+                        _ => crate::messages::Id::Dude,
+                    });
                     Reward::Bonus
                 }
             }
@@ -225,15 +226,7 @@ pub(crate) fn update_notice(
         },
         if upgrades.droid { "DROID" } else { "" }
     );
-    let notice = if upgrades.notice_ticks > 0 {
-        upgrades.notice
-    } else {
-        ""
-    };
-    let text = format!(
-        "{active}\nWARP TOKENS {}/3\n{notice}",
-        upgrades.warp_tokens()
-    );
+    let text = format!("{active}\nWARP TOKENS {}/3", upgrades.warp_tokens());
     if hud.0.0 != text {
         hud.0.0 = text;
     }
