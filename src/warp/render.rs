@@ -1,6 +1,6 @@
 //! Gate-flight polygons, a scrolling rippled ground surface, crosshair, and bonus HUD.
 
-use super::{GATES, Phase, SCALE};
+use super::{GATES, Phase, SCALE, ZoneKind};
 use crate::{
     cry,
     game::{Game, Status},
@@ -32,6 +32,7 @@ pub(crate) enum WarpNode {
     Gate(usize),
     Icon(usize),
     Victory,
+    Tunnel,
 }
 
 #[derive(Component)]
@@ -43,6 +44,7 @@ pub(crate) struct Crosshair;
 #[derive(Resource)]
 pub(crate) struct WarpAssets {
     ground: Handle<Mesh>,
+    tunnel: Handle<Mesh>,
     gates: [Handle<Mesh>; 2],
     icons: [Handle<Mesh>; 5],
 }
@@ -232,6 +234,29 @@ fn ground_mesh(distance: f32, tick: u32) -> Mesh {
     .with_inserted_indices(Indices::U32(indices))
 }
 
+fn pixel_mesh(pixels: impl IntoIterator<Item = (Vec2, Color)>, fov: f32) -> Mesh {
+    let pixel = 20. * (fov * 0.5).tan() / 240.;
+    colored_mesh(
+        pixels
+            .into_iter()
+            .filter(|(p, _)| p.x.abs() <= 192. && p.y.abs() <= 120.)
+            .flat_map(|(p, color)| {
+                let center = Vec3::new(p.x * pixel, -p.y * pixel, -10.);
+                let corners = [
+                    Vec3::new(-0.5, -0.5, 0.),
+                    Vec3::new(0.5, -0.5, 0.),
+                    Vec3::new(0.5, 0.5, 0.),
+                    Vec3::new(-0.5, 0.5, 0.),
+                ]
+                .map(|offset| (center + offset * pixel, color));
+                [
+                    [corners[0], corners[1], corners[2]],
+                    [corners[0], corners[2], corners[3]],
+                ]
+            }),
+    )
+}
+
 pub(crate) fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -246,6 +271,16 @@ pub(crate) fn setup(
         ..default()
     });
     let ground = meshes.add(ground_mesh(0., 0));
+    let tunnel = meshes.add(colored_mesh([]));
+    commands.spawn((
+        WarpNode::Tunnel,
+        Mesh3d(tunnel.clone()),
+        MeshMaterial3d(material.clone()),
+        Transform::default(),
+        Visibility::Hidden,
+        RenderLayers::layer(1),
+        bevy::camera::visibility::NoFrustumCulling,
+    ));
     let ground_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(surface_image())),
         unlit: true,
@@ -288,6 +323,7 @@ pub(crate) fn setup(
     ));
     commands.insert_resource(WarpAssets {
         ground,
+        tunnel,
         gates,
         icons,
     });
@@ -364,7 +400,9 @@ pub(crate) fn draw(
         *visible = Visibility::Hidden;
     }
     for mut visible in &mut crosshairs {
-        *visible = if session.is_some_and(|s| matches!(s.phase, Phase::Flying)) {
+        *visible = if session
+            .is_some_and(|s| s.kind != ZoneKind::Tunnel && matches!(s.phase, Phase::Flying))
+        {
             Visibility::Visible
         } else {
             Visibility::Hidden
@@ -380,13 +418,22 @@ pub(crate) fn draw(
                 };
             }
             if let Some(session) = session {
-                text.0 = format!(
-                    "GATES {}/{}   SPEED {:.2}\n{}",
-                    session.passed,
-                    GATES,
-                    session.speed as f32 / 65536.,
-                    session.notice
-                );
+                text.0 = if let Some(tunnel) = &session.tunnel {
+                    format!(
+                        "TRACK {}/64   TAIL {:.1}\n{}",
+                        tunnel.segments / 16,
+                        tunnel.tail.max(0) as f32 / 65536.,
+                        session.notice
+                    )
+                } else {
+                    format!(
+                        "GATES {}/{}   SPEED {:.2}\n{}",
+                        session.passed,
+                        GATES,
+                        session.speed as f32 / 65536.,
+                        session.notice
+                    )
+                };
             }
         } else if label.is_some() {
             text.0 = session.map_or_else(
@@ -401,14 +448,22 @@ pub(crate) fn draw(
                     Color::srgb(0.4, 0.4, 0.5)
                 };
             }
-            text.0 = if bonus { "ARROWS / W A S D  Steer    R  Restart    ESC  Quit" } else { "LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit" }.into();
+            text.0 = if session.is_some_and(|s| s.kind == ZoneKind::Tunnel) { "LEFT / RIGHT or A / D  Follow track    R  Restart    ESC  Quit" } else if bonus { "ARROWS / W A S D  Steer    R  Restart    ESC  Quit" } else { "LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit" }.into();
         }
     }
     let Some(session) = session else { return };
     for mut window in &mut windows {
-        window.title = format!("T2K | Gate Flight | Course {}", session.course + 1);
+        window.title = format!(
+            "T2K | {} | Course {}",
+            session.kind.label(),
+            session.course + 1
+        );
     }
-    let position = session.position();
+    let position = if session.tunnel.is_some() {
+        Vec2::ZERO
+    } else {
+        session.position()
+    };
     for (mut pose, mut projection) in &mut cameras {
         *pose = Transform::from_xyz(position.x * SCALE, -position.y * SCALE, 0.);
         if let Projection::Perspective(perspective) = &mut *projection {
@@ -422,7 +477,19 @@ pub(crate) fn draw(
     }
     for (node, mut pose, mut mesh, mut visible) in &mut nodes {
         match *node {
-            WarpNode::Ground => *visible = Visibility::Visible,
+            WarpNode::Tunnel => {
+                if let Some(tunnel) = &session.tunnel {
+                    if let Some(mesh) = meshes.get_mut(&assets.tunnel) {
+                        *mesh = pixel_mesh(tunnel.pixels(session.tick), 1.2);
+                    }
+                    *visible = Visibility::Visible;
+                }
+            }
+            WarpNode::Ground => {
+                if session.kind == ZoneKind::GateFlight {
+                    *visible = Visibility::Visible;
+                }
+            }
             WarpNode::Gate(index) | WarpNode::Icon(index) => {
                 let Some(gate) = session.gates.iter().find(|g| g.index == index) else {
                     continue;
@@ -447,7 +514,7 @@ pub(crate) fn draw(
                 }
             }
             WarpNode::Victory => {
-                if matches!(session.phase, Phase::Victory(_)) {
+                if session.kind != ZoneKind::Tunnel && matches!(session.phase, Phase::Victory(_)) {
                     *pose = Transform::from_xyz(position.x * SCALE, -position.y * SCALE, -4.)
                         .with_rotation(Quat::from_rotation_y(session.tick as f32 * 0.02))
                         .with_scale(Vec3::splat(2.));

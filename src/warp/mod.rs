@@ -10,6 +10,11 @@ use std::collections::VecDeque;
 
 mod courses;
 pub(crate) mod render;
+mod tunnel;
+
+fn sine(angle: i32) -> i32 {
+    i32::from(include_bytes!("../../assets/warp/sines.bin")[angle.rem_euclid(256) as usize] as i8)
+}
 
 const UNIT: i32 = 1 << 16;
 pub(crate) const SCALE: f32 = 0.1;
@@ -19,7 +24,7 @@ pub(crate) const GATES: usize = 53;
 pub(crate) enum ZoneKind {
     #[value(alias = "gate", alias = "1")]
     GateFlight,
-    #[value(skip)]
+    #[value(alias = "green-track", alias = "2")]
     Tunnel,
     #[value(skip)]
     Rings,
@@ -48,7 +53,7 @@ impl ZoneKind {
         }
     }
     pub(crate) fn available(self) -> bool {
-        self == Self::GateFlight
+        self != Self::Rings
     }
 }
 
@@ -90,7 +95,10 @@ impl Axis {
             }
             self.velocity -= self.velocity.signum() * friction;
         } else {
-            if (direction < 0 && self.position < min) || (direction > 0 && self.position >= max) {
+            if min != max
+                && ((direction < 0 && self.position < min)
+                    || (direction > 0 && self.position >= max))
+            {
                 self.velocity = 0;
                 return;
             }
@@ -115,6 +123,7 @@ pub(crate) struct Session {
     pub(crate) passed: usize,
     pub(crate) tick: u32,
     pub(crate) notice: &'static str,
+    pub(crate) tunnel: Option<tunnel::Tunnel>,
     notice_ticks: u16,
     cursor: usize,
     generation_distance: i32,
@@ -130,7 +139,14 @@ impl Session {
     ) -> Self {
         Self {
             kind,
-            course: course.map_or(courses::ORDER[attempt as usize & 7], |n| usize::from(n - 1)),
+            course: course.map_or(
+                if kind == ZoneKind::Tunnel {
+                    tunnel::ORDER[attempt as usize & 7]
+                } else {
+                    courses::ORDER[attempt as usize & 7]
+                },
+                |n| usize::from(n - 1),
+            ),
             destination,
             phase: Phase::Flying,
             x: Axis {
@@ -146,7 +162,12 @@ impl Session {
             gates: VecDeque::new(),
             passed: 0,
             tick: 0,
-            notice: "FLY THROUGH EVERY GATE",
+            notice: if kind == ZoneKind::Tunnel {
+                "STAY ON THE GREEN TRACK"
+            } else {
+                "FLY THROUGH EVERY GATE"
+            },
+            tunnel: (kind == ZoneKind::Tunnel).then(tunnel::Tunnel::default),
             notice_ticks: 180,
             cursor: 0,
             generation_distance: 0,
@@ -260,13 +281,29 @@ pub(crate) fn advance(
         return;
     };
     session.tick = session.tick.wrapping_add(1);
+    if let Some(tunnel) = &mut session.tunnel {
+        tunnel.settle(session.phase);
+    }
     match session.phase {
         Phase::Flying => {
             let horizontal = i32::from(keys.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]))
                 - i32::from(keys.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]));
             let vertical = i32::from(keys.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]))
                 - i32::from(keys.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]));
-            game.score += session.step_flight(horizontal, vertical);
+            if let Some(tunnel) = &mut session.tunnel {
+                let (score, phase) = tunnel.step(horizontal, session.course);
+                game.score += score;
+                if let Some(phase) = phase {
+                    session.phase = phase;
+                    session.notice = if matches!(phase, Phase::Failure(_)) {
+                        "WARP FAILED"
+                    } else {
+                        "COURSE COMPLETE"
+                    };
+                }
+            } else {
+                game.score += session.step_flight(horizontal, vertical);
+            }
         }
         Phase::Failure(1) | Phase::Victory(1) => {
             game.load = Some(LoadReason::ReturnWarp {
@@ -275,14 +312,25 @@ pub(crate) fn advance(
         }
         Phase::Failure(ticks) => session.phase = Phase::Failure(ticks - 1),
         Phase::Success(1) => {
-            game.score += 20_000;
+            let tunnel = session.kind == ZoneKind::Tunnel;
+            if !tunnel {
+                game.score += 20_000;
+            }
             if levels.0[session.destination].number < 91 {
                 session.destination = (session.destination + 4) % levels.0.len();
-                session.notice = "EXCELLENT!  +20000  WARP FIVE LEVELS";
+                session.notice = if tunnel {
+                    "EXCELLENT!  WARP FIVE LEVELS"
+                } else {
+                    "EXCELLENT!  +20000  WARP FIVE LEVELS"
+                };
             } else {
-                session.notice = "EXCELLENT!  +20000";
+                session.notice = if tunnel {
+                    "EXCELLENT!"
+                } else {
+                    "EXCELLENT!  +20000"
+                };
             }
-            session.phase = Phase::Victory(401);
+            session.phase = Phase::Victory(if tunnel { 301 } else { 401 });
         }
         Phase::Success(ticks) => session.phase = Phase::Success(ticks - 1),
         Phase::Victory(ticks) => session.phase = Phase::Victory(ticks - 1),

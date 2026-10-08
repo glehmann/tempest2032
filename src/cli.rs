@@ -25,11 +25,11 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
-    /// Start directly in a playable warp zone (gate-flight, alias: 1)
+    /// Start directly in a playable warp zone (gate-flight/1, tunnel/2)
     #[arg(long, value_enum, value_name = "ZONE",conflicts_with_all=["record_exit","record_shot_hit"])]
     pub(crate) warp_zone: Option<crate::warp::ZoneKind>,
 
-    /// Choose an original gate-flight course for direct warp startup
+    /// Choose an original course for direct warp startup
     #[arg(long,requires="warp_zone",value_parser=clap::value_parser!(u8).range(1..=8))]
     pub(crate) warp_course: Option<u8>,
 

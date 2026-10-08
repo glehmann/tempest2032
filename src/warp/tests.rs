@@ -176,7 +176,7 @@ fn perfect_runs_reach_the_final_gate_on_all_eight_courses() {
 fn natural_entry_spends_tokens_once_only_in_an_implemented_level_band() {
     for (number, expected) in [
         (1, true),
-        (16, false),
+        (16, true),
         (64, true),
         (96, false),
         (99, false),
@@ -197,9 +197,10 @@ fn natural_entry_spends_tokens_once_only_in_an_implemented_level_band() {
             if expected { 0 } else { 3 }
         );
         if expected {
-            assert_eq!(app.world().resource::<Game>().bonus_attempts[0], 1);
+            let zone = ZoneKind::for_web((number % 100) + 1).index();
+            assert_eq!(app.world().resource::<Game>().bonus_attempts[zone], 1);
             ticks(&mut app, 5);
-            assert_eq!(app.world().resource::<Game>().bonus_attempts[0], 1);
+            assert_eq!(app.world().resource::<Game>().bonus_attempts[zone], 1);
         }
     }
 }
@@ -236,6 +237,32 @@ fn failure_costs_no_life_and_returns_to_the_pending_web_exactly_once() {
     assert_eq!(app.world().resource::<Game>().entry, Some(0));
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Level>().number, 2);
+}
+
+#[test]
+fn tunnel_returns_preserving_lives_and_points_and_success_has_no_gate_completion_award() {
+    for (success, destination, expected) in [(false, 16, 17), (true, 16, 21), (true, 90, 91)] {
+        let mut app = app(17);
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+            kind: ZoneKind::Tunnel,
+            course: Some(1),
+            destination,
+        });
+        ticks(&mut app, 1);
+        let mut game = app.world_mut().resource_mut::<Game>();
+        game.score = 1234;
+        game.lives = 2;
+        game.bonus.as_mut().unwrap().phase = if success {
+            Phase::Success(1)
+        } else {
+            Phase::Failure(1)
+        };
+        ticks(&mut app, if success { 302 } else { 1 });
+        let game = app.world().resource::<Game>();
+        assert_eq!((game.score, game.lives), (1234, 2));
+        assert!(game.bonus.is_none());
+        assert_eq!(app.world().resource::<Level>().number, expected);
+    }
 }
 
 #[test]

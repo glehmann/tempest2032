@@ -104,7 +104,22 @@ pub(crate) fn preview_input(
         ] {
             keys.release(key);
         }
-        if let Some(session) = &game.bonus
+        if let Some(tunnel) = game
+            .bonus
+            .as_ref()
+            .and_then(|session| session.tunnel.as_ref())
+        {
+            let current =
+                tunnel.roll.position as f32 / 65536. + tunnel.roll.velocity as f32 / 65536. * 64.;
+            let error = (f32::from(tunnel.target()) - current + 128.).rem_euclid(256.) - 128.;
+            if error.abs() > 1. {
+                keys.press(if error > 0. {
+                    KeyCode::KeyD
+                } else {
+                    KeyCode::KeyA
+                });
+            }
+        } else if let Some(session) = &game.bonus
             && let Some(gate) = session.gates.front()
         {
             let (x, y, _) = session.spec(gate.index);

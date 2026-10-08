@@ -21,6 +21,14 @@ fn direct_warp_selection_validates_zone_course_and_capture_options() {
     assert_eq!(args.warp_zone, Some(crate::warp::ZoneKind::GateFlight));
     assert_eq!(args.warp_course, Some(8));
     assert!(crate::cli::Cli::try_parse_from(["t2k", "--warp-zone", "1"]).is_ok());
+    for zone in ["tunnel", "green-track", "2"] {
+        assert_eq!(
+            Cli::try_parse_from(["t2k", "--warp-zone", zone])
+                .unwrap()
+                .warp_zone,
+            Some(crate::warp::ZoneKind::Tunnel)
+        );
+    }
     for args in [
         vec!["t2k", "--warp-zone", "gate-flight", "--record-exit", "out"],
         vec![
@@ -31,7 +39,7 @@ fn direct_warp_selection_validates_zone_course_and_capture_options() {
             "out",
         ],
         vec!["t2k", "--warp-course", "1"],
-        vec!["t2k", "--warp-zone", "tunnel"],
+        vec!["t2k", "--warp-zone", "rings"],
         vec!["t2k", "--warp-zone", "gate", "--warp-course", "0"],
         vec!["t2k", "--warp-zone", "gate", "--warp-course", "9"],
     ] {

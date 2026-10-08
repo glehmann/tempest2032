@@ -695,11 +695,12 @@ pickup-eligible kills through released Tanker contents.
 
 ## Warp zones
 
-Gate flight is the first playable bonus zone. Ready tokens are checked after
+Gate flight and the green-track tunnel are playable bonus zones. Ready tokens are checked after
 the normal exit and its flash, then consumed once when the bonus starts.
 The upcoming web selects the zone in sixteen-level bands. Gate flight covers
-upcoming webs 1–16 and 65–80; the green-track and psychedelic-ring variants
-are deferred, and tokens remain unspent in those bands. Natural bonus entry
+upcoming webs 1–16 and 65–80; the green-track tunnel covers 17–32, 49–64,
+and 81–96. Psychedelic rings are deferred, and tokens remain unspent in
+their bands, 33–48 and 97–100. Natural bonus entry
 is suppressed at the final two normal levels.
 
 Fly automatically forward and steer with the arrow keys or W/A/S/D. Controls
@@ -718,14 +719,27 @@ crosshair, stars, and a scrolling Mode-7-style surface using the original
 when flying below it and beneath the player when flying above it. Course
 order and difficulty progress independently of normal webs.
 
+The tunnel uses left/right or A/D to steer around its circular green track.
+Its eight original 64-part courses feed a 64-segment buffer, with track
+alignment checked against the segment under the player. Staying within the
+original 32-angle-unit band grows a particle tail by half a unit per tick,
+up to 31.5, and scores 1, 4, 8, or 30 points as the tail grows. Leaving the
+track drains one unit per tick; exhausting it ends the bonus without a lost
+life. Completion after 1,024 segments advances four additional webs below
+level 91, without the gate-flight 20,000-point award. Colored particle arcs,
+scrolling star planes, a trailing player marker, and the collapsing failure
+tunnel reproduce the source drawing routines.
+
 Start a bonus directly for testing:
 
 ```sh
 cargo run --release -- --warp-zone gate-flight
 cargo run --release -- --warp-zone gate-flight --warp-course 8 --level 65
+cargo run --release -- --warp-zone tunnel --warp-course 7 --level 17
 ```
 
-`--warp-zone gate` and `--warp-zone 1` are aliases. `--warp-course` chooses
+`--warp-zone gate` and `--warp-zone 1` select gate flight; `green-track` and
+`2` select the tunnel. `--warp-course` chooses
 the original course number from 1 to 8 and requires direct warp startup.
 `--level` is the web reached after a failed direct-start run; success adds
 four to that destination subject to the late-game restriction. Direct entry
