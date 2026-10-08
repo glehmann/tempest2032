@@ -375,6 +375,8 @@ no Rust changes are needed. The supplied levels are:
   and level-87 speed and interval settings.
 - `levels/89.toml`: curved-L `web30`, shortening Flipper Tankers to 301 ticks.
   Flippers use `0xC800`, Fuseballs `0xE000`, and Pulsar phases drop to five ticks.
+- `levels/90.toml`: mouse-pointer `web31`, increasing the full enemy-mix
+  budget to 81 spawns while retaining level-89 speeds and intervals.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
