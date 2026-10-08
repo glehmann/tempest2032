@@ -53,11 +53,8 @@ pub(crate) fn capture_frame(
     preview: Option<Res<crate::messages::Preview>>,
 ) {
     if let Some(preview) = preview {
-        if preview.elapsed <= preview.capture_tick.unwrap_or(60) {
+        if preview.elapsed <= u32::from(preview.capture_tick.unwrap_or(60)) {
             return;
-        }
-        if *frames < 60 {
-            *frames = 59;
         }
     } else if game.status == crate::game::Status::Bonus {
         if game.bonus.as_ref().is_none_or(|session| session.tick < 60) {

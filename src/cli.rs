@@ -34,12 +34,16 @@ pub(crate) struct Cli {
     pub(crate) warp_course: Option<u8>,
 
     /// Preview an original animated announcement or reward
-    #[arg(long, value_enum, value_name = "MESSAGE")]
+    #[arg(long, value_enum, value_name = "MESSAGE", conflicts_with_all=["record_exit","record_shot_hit"])]
     pub(crate) message_preview: Option<crate::messages::Id>,
 
     /// Freeze the preview at this fixed animation tick (screenshots default to 60)
     #[arg(long, requires = "message_preview")]
     pub(crate) message_tick: Option<u16>,
+
+    /// Exact pixel dimensions for a message preview, e.g. 3840x2160
+    #[arg(long,requires="message_preview",conflicts_with="fullscreen",value_parser=parse_message_size,value_name="WIDTHxHEIGHT")]
+    pub(crate) message_size: Option<bevy::prelude::UVec2>,
 
     /// Save the settled level or warp scene to a screenshot and exit
     #[arg(long, value_name = "FILE", conflicts_with = "recording")]
@@ -60,6 +64,16 @@ pub(crate) struct Cli {
     /// Override the recording duration in whole seconds
     #[arg(value_name = "SECONDS", requires = "recording", value_parser = clap::value_parser!(u32).range(1..=u32::MAX as i64 / 60))]
     pub(crate) seconds: Option<u32>,
+}
+
+fn parse_message_size(value: &str) -> Result<bevy::prelude::UVec2, String> {
+    let (width, height) = value.split_once('x').ok_or("expected WIDTHxHEIGHT")?;
+    let width: u32 = width.parse().map_err(|_| "invalid width")?;
+    let height: u32 = height.parse().map_err(|_| "invalid height")?;
+    if !(320..=8192).contains(&width) || !(240..=8192).contains(&height) {
+        return Err("dimensions must be 320..8192 by 240..8192".into());
+    }
+    Ok(bevy::prelude::UVec2::new(width, height))
 }
 
 #[cfg(test)]

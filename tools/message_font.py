@@ -57,6 +57,7 @@ def main():
             (4,"beasty5.cry",0,110,45,44),
             (5,"beasty5.cry",46,110,44,44),
             (6,"beasty5.cry",90,110,45,44),
+            (7,"beasty4.cry",198,0,15,21),
         ]:
             pixels = (source / "images" / image).read_bytes()
             mask = [[pixels[((oy+y)*320+ox+x)*2+1] > 80 for x in range(width)] for y in range(height)]
@@ -73,7 +74,7 @@ def main():
                 for x,y in points:
                     binary.extend(struct.pack(">hh",x,y))
         output.write_bytes(binary)
-        print(f"{output}: {len(binary)} bytes, 7 vector word-art graphics")
+        print(f"{output}: {len(binary)} bytes, 8 vector word-art graphics")
         return
     table = (source / "afont.s").read_text().split("afont:", 1)[1]
     values = [int(v, 16) for v in re.findall(r"dc\.l\s+\$([0-9a-f]+)", table, re.I)]

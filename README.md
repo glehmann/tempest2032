@@ -693,6 +693,60 @@ webs can award additional tokens. R clears both upgrades and tokens. Level one
 normally provides at most five drops; mixed waves can provide more
 pickup-eligible kills through released Tanker contents.
 
+## Animated messages
+
+Gameplay announcements use smoothed vector outlines of the original Joby
+lettering, with its 17-unit character spacing and chroma gradients. They render
+in a native-resolution overlay above the game and warp imagery. The ordinary
+messages hold for the original 100-tick counter, then stretch vertically for
+the 50-tick counter, including the source's inclusive expiry. Oscillating shear
+is applied around each letter's own center. The two-line recharge message
+shares one timer and deformation. Spike avoidance and recharge use the longer
+250-tick hold.
+
+Pickups display the original stage wording, including ZAPPO!, OUTSTANDING!,
+DUDE!, and the three warp-token messages. COLLECT POWERUPS! is limited to the
+first four levels; AVOID THE SPIKES follows the source's levels 4–16 condition.
+Death messages are emitted when the collision occurs, independently of the
+small score/lives HUD. A new announcement replaces the active one, including
+restarting an identical message's animation.
+
+EXCELLENT, 2000, 250/500/750, 1UP, and GAME OVER use vector outlines of their
+separate original artwork. Reward graphics approach with perspective echoes;
+score graphics expand into fragments, and extra-life graphics flash with
+trailing copies. They coexist with ordinary announcements. A lives increase
+triggers a 1UP effect, without changing how lives are awarded. Game over clears
+ordinary messages, dims the scene, animates the original artwork with changing
+X/Y scale and rotating echoes, and shows the final score until restart.
+
+The tunnel instruction lasts 200 ticks at its original lower-screen anchor.
+SPEED BOOST is shown in gate flight, matching its suppression in psychedelic
+rings. WARP 5 LEVELS! follows the source victory timing and late-game display
+conditions. The message catalog also provides previews for wording whose
+mechanics or screens have not yet been implemented, such as EAT ELECTRIC / DEATH!,
+YES! YES! YES!, practice completion, and final-game victory.
+
+Preview a message without waiting for its gameplay trigger:
+
+```sh
+cargo run -- --message-preview particle-laser
+cargo run -- --message-preview excellent --message-tick 30 --screenshot target/excellent.png
+cargo run -- --message-preview particle-laser --message-tick 130 --message-size 3840x2160 --screenshot target/stretch-4k.png
+cargo run -- --message-preview superzapper-recharge --warp-zone rings --screenshot target/recharge-over-rings.png
+cargo run -- --message-preview one-up --record-motion target/one-up 4
+```
+
+`--message-preview` loops its selected animation. `--message-tick` freezes at
+that exact animation age; screenshots default to tick 60. The game and star
+simulation freeze with the message, and captures wait for the render assets
+to settle. `--message-size WIDTHxHEIGHT` selects exact pixel dimensions with a
+scale factor of one. `--help` lists the available message identifiers. Message
+previews can accompany a direct warp scene or movement recording, but not an
+exit/death recording. Restart clears messages, independent effects, and timers.
+
+Assets are embedded; `assets/messages/README.md` documents their provenance and
+`tools/message_font.py` regenerates the contours from the original source tree.
+
 ## Warp zones
 
 All three warp zones are playable. Ready tokens are checked after

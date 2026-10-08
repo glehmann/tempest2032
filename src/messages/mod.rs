@@ -22,14 +22,14 @@ impl From<Id> for Event {
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Active {
     pub(super) event: Event,
-    pub(super) age: u16,
+    pub(super) age: u32,
 }
 
 impl Active {
     pub(super) fn scale(self) -> Vec2 {
         Vec2::new(
             1.,
-            1. + f32::from(self.age.saturating_sub(self.event.id.hold() + 1)) * 0.5,
+            1. + self.age.saturating_sub(u32::from(self.event.id.hold()) + 1) as f32 * 0.5,
         )
     }
 
@@ -38,7 +38,7 @@ impl Active {
             Id::GreenTrack => self.age < 200,
             Id::WarpFive => self.age < 401,
             Id::GameOver => true,
-            _ => self.age < self.event.id.hold() + 52,
+            _ => self.age < u32::from(self.event.id.hold()) + 52,
         }
     }
 }
@@ -58,7 +58,7 @@ pub(crate) struct Messages {
 pub(crate) struct Preview {
     pub(crate) id: Id,
     pub(crate) capture_tick: Option<u16>,
-    pub(crate) elapsed: u16,
+    pub(crate) elapsed: u32,
 }
 
 impl Messages {
@@ -112,6 +112,14 @@ pub(crate) fn add_systems(app: &mut App) {
         .add_systems(Update, render::draw.after(crate::warp::render::draw));
 }
 
+pub(crate) fn running(preview: Option<Res<Preview>>) -> bool {
+    preview.is_none_or(|preview| {
+        preview
+            .capture_tick
+            .is_none_or(|tick| preview.elapsed <= u32::from(tick))
+    })
+}
+
 fn advance(
     mut messages: ResMut<Messages>,
     mut preview: Option<ResMut<Preview>>,
@@ -145,7 +153,7 @@ fn advance(
     if let Some(preview) = &mut preview {
         if preview
             .capture_tick
-            .is_some_and(|tick| preview.elapsed > tick)
+            .is_some_and(|tick| preview.elapsed > u32::from(tick))
         {
             return;
         }
@@ -153,7 +161,7 @@ fn advance(
             messages.send(preview.id);
         }
         preview.elapsed += 1;
-        if preview.capture_tick.is_none() && preview.elapsed > preview.id.hold() + 90 {
+        if preview.capture_tick.is_none() && preview.elapsed > u32::from(preview.id.hold()) + 90 {
             preview.elapsed = 0;
         }
     }
@@ -163,6 +171,35 @@ fn advance(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn frozen_previews_keep_exact_age_and_life_gains_emit_one_effect_each() {
+        let mut app = App::new();
+        app.init_resource::<Messages>()
+            .init_resource::<crate::game::Game>()
+            .init_resource::<crate::powerups::Upgrades>()
+            .insert_resource(Preview {
+                id: Id::ParticleLaser,
+                capture_tick: Some(130),
+                elapsed: 0,
+            })
+            .add_systems(Update, advance);
+        for _ in 0..200 {
+            app.update();
+        }
+        assert_eq!(app.world().resource::<Messages>().banner.unwrap().age, 130);
+        assert_eq!(app.world().resource::<Preview>().elapsed, 131);
+        app.world_mut().remove_resource::<Preview>();
+        app.update();
+        app.world_mut().resource_mut::<crate::game::Game>().lives += 1;
+        app.update();
+        assert_eq!(app.world().resource::<Messages>().rewards.len(), 1);
+        assert_eq!(
+            app.world().resource::<Messages>().rewards[0].event.id,
+            Id::OneUp
+        );
+        app.update();
+        assert_eq!(app.world().resource::<Messages>().rewards.len(), 1);
+    }
     #[test]
     fn tunnel_instructions_expire_at_200_ticks_and_game_over_persists() {
         let mut messages = Messages::default();

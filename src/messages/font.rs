@@ -56,8 +56,9 @@ impl Default for Font {
             super::Id::Points500,
             super::Id::Points750,
         ];
+        let mut numeral = None;
         while !data.is_empty() {
-            let id = ids[data[0] as usize];
+            let key = data[0] as usize;
             data = &data[1..];
             let size = Vec2::new(f32::from(word(&mut data)), f32::from(word(&mut data)));
             let colors = (0..size.y as usize)
@@ -66,14 +67,27 @@ impl Default for Font {
                     crate::cry::color((raw >> 8) as u8, raw as u8)
                 })
                 .collect();
-            art.insert(
-                id,
-                WordArt {
-                    size,
-                    colors,
-                    triangles: decode(&mut data),
-                },
-            );
+            let graphic = WordArt {
+                size,
+                colors,
+                triangles: decode(&mut data),
+            };
+            if key == 7 {
+                numeral = Some(graphic);
+            } else {
+                art.insert(ids[key], graphic);
+            }
+        }
+        // The original badge draws UP and a separate, half-sized numeral above it.
+        if let Some(numeral) = numeral {
+            let badge = art.get_mut(&super::Id::OneUp).unwrap();
+            badge
+                .triangles
+                .extend(numeral.triangles.iter().map(|triangle| {
+                    triangle.map(|p| {
+                        (p - numeral.size / 2.) * 0.5 + badge.size / 2. + Vec2::new(0., -18.)
+                    })
+                }));
         }
         Self(glyphs, art)
     }
@@ -156,7 +170,7 @@ fn decode(data: &mut &[u8]) -> Vec<[Vec2; 3]> {
                 &path.build(),
                 &FillOptions::default()
                     .with_fill_rule(FillRule::EvenOdd)
-                .with_tolerance(0.002),
+                    .with_tolerance(0.002),
                 &mut BuffersBuilder::new(&mut geometry, |v: FillVertex| {
                     Vec2::new(v.position().x, v.position().y)
                 }),
@@ -186,6 +200,14 @@ mod tests {
         }
         assert!(font.0[&'O'].len() > 20);
         assert!(font.0[&' '].is_empty());
+        assert!(
+            font.1[&crate::messages::Id::OneUp]
+                .triangles
+                .iter()
+                .flatten()
+                .any(|p| p.y < 0.),
+            "the separate 1 must accompany UP"
+        );
         let inside = |p: Vec2, triangle: &[Vec2; 3]| {
             let sides = std::array::from_fn::<_, 3, _>(|i| {
                 (triangle[(i + 1) % 3] - triangle[i]).perp_dot(p - triangle[i])
@@ -195,6 +217,10 @@ mod tests {
         assert!(
             !font.0[&'O'].iter().any(|t| inside(Vec2::new(7.5, 9.), t)),
             "O's counter must stay open"
+        );
+        assert!(
+            !font.0[&'A'].iter().any(|t| inside(Vec2::new(7.5, 6.5), t)),
+            "A's counter must stay open"
         );
     }
 }

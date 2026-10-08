@@ -546,3 +546,48 @@ fn spike_death_during_exit_does_not_spend_ready_tokens() {
     assert!(app.world().resource::<Game>().bonus.is_none());
     assert_eq!(app.world().resource::<Upgrades>().warp_tokens(), 3);
 }
+#[test]
+fn warp_announcements_follow_original_triggers_without_repeated_frame_messages() {
+    use crate::messages::Id;
+    let mut gate = Session::new(ZoneKind::GateFlight, 0, Some(1), 0);
+    aim(&mut gate, 5, 0, 0);
+    gate.pass(5);
+    assert!(
+        gate.announcements
+            .iter()
+            .any(|event| event.id == Id::SpeedBoost)
+    );
+    let mut rings = Session::new(ZoneKind::Rings, 0, Some(1), 0);
+    aim(&mut rings, 5, 0, 0);
+    rings.pass(5);
+    assert!(
+        rings.announcements.is_empty(),
+        "psycho suppresses the speed-boost text and score graphic"
+    );
+    let mut app = app(17);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+        kind: ZoneKind::Tunnel,
+        course: Some(1),
+        destination: 16,
+    });
+    ticks(&mut app, 1);
+    assert_eq!(
+        app.world()
+            .resource::<Game>()
+            .announcements
+            .iter()
+            .filter(|event| event.id == Id::GreenTrack)
+            .count(),
+        1
+    );
+    ticks(&mut app, 10);
+    assert_eq!(
+        app.world()
+            .resource::<Game>()
+            .announcements
+            .iter()
+            .filter(|event| event.id == Id::GreenTrack)
+            .count(),
+        1
+    );
+}

@@ -12,6 +12,8 @@ characters use the original uppercase forms.
 `draw_oneup`, `gofeed`, and `px_bons` in `yak.s`. Its `T2KA` records include
 the artwork's width, height, and one CRY shading color per row before the contour count. Generate it with
 the same command, using `assets/messages/wordart.bin` as the output.
+The 1UP badge combines the UP graphic and its separately stored numeral,
+with the smaller numeral above the main lettering.
 
 The binary starts with `T2KF`, followed by glyph records: ASCII byte, contour
 count (big-endian u16), then point count (u16) and pairs of signed i16 X/Y

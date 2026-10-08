@@ -135,7 +135,13 @@ pub(crate) fn run(args: cli::Cli) {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: format!("T2K | Level {starting_level}"),
-                resolution: (1100, 850).into(),
+                resolution: args.message_size.map_or_else(
+                    || (1100, 850).into(),
+                    |size| {
+                        bevy::window::WindowResolution::new(size.x, size.y)
+                            .with_scale_factor_override(1.)
+                    },
+                ),
                 present_mode: PresentMode::Fifo,
                 mode: if args.fullscreen {
                     // A new window has no monitor yet, so this must not use Current.
@@ -149,6 +155,11 @@ pub(crate) fn run(args: cli::Cli) {
         }))
         .add_systems(Startup, (setup, warp::render::setup));
     add_systems(&mut app);
+    if args.warp_zone.is_none() {
+        app.world_mut()
+            .resource_mut::<Game>()
+            .announce(crate::messages::Id::SuperzapperRecharge);
+    }
     stars::add_systems(&mut app);
     app.run();
 }
@@ -311,7 +322,8 @@ fn add_systems(app: &mut App) {
                 )
                     .chain(),
             )
-                .chain(),
+                .chain()
+                .run_if(crate::messages::running),
         )
         .add_systems(
             Update,

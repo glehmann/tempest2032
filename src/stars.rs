@@ -135,7 +135,7 @@ pub(crate) fn setup(
 }
 
 pub(crate) fn add_systems(app: &mut App) {
-    app.add_systems(FixedUpdate, advance_stars)
+    app.add_systems(FixedUpdate, advance_stars.run_if(crate::messages::running))
         .add_systems(Update, draw_stars.after(crate::warp::render::draw));
 }
 

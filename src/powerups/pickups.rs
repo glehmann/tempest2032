@@ -115,7 +115,14 @@ pub(crate) fn advance_powerups(
         if (pickup.captured || game.status == Status::Playing)
             && pickup.tick(lane, upgrades.jump_height == 0)
         {
-            match upgrades.collect(&mut game.score) {
+            let reward = upgrades.collect(&mut game.score);
+            game.announcements.extend(
+                upgrades
+                    .announcements
+                    .drain(..)
+                    .map(crate::messages::Event::from),
+            );
+            match reward {
                 Reward::Droid => {
                     spawn_droid(&mut commands, &assets, &level.web);
                 }

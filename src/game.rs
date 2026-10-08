@@ -435,9 +435,7 @@ pub(crate) fn load_level(
     game.bonus = None;
     if game.lives > 0 {
         reset_wave(&mut game, &level);
-        if !matches!(reason, LoadReason::Retry) {
-            game.announce(crate::messages::Id::SuperzapperRecharge);
-        }
+        game.announce(crate::messages::Id::SuperzapperRecharge);
     } else {
         game.status = Status::GameOver;
         game.announce(crate::messages::Id::GameOver);

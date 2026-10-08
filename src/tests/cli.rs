@@ -163,3 +163,54 @@ fn malformed_or_conflicting_capture_options_are_rejected() {
         ErrorKind::DisplayVersion
     );
 }
+#[test]
+fn message_previews_validate_identifiers_ticks_sizes_and_capture_modes() {
+    let cli = Cli::try_parse_from([
+        "t2k",
+        "--message-preview",
+        "particle-laser",
+        "--message-tick",
+        "130",
+        "--message-size",
+        "3840x2160",
+        "--screenshot",
+        "stretch.png",
+    ])
+    .unwrap();
+    assert_eq!(
+        cli.message_preview,
+        Some(crate::messages::Id::ParticleLaser)
+    );
+    assert_eq!(cli.message_tick, Some(130));
+    assert_eq!(
+        cli.message_size,
+        Some(bevy::prelude::UVec2::new(3840, 2160))
+    );
+    for arguments in [
+        vec!["t2k", "--message-tick", "10"],
+        vec!["t2k", "--message-preview", "unknown"],
+        vec![
+            "t2k",
+            "--message-preview",
+            "excellent",
+            "--message-size",
+            "0x2160",
+        ],
+        vec![
+            "t2k",
+            "--message-preview",
+            "excellent",
+            "--message-size",
+            "3840",
+        ],
+        vec![
+            "t2k",
+            "--message-preview",
+            "excellent",
+            "--record-exit",
+            "frames",
+        ],
+    ] {
+        assert!(Cli::try_parse_from(arguments).is_err());
+    }
+}
