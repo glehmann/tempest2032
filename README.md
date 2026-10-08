@@ -367,6 +367,8 @@ no Rust changes are needed. The supplied levels are:
   to 524 ticks while retaining the 61-spawn budget and level-83 speeds.
 - `levels/85.toml`: compact `web21`, increasing the budget to 71 spawns.
   Flippers use `0xC400`, Alien Droids `0x18800`, and Pulsar phases drop to six ticks.
+- `levels/86.toml`: open inverted-bird `web28`, shortening Alien Droid
+  generation to 401 ticks within the 71-spawn wave.
   The currently configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
