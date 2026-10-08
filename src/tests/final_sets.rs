@@ -25,6 +25,7 @@ const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16,u16)] = &[
     (97, 91, 351, 201, 451, 351, 251, 424, 101),
     (98, 91, 351, 201, 451, 351, 251, 324, 101),
     (99, 101, 0, 0, 0, 0, 0, 0, 0),
+    (100, 101, 0, 0, 0, 0, 0, 0, 0),
 ];
 
 fn generator(actual: Option<&Generator>, interval: u16, speed: i32) {
@@ -135,4 +136,24 @@ fn final_sets_match_original_waves_speeds_and_cry_palettes() {
             if number >= 97 { 16 } else { 11 }
         );
     }
+}
+
+#[test]
+fn the_final_two_levels_share_the_aliased_wave_but_use_distinct_webs() {
+    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    assert_eq!(levels.0.len(), 100);
+    let a = &levels.0[98];
+    let b = &levels.0[99];
+    assert_ne!(a.web.vertices, b.web.vertices);
+    assert_eq!(a.flippers.count, b.flippers.count);
+    assert_eq!(
+        a.super_flippers.as_ref().unwrap().spawn_interval_ticks,
+        b.super_flippers.as_ref().unwrap().spawn_interval_ticks
+    );
+    assert_eq!(
+        a.beasts.as_ref().unwrap().spawn_interval_ticks,
+        b.beasts.as_ref().unwrap().spawn_interval_ticks
+    );
+    assert!(a.pulsars.is_none() && b.pulsars.is_none());
+    assert!(a.mirrors.is_none() && b.mirrors.is_none());
 }

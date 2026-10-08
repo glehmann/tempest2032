@@ -397,7 +397,9 @@ no Rust changes are needed. The supplied levels are:
 - `levels/99.toml`: open flat `web1`, with 101 shared spawns consisting only
   of type-2 Super Flippers every 21 ticks and Beasties every 101. The original
   `_nw99` label aliases `_nw100`; its commented-out alternate wave is unused.
-  The currently configured cycle wraps back to level one after this level.
+- `levels/100.toml`: open V-shaped `web2`, completing the original 100-level
+  catalog with the same 101-spawn Super Flipper/Beastie wave as level 99.
+  The configured cycle wraps back to level one after this level.
 
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and upgrades. A death retries the current
