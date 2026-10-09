@@ -73,7 +73,7 @@ def main():
                 binary.extend(struct.pack(">H",len(points)))
                 for x,y in points:
                     binary.extend(struct.pack(">hh",x,y))
-            if key == 1:
+            if key in (0, 1):
                 for y in range(height):
                     start = ((oy+y)*320+ox)*2
                     binary.extend(pixels[start:start+width*2])

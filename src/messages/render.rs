@@ -69,29 +69,34 @@ mod tests {
     }
 
     #[test]
-    fn approaching_2000_cells_keep_their_area_as_the_reward_grows() {
+    fn approaching_reward_wordart_keeps_its_cells_and_area_as_it_grows() {
         let font = Font::default();
-        let layout = font.layout(super::super::Id::Points2000);
-        assert!(!layout.is_empty());
-        assert!(
-            layout.len() <= 197 * 65 * 2,
-            "2000 cell layout grew to {} triangles",
-            layout.len()
-        );
-        for glyph in layout {
+        for (id, width, height) in [
+            (super::super::Id::Points2000, 197, 65),
+            (super::super::Id::Excellent, 178, 42),
+        ] {
+            let layout = font.layout(id);
+            assert!(!layout.is_empty(), "{id:?} lost its source pixels");
             assert!(
-                glyph
-                    .points
-                    .iter()
-                    .all(|p| (*p - glyph.cell).abs().max_element() <= 0.501)
+                layout.len() <= width * height * 2,
+                "{id:?} cell layout grew to {} triangles",
+                layout.len()
             );
-            let area =
-                (glyph.points[1] - glyph.points[0]).perp_dot(glyph.points[2] - glyph.points[0]);
-            let points = glyph
-                .points
-                .map(|p| cell_point(p, glyph.cell, Vec2::splat(8.), 0.));
-            let expanded_area = (points[1] - points[0]).perp_dot(points[2] - points[0]);
-            assert!((area - expanded_area).abs() < 1e-4);
+            for glyph in layout {
+                assert!(
+                    glyph
+                        .points
+                        .iter()
+                        .all(|p| (*p - glyph.cell).abs().max_element() <= 0.501)
+                );
+                let area =
+                    (glyph.points[1] - glyph.points[0]).perp_dot(glyph.points[2] - glyph.points[0]);
+                let points = glyph
+                    .points
+                    .map(|p| cell_point(p, glyph.cell, Vec2::splat(8.), 0.));
+                let expanded_area = (points[1] - points[0]).perp_dot(points[2] - points[0]);
+                assert!((area - expanded_area).abs() < 1e-4);
+            }
         }
     }
 
@@ -325,7 +330,7 @@ pub(super) fn draw(
             id,
             super::Id::Points250 | super::Id::Points500 | super::Id::Points750
         );
-        let cells = id == super::Id::Points2000;
+        let cells = matches!(id, super::Id::Points2000 | super::Id::Excellent);
         let copies = if score || cells {
             1
         } else {

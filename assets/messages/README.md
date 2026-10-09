@@ -14,9 +14,9 @@ the artwork's width, height, and one CRY shading color per row before the contou
 the same command, using `assets/messages/wordart.bin` as the output.
 The 1UP badge combines the UP graphic and its separately stored numeral,
 with the smaller numeral above the main lettering.
-The 2000 record also stores its original CRY pixels after the contours. Its
-approach uses one opaque, fixed-size quad per foreground source pixel rather
-than enlarged solid artwork or overlapping echoes.
+The EXCELLENT and 2000 records also store their original CRY pixels after the
+contours. Their approach uses one opaque, fixed-size quad per foreground source
+pixel rather than enlarged solid artwork or overlapping echoes.
 
 The binary starts with `T2KS`, followed by glyph records: ASCII byte, contour
 count (big-endian u16), then point count (u16) and pairs of signed i16 X/Y

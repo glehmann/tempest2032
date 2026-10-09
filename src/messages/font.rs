@@ -101,7 +101,7 @@ impl Default for Font {
                 })
                 .collect();
             let triangles = decode(&mut data, 0.002);
-            let pixels = if key == 1 {
+            let pixels = if key == 0 || key == 1 {
                 (0..(size.x * size.y) as usize)
                     .map(|_| word(&mut data))
                     .collect()
@@ -146,7 +146,7 @@ impl Font {
         self.1.get(&id).map_or_else(
             || self.triangles(id.text()),
             |art| {
-                if id == super::Id::Points2000 {
+                if matches!(id, super::Id::Points2000 | super::Id::Excellent) {
                     return art
                         .pixels
                         .iter()
