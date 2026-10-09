@@ -20,6 +20,7 @@ mod mesh;
 mod messages;
 mod powerups;
 mod scene;
+mod sines;
 mod stars;
 mod warp;
 mod weapons;

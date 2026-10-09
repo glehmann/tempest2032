@@ -9,5 +9,7 @@ No reference-source directory or asset conversion is needed at runtime.
 
 `crosshair.cry` is the 40×39 sprite at (250, 110) in the original 320-pixel-wide
 `beasty4.cry` sprite sheet, copied by `m7scr` in `yak.s`. Zero CRY words are transparent.
-`sines.bin` contains the original 256 signed sine bytes from `dat/sines.dat`,
-used to reproduce the `rs400` bonus star rings and their CRY colors.
+
+The original sine table now lives in `src/sines.rs`. It is only 256 bytes and
+callers need exact integer values, so embedding it in Rust source beats a
+binary asset.

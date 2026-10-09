@@ -264,10 +264,7 @@ pub(super) fn draw(
             .layouts
             .entry(super::Id::GameOver)
             .or_insert_with(|| font.layout(super::Id::GameOver));
-        let sin = |angle: u32| {
-            i32::from(include_bytes!("../../assets/warp/sines.bin")[(angle & 255) as usize] as i8)
-                as f32
-        };
+        let sin = |angle: u32| crate::sines::sine((angle & 255) as i32) as f32;
         let age = active.age;
         let scale = Vec2::new(
             1. + (sin(age.wrapping_mul(15)) + 128.) / 512.,

@@ -1,7 +1,7 @@
 //! Original sine, menu, and ring field initializers from yak.s.
 
 use super::{DEPTH_WRAP, Star};
-use crate::{cry, web::LANE_UNIT};
+use crate::{cry, sines::sine, web::LANE_UNIT};
 use bevy::prelude::*;
 use clap::ValueEnum;
 
@@ -20,11 +20,6 @@ const RANTAB: [u8; 256] = [
     108, 125, 64, 124, 5, 50, 44, 103, 23, 15, 115, 84, 41, 26, 52, 64, 78, 101, 22, 89, 120, 2,
     57, 46, 127,
 ];
-const SINES: &[u8; 256] = include_bytes!("../../assets/warp/sines.bin");
-
-fn sine(angle: u32) -> i32 {
-    i32::from(SINES[(angle & 255) as usize] as i8)
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub(crate) enum Pattern {
@@ -78,8 +73,8 @@ impl Pattern {
 fn patterned(x_step: u32, y_step: u32, mut x_phase: u32, mut y_phase: u32) -> Vec<Star> {
     (0..super::COUNT)
         .map(|index| {
-            let x = sine(x_phase >> 16);
-            let y = sine(y_phase >> 16);
+            let x = sine((x_phase >> 16) as i32);
+            let y = sine((y_phase >> 16) as i32);
             x_phase = x_phase.wrapping_add(x_step);
             y_phase = y_phase.wrapping_add(y_step);
             Star {

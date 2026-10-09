@@ -3,6 +3,7 @@
 use crate::{
     game::{Game, Status},
     level::{Levels, LoadReason},
+    sines::sine,
 };
 use bevy::prelude::*;
 use clap::ValueEnum;
@@ -12,10 +13,6 @@ mod courses;
 pub(crate) mod render;
 mod rings;
 mod tunnel;
-
-fn sine(angle: i32) -> i32 {
-    i32::from(include_bytes!("../../assets/warp/sines.bin")[angle.rem_euclid(256) as usize] as i8)
-}
 
 const UNIT: i32 = 1 << 16;
 pub(crate) const SCALE: f32 = 0.1;
