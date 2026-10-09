@@ -478,6 +478,72 @@ Invalid geometry, out-of-range values, numbering errors, and unknown fields
 are rejected with the offending file's name. Shared player, weapon, palette,
 and animation behavior stays in Rust.
 
+### Difficulty
+
+`--difficulty low|normal|high` scales enemy tempo and player pressure at
+runtime. It never edits the TOML: the scale is applied once to the parsed
+catalog at startup, so the shipped source values stay intact and every later
+level swap inherits it. `normal` is the identity and reproduces the original
+exactly.
+
+| Setting | Player bullet speed | Alien shot budget | Enemy climb speed | Spawn interval |
+| --- | --- | --- | --- | --- |
+| `low` | ×1.25 | ×0.5 | ×0.85 | ×1.3 |
+| `normal` | ×1 | ×1 | ×1 | ×1 |
+| `high` | ×0.85 | ×2.5 | ×1.2 | ×0.8 |
+
+```sh
+cargo run --release -- --level 3 --difficulty high
+```
+
+The alien shot budget is `level.enemy_shots`, which the parser keeps within
+1 to 16. Scaled intervals are floored at one tick so they stay legal. Two
+source-accurate behaviours are deliberately left alone: `pulsars.rs` falls back
+to a fixed climb speed when a level configures no Pulsars, and Super Flippers
+still flip at double rate on every setting.
+
+Spike growth is not scaled with climb speed. The original ties a Spike's
+per-tick extension to its Spiker's climb speed, but Spikes only threaten the
+claw during the exit flight, so coupling them would let a tempo change silently
+alter exit lethality. Each Spiker records its own extension rate at spawn
+instead.
+
+### Beastly mode
+
+The original has a second, unrelated difficulty mode that is **earned, not
+selected**. Beating the game sets `gb` at `yak.s:8910`; after the game-over
+routine returns, the main loop branches into `dobeastly` (`yak.s:1111`), which
+shows a congratulations page and sets `bset.b #2,sysflags` at `yak.s:1290`. That
+bit persists in cartridge RAM, so from then on the level selection screen draws
+"PRESS option FOR BEASTLY MODE!" (`yak.s:1680`) and pressing Option on that
+screen sets the runtime `beastly` flag (`yak.s:1817-1826`). Head-to-head is
+excluded, and any ordinary button clears it.
+
+It is not a point on the `--difficulty` scale. The two overlap on player bullet
+speed but disagree on magnitude, and Beastly leaves enemy density alone
+entirely:
+
+| Knob | Beastly | `--difficulty high` |
+| --- | --- | --- |
+| Player bullet speed | ×0.50 (`$38000` halved) | ×0.85 |
+| Alien shot budget | absolute 7, not a multiplier | ×2.5 |
+| Enemy climb speed | unchanged | ×1.2 |
+| Spawn interval | unchanged | ×0.8 |
+| Flipper pause | never pauses | unchanged |
+
+Two corrections worth recording, since both are easy to get backwards.
+`shotspeed` is read in `player_shot` (`yak.s:10215`), so halving it slows the
+**player's** bullets; the enemy never reads it. And the Flipper fire reload
+widens from `$0303` to `$0606` (`yak.s:9430`), which the source comment calls
+"make firing less frequent"; the reload only happens when the low byte
+underflows, so that is a real reduction, but its intent in a harder mode is not
+clear.
+
+A faithful port would need the absolute 7-shot budget, the never-pausing
+Flippers, and some substitute for the `sysflags` persistence the prototype does
+not have. It is left as future work and is deliberately separate from
+`--difficulty`.
+
 ### Levels past 100
 
 Clearing level 100 returns to level 1. The original `waves` table in `yak.s`

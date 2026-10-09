@@ -125,6 +125,7 @@ fn spiker_builds_fifty_one_extensions_then_returns_to_the_rear() {
                 spike: None,
                 build: 50,
                 angle: 0,
+                spike_speed: 0xd000,
             },
             Transform::default(),
         ))

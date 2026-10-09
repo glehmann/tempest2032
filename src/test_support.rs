@@ -36,7 +36,8 @@ pub(crate) fn movement_app(progress: i32, keys: &[KeyCode]) -> App {
     for &key in keys {
         input.press(key);
     }
-    app.init_resource::<Level>()
+    app.init_resource::<crate::difficulty::Difficulty>()
+        .init_resource::<Level>()
         .insert_resource(input)
         .add_systems(FixedUpdate, move_glider);
     app.world_mut().spawn((
@@ -99,6 +100,7 @@ pub(crate) fn app() -> App {
     app.init_resource::<Game>()
         .init_resource::<Level>()
         .init_resource::<Levels>()
+        .init_resource::<crate::difficulty::Difficulty>()
         .init_resource::<powerups::Upgrades>()
         .init_resource::<powerups::PowerAssets>()
         .init_resource::<FlipperAssets>()

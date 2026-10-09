@@ -470,3 +470,67 @@ fn invalid_tweaks_report_the_file_and_reject_unknown_fields() {
         assert!(error.starts_with("bad-level.toml:"), "{error}");
     }
 }
+
+#[test]
+fn normal_difficulty_is_exactly_the_identity_on_a_parsed_level() {
+    use crate::difficulty::Difficulty;
+    let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/04.toml"));
+    let original = Level::parse(source, "level4").unwrap();
+    let mut scaled = original.clone();
+    scaled.scale_difficulty(Difficulty::Normal.scale());
+    assert_eq!(scaled.flippers.climb_speed, original.flippers.climb_speed);
+    assert_eq!(
+        scaled.flippers.spawn_interval_ticks,
+        original.flippers.spawn_interval_ticks
+    );
+    assert_eq!(scaled.enemy_shots, original.enemy_shots);
+    let spiker = original.spikers.unwrap().clone();
+    let scaled_spiker = scaled.spikers.unwrap();
+    assert_eq!(scaled_spiker.climb_speed, spiker.climb_speed);
+    assert_eq!(
+        scaled_spiker.spawn_interval_ticks,
+        spiker.spawn_interval_ticks
+    );
+}
+
+#[test]
+fn low_and_high_scale_enemy_tempo_in_opposite_directions() {
+    use crate::difficulty::Difficulty;
+    let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/04.toml"));
+    let mut low = Level::parse(source, "level4").unwrap();
+    let mut high = Level::parse(source, "level4").unwrap();
+    low.scale_difficulty(Difficulty::Low.scale());
+    high.scale_difficulty(Difficulty::High.scale());
+    for (level, name) in [(&low, "low"), (&high, "high")] {
+        assert!(
+            level.flippers.climb_speed > 0,
+            "{name} zeroed the climb speed"
+        );
+        assert!(
+            level.flippers.spawn_interval_ticks >= 1,
+            "{name} zeroed the interval"
+        );
+        for generator in [
+            level.spikers.as_ref(),
+            level.beasts.as_ref(),
+            level.aliens.as_ref(),
+            level.tankers.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            assert!(generator.climb_speed > 0, "{name} zeroed a climb speed");
+            assert!(
+                generator.spawn_interval_ticks >= 1,
+                "{name} produced an illegal zero interval"
+            );
+        }
+        assert!(
+            (1..=16).contains(&level.enemy_shots),
+            "{name} broke the shot range"
+        );
+    }
+    assert!(low.flippers.climb_speed < high.flippers.climb_speed);
+    assert!(low.flippers.spawn_interval_ticks > high.flippers.spawn_interval_ticks);
+    assert!(low.enemy_shots < high.enemy_shots);
+}

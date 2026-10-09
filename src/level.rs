@@ -1,6 +1,7 @@
 //! Editable TOML level definitions, validation, enemy-generator settings,
 //! the level catalog, and level-owned actor cleanup markers.
 
+use crate::difficulty::Scale;
 use crate::web::LANE_UNIT;
 use crate::web::Web;
 use bevy::prelude::*;
@@ -76,6 +77,16 @@ pub(crate) struct Generator {
     pub(crate) climb_speed: i32,
     pub(crate) super_chance: u8,
     pub(crate) spiral_chance: u8,
+}
+
+impl Generator {
+    fn apply(&mut self, scale: Scale) {
+        self.climb_speed = (self.climb_speed as f32 * scale.climb_speed) as i32;
+        // Level::parse rejects a zero interval, so keep the scaled value legal.
+        self.spawn_interval_ticks = (self.spawn_interval_ticks as f32 * scale.spawn_interval)
+            .round()
+            .max(1.) as u16;
+    }
 }
 
 #[derive(Deserialize)]
@@ -228,6 +239,45 @@ fn flippers_enabled() -> bool {
 impl Level {
     pub(crate) fn pulse_settings(&self) -> Option<&Pulsars> {
         self.pulsars.as_ref().or(self.pulsar_tankers.as_ref())
+    }
+
+    /// Applies the `--difficulty` scale to this level's runtime tuning. The
+    /// parsed TOML is never modified; the catalog is scaled once at startup so
+    /// every later level swap inherits it.
+    pub(crate) fn scale_difficulty(&mut self, scale: Scale) {
+        let flippers = &mut self.flippers;
+        flippers.climb_speed = (flippers.climb_speed as f32 * scale.climb_speed) as i32;
+        flippers.spawn_interval_ticks = (flippers.spawn_interval_ticks as f32
+            * scale.spawn_interval)
+            .round()
+            .max(1.) as u16;
+        for generator in [
+            &mut self.tankers,
+            &mut self.fuse_tankers,
+            &mut self.spikers,
+            &mut self.beasts,
+            &mut self.fuseballs,
+            &mut self.super_flippers,
+            &mut self.spiral_flippers,
+            &mut self.mirrors,
+            &mut self.extra_spikers,
+            &mut self.aliens,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            generator.apply(scale);
+        }
+        for pulsars in [self.pulsars.as_mut(), self.pulsar_tankers.as_mut()]
+            .into_iter()
+            .flatten()
+        {
+            pulsars.generator.apply(scale);
+        }
+        // Level::parse keeps this within 1..=16.
+        self.enemy_shots = (self.enemy_shots as f32 * scale.alien_shots)
+            .round()
+            .clamp(1., 16.) as usize;
     }
 
     pub(crate) fn parse(source: &str, name: &str) -> Result<Self, String> {

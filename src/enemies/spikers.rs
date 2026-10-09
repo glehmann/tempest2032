@@ -32,6 +32,11 @@ pub(crate) struct Spiker {
     pub(crate) spike: Option<Entity>,
     pub(crate) build: u16,
     pub(crate) angle: u8,
+    /// Per-tick spike extension, recorded at spawn. The original ties this to
+    /// the Spiker's climb speed, but `--difficulty` scales climb speed, and
+    /// spikes only threaten the glider during the exit flight. Keeping the two
+    /// apart stops a tempo change from silently altering exit lethality.
+    pub(crate) spike_speed: i32,
 }
 
 impl Spiker {
@@ -142,6 +147,7 @@ pub(crate) fn spawn(
                 spike: None,
                 build: 50,
                 angle: 0,
+                spike_speed: generator.climb_speed,
             },
             pose,
             RenderLayers::layer(1),
@@ -211,7 +217,7 @@ pub(crate) fn advance(
                     && let Ok((_, mut spike)) = spikes.get_mut(entity)
                 {
                     if level.web.rear() - spiker.depth > spike.length {
-                        let length = spike.length + generator.climb_speed;
+                        let length = spike.length + spiker.spike_speed;
                         if length < 150 * LANE_UNIT {
                             spike.length = length;
                         }

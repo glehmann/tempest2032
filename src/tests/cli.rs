@@ -233,3 +233,23 @@ fn original_starfield_variants_can_be_selected_with_levels_and_capture() {
     assert!(Cli::try_parse_from(["t2k", "--starfield", "unknown"]).is_err());
     assert!(Cli::try_parse_from(["t2k", "--starfield", "random"]).is_err());
 }
+
+#[test]
+fn difficulty_defaults_to_normal_and_accepts_the_three_settings() {
+    use crate::difficulty::Difficulty;
+    assert_eq!(Cli::parse_from(["t2k"]).difficulty, Difficulty::Normal);
+    for (name, expected) in [
+        ("low", Difficulty::Low),
+        ("normal", Difficulty::Normal),
+        ("high", Difficulty::High),
+    ] {
+        assert_eq!(
+            Cli::try_parse_from(["t2k", "--difficulty", name])
+                .unwrap()
+                .difficulty,
+            expected
+        );
+        assert!(Cli::try_parse_from(["t2k", "--difficulty", name, "--level", "3"]).is_ok());
+    }
+    assert!(Cli::try_parse_from(["t2k", "--difficulty", "beastly"]).is_err());
+}

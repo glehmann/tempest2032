@@ -106,13 +106,20 @@ pub(crate) fn run(args: cli::Cli) {
         .add_systems(Update, capture_motion);
     }
     let starting_level = args.level as usize;
-    let levels = match Levels::load(&args.levels) {
+    let mut levels = match Levels::load(&args.levels) {
         Ok(levels) => levels,
         Err(error) => {
             eprintln!("Could not load levels: {error}");
             std::process::exit(1);
         }
     };
+    // Scale the parsed catalog, never the TOML, so the shipped source values
+    // stay intact and every later level swap inherits the chosen difficulty.
+    let scale = args.difficulty.scale();
+    for level in &mut levels.0 {
+        level.scale_difficulty(scale);
+    }
+    app.insert_resource(args.difficulty);
     let initial = levels
         .0
         .get(starting_level - 1)

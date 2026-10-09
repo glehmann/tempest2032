@@ -9,6 +9,7 @@ mod capture;
 mod cli;
 mod collisions;
 mod cry;
+mod difficulty;
 mod enemies;
 mod explosion;
 mod frame_pacing;

@@ -25,6 +25,10 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
+    /// Modulate difficulty without changing the level definitions
+    #[arg(long, value_enum, value_name = "LEVEL", default_value_t = crate::difficulty::Difficulty::Normal)]
+    pub(crate) difficulty: crate::difficulty::Difficulty,
+
     /// Background star animation (default: the original pattern for each level)
     #[arg(long, value_enum, value_name = "PATTERN")]
     pub(crate) starfield: Option<crate::stars::Pattern>,
