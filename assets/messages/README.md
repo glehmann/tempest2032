@@ -18,9 +18,12 @@ with the smaller numeral above the main lettering.
 The binary starts with `T2KS`, followed by glyph records: ASCII byte, contour
 count (big-endian u16), then point count (u16) and pairs of signed i16 X/Y
 coordinates. Each record then contains the original 15×18 big-endian CRY
-shading samples. The smooth outline mesh has interior vertices that sample
-these colors, preserving the white reflections, dark bevels, and colored face
-at native resolution. The reference source tree is not needed at runtime.
+shading samples. The smooth outline is clipped into a fixed 15×18 cell grid
+at startup. Cell vertices sample these colors, preserving the white reflections,
+dark bevels, and colored face at native resolution. Cells share edges while
+held, then move apart during expansion without growing or fading. Layouts and
+linear colors are cached; recursive interior subdivision is not used.
+The reference source tree is not needed at runtime.
 
 Regenerate with:
 

@@ -2,10 +2,11 @@ use super::{
     Messages,
     font::{Font, GlyphTriangle},
 };
-use crate::mesh::colored_mesh;
 use bevy::{
+    asset::RenderAssetUsages,
     camera::{ScalingMode, visibility::RenderLayers},
     core_pipeline::tonemapping::Tonemapping,
+    mesh::PrimitiveTopology,
     prelude::*,
     sprite_render::AlphaMode2d,
 };
@@ -18,6 +19,93 @@ struct Graphic;
 pub(super) struct Assets {
     mesh: Handle<Mesh>,
     layouts: HashMap<super::Id, Vec<GlyphTriangle>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn opaque_cells_keep_their_size_and_open_real_gaps() {
+        let quad = |center: Vec2, scale| {
+            [
+                Vec2::new(-0.5, -0.5),
+                Vec2::new(0.5, -0.5),
+                Vec2::new(0.5, 0.5),
+                Vec2::new(-0.5, 0.5),
+            ]
+            .map(|offset| cell_point(center + offset, center, scale, 0.))
+        };
+        for factor in [1., 1.5, 2., 4., 26.] {
+            let scale = Vec2::new(1., factor);
+            let a = quad(Vec2::new(0.5, 0.5), scale);
+            let b = quad(Vec2::new(0.5, 1.5), scale);
+            assert_eq!(a[2].y - a[1].y, 1.);
+            assert_eq!(a[1].x - a[0].x, 1.);
+            assert!((b[0].y - a[3].y - (factor - 1.)).abs() < 1e-6);
+        }
+        let p = Vec2::new(3.2, -2.6);
+        let result = cell_point(p, Vec2::new(3.5, -2.5), Vec2::ONE, 0.75);
+        assert!(result.distance(Vec2::new(p.x + p.y * 0.75, p.y - p.x * 0.375)) < 1e-6);
+    }
+
+    #[test]
+    fn recharge_geometry_is_bounded_and_cells_are_opaque() {
+        let font = Font::default();
+        let layout = font.layout(super::super::Id::SuperzapperRecharge);
+        assert!(
+            layout.len() < 40_000,
+            "recharge layout grew to {} triangles",
+            layout.len()
+        );
+        assert!(
+            layout
+                .iter()
+                .flat_map(|glyph| glyph.colors)
+                .all(|color| color.to_linear().alpha == 1.)
+        );
+    }
+
+    #[test]
+    #[ignore = "manual CPU message render benchmark"]
+    fn benchmark_recharge_rendering() {
+        let font = Font::default();
+        let layout = font.layout(super::super::Id::SuperzapperRecharge);
+        eprintln!("Recharge layout: {} triangles", layout.len());
+        let mut meshes = bevy::asset::Assets::<Mesh>::default();
+        let mesh = meshes.add(message_mesh(Vec::new()));
+        let mut app = App::new();
+        app.insert_resource(font)
+            .insert_resource(meshes)
+            .insert_resource(Assets {
+                mesh: mesh.clone(),
+                layouts: HashMap::new(),
+            })
+            .init_resource::<crate::game::Game>()
+            .insert_resource(Messages {
+                banner: Some(super::super::Active {
+                    event: super::super::Id::SuperzapperRecharge.into(),
+                    age: 280,
+                }),
+                clock: 280,
+                ..default()
+            })
+            .add_systems(Update, draw);
+        app.update();
+        let start = std::time::Instant::now();
+        for _ in 0..200 {
+            app.update();
+        }
+        eprintln!(
+            "Message mesh: {} vertices; mean CPU draw: {:.3} ms",
+            app.world()
+                .resource::<bevy::asset::Assets<Mesh>>()
+                .get(&mesh)
+                .unwrap()
+                .count_vertices(),
+            start.elapsed().as_secs_f64() * 1000. / 200.
+        );
+    }
 }
 
 pub(super) fn setup(
@@ -42,7 +130,7 @@ pub(super) fn setup(
         Tonemapping::None,
         Msaa::Sample4,
     ));
-    let mesh = meshes.add(colored_mesh([]));
+    let mesh = meshes.add(message_mesh(Vec::new()));
     commands.spawn((
         Graphic,
         Mesh2d(mesh.clone()),
@@ -101,7 +189,6 @@ pub(super) fn draw(
         };
         let fit = ((viewport - 24.) / (width.max(1.) * small)).min(1.) * small;
         let scale = if hint { Vec2::ONE } else { active.scale() };
-        let opacity = active.opacity();
         let shear = if hint {
             0.
         } else {
@@ -115,13 +202,16 @@ pub(super) fn draw(
             40.
         };
         for shadow in [true, false] {
+            if shadow && scale != Vec2::ONE {
+                continue;
+            }
             triangles.extend(layout.iter().map(|glyph| {
                 std::array::from_fn(|index| {
                     let p = glyph.points[index];
+                    let local = cell_point(p, glyph.cell, scale, shear);
                     let xy = Vec2::new(
-                        (glyph.origin.x + p.x * scale.x + p.y * scale.y * shear) * fit,
-                        anchor
-                            - (glyph.origin.y + p.y * scale.y - p.x * scale.x * shear / 2.) * fit,
+                        (glyph.origin.x + local.x) * fit,
+                        anchor - (glyph.origin.y + local.y) * fit,
                     );
                     (
                         (xy + if shadow {
@@ -131,9 +221,9 @@ pub(super) fn draw(
                         })
                         .extend(0.),
                         if shadow {
-                            Color::BLACK.with_alpha(0.75 * opacity)
+                            Color::LinearRgba(LinearRgba::new(0., 0., 0., 0.75))
                         } else {
-                            glyph.colors[index].with_alpha(opacity)
+                            glyph.colors[index]
                         },
                     )
                 })
@@ -201,6 +291,10 @@ pub(super) fn draw(
             Vec2::ZERO
         };
         let age = active.age as f32;
+        let flash = Color::LinearRgba(
+            crate::cry::color((active.age as u8).wrapping_mul(16).wrapping_add(30), 255)
+                .to_linear(),
+        );
         let score = matches!(
             id,
             super::Id::Points250 | super::Id::Points500 | super::Id::Points750
@@ -232,7 +326,7 @@ pub(super) fn draw(
                 triangles.push(std::array::from_fn(|index| {
                     let local = (glyph.origin + glyph.points[index]) * scale + centroid * expansion;
                     let color = if id == super::Id::OneUp {
-                        crate::cry::color((active.age as u8).wrapping_mul(16).wrapping_add(30), 255)
+                        flash
                     } else {
                         glyph.colors[index]
                     };
@@ -245,6 +339,28 @@ pub(super) fn draw(
         }
     }
     if let Some(mesh) = meshes.get_mut(&assets.mesh) {
-        *mesh = colored_mesh(triangles);
+        *mesh = message_mesh(triangles);
     }
+}
+
+fn cell_point(point: Vec2, center: Vec2, scale: Vec2, shear: f32) -> Vec2 {
+    let local = center * scale + (point - center);
+    Vec2::new(local.x + local.y * shear, local.y - local.x * shear * 0.5)
+}
+
+fn message_mesh(triangles: Vec<[(Vec3, Color); 3]>) -> Mesh {
+    let mut positions = Vec::with_capacity(triangles.len() * 3);
+    let mut colors = Vec::with_capacity(triangles.len() * 3);
+    for triangle in triangles {
+        for (position, color) in triangle {
+            positions.push(position.to_array());
+            colors.push(color.to_linear().to_f32_array());
+        }
+    }
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
 }

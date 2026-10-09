@@ -11,8 +11,13 @@ use std::collections::HashMap;
 pub(super) struct Font(HashMap<char, Glyph>, HashMap<super::Id, WordArt>);
 
 struct Glyph {
-    triangles: Vec<[Vec2; 3]>,
+    triangles: Vec<CellTriangle>,
     shading: [Color; 15 * 18],
+}
+
+struct CellTriangle {
+    points: [Vec2; 3],
+    center: Vec2,
 }
 
 impl Glyph {
@@ -44,6 +49,7 @@ pub(super) struct GlyphTriangle {
     pub(super) points: [Vec2; 3],
     pub(super) origin: Vec2,
     pub(super) colors: [Color; 3],
+    pub(super) cell: Vec2,
 }
 
 impl Default for Font {
@@ -58,8 +64,8 @@ impl Default for Font {
             let character = data[0] as char;
             data = &data[1..];
             let mut triangles = Vec::new();
-            for triangle in decode(&mut data) {
-                subdivide(triangle, &mut triangles);
+            for triangle in decode(&mut data, 0.02) {
+                split_cells(triangle, &mut triangles);
             }
             let shading = std::array::from_fn(|_| {
                 let raw = word(&mut data);
@@ -92,7 +98,7 @@ impl Default for Font {
             let graphic = WordArt {
                 size,
                 colors,
-                triangles: decode(&mut data),
+                triangles: decode(&mut data, 0.002),
             };
             if key == 7 {
                 numeral = Some(graphic);
@@ -131,8 +137,12 @@ impl Font {
                     .map(|triangle| GlyphTriangle {
                         points: triangle.map(|p| p - art.size / 2.),
                         origin: Vec2::ZERO,
-                        colors: triangle
-                            .map(|p| art.colors[(p.y as usize).min(art.colors.len() - 1)]),
+                        colors: triangle.map(|p| {
+                            Color::LinearRgba(
+                                art.colors[(p.y as usize).min(art.colors.len() - 1)].to_linear(),
+                            )
+                        }),
+                        cell: Vec2::ZERO,
                     })
                     .collect()
             },
@@ -151,8 +161,11 @@ impl Font {
                             .into_iter()
                             .flat_map(move |glyph| {
                                 glyph.triangles.iter().map(move |triangle| GlyphTriangle {
-                                    points: triangle.map(|p| p - Vec2::new(7.5, 9.)),
-                                    colors: triangle.map(|p| glyph.color(p)),
+                                    points: triangle.points.map(|p| p - Vec2::new(7.5, 9.)),
+                                    colors: triangle
+                                        .points
+                                        .map(|p| Color::LinearRgba(glyph.color(p).to_linear())),
+                                    cell: triangle.center - Vec2::new(7.5, 9.),
                                     origin: Vec2::new(
                                         left + 7.5 + index as f32 * 17.,
                                         line as f32 * 20.,
@@ -165,25 +178,55 @@ impl Font {
     }
 }
 
-// Interior vertices preserve the bitmap's local bevel lighting on smooth outlines.
-fn subdivide(triangle: [Vec2; 3], output: &mut Vec<[Vec2; 3]>) {
-    let edge = (0..3)
-        .max_by(|a, b| {
-            triangle[*a]
-                .distance_squared(triangle[(*a + 1) % 3])
-                .total_cmp(&triangle[*b].distance_squared(triangle[(*b + 1) % 3]))
-        })
-        .unwrap();
-    let a = triangle[edge];
-    let b = triangle[(edge + 1) % 3];
-    let c = triangle[(edge + 2) % 3];
-    if a.distance_squared(b) <= 0.75 * 0.75 {
-        output.push(triangle);
-        return;
+// Clip the smooth outline into fixed source-pixel cells, once at startup.
+fn split_cells(triangle: [Vec2; 3], output: &mut Vec<CellTriangle>) {
+    let min = triangle
+        .iter()
+        .copied()
+        .fold(Vec2::splat(f32::INFINITY), Vec2::min)
+        .floor();
+    let max = triangle
+        .iter()
+        .copied()
+        .fold(Vec2::splat(f32::NEG_INFINITY), Vec2::max)
+        .ceil();
+    for y in min.y as i32..max.y as i32 {
+        for x in min.x as i32..max.x as i32 {
+            let center = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+            let mut polygon = triangle.to_vec();
+            for (axis, bound, side) in [
+                (0, x as f32, 1.),
+                (0, x as f32 + 1., -1.),
+                (1, y as f32, 1.),
+                (1, y as f32 + 1., -1.),
+            ] {
+                let mut clipped = Vec::new();
+                for i in 0..polygon.len() {
+                    let a = polygon[i];
+                    let b = polygon[(i + 1) % polygon.len()];
+                    let inside_a = (a[axis] - bound) * side >= 0.;
+                    let inside_b = (b[axis] - bound) * side >= 0.;
+                    if inside_a {
+                        clipped.push(a);
+                    }
+                    if inside_a != inside_b {
+                        clipped.push(a + (b - a) * ((bound - a[axis]) / (b[axis] - a[axis])));
+                    }
+                }
+                polygon = clipped;
+            }
+            for i in 1..polygon.len().saturating_sub(1) {
+                let points = [polygon[0], polygon[i], polygon[i + 1]];
+                if (points[1] - points[0])
+                    .perp_dot(points[2] - points[0])
+                    .abs()
+                    > 1e-7
+                {
+                    output.push(CellTriangle { points, center });
+                }
+            }
+        }
     }
-    let midpoint = (a + b) / 2.;
-    subdivide([a, midpoint, c], output);
-    subdivide([midpoint, b, c], output);
 }
 
 fn word(data: &mut &[u8]) -> u16 {
@@ -192,7 +235,7 @@ fn word(data: &mut &[u8]) -> u16 {
     value
 }
 
-fn decode(data: &mut &[u8]) -> Vec<[Vec2; 3]> {
+fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
     let count = word(data);
     let mut path = Path::builder();
     for _ in 0..count {
@@ -214,7 +257,7 @@ fn decode(data: &mut &[u8]) -> Vec<[Vec2; 3]> {
                 &path.build(),
                 &FillOptions::default()
                     .with_fill_rule(FillRule::EvenOdd)
-                    .with_tolerance(0.002),
+                    .with_tolerance(tolerance),
                 &mut BuffersBuilder::new(&mut geometry, |v: FillVertex| {
                     Vec2::new(v.position().x, v.position().y)
                 }),
@@ -235,6 +278,25 @@ mod tests {
     use super::*;
     use clap::ValueEnum;
     #[test]
+    fn clipping_preserves_the_outline_area_without_duplicate_cell_edges() {
+        let mut cells = Vec::new();
+        split_cells(
+            [Vec2::ZERO, Vec2::new(2., 0.), Vec2::new(0., 2.)],
+            &mut cells,
+        );
+        let area: f32 = cells
+            .iter()
+            .map(|cell| {
+                (cell.points[1] - cell.points[0])
+                    .perp_dot(cell.points[2] - cell.points[0])
+                    .abs()
+                    / 2.
+            })
+            .sum();
+        assert!((area - 2.).abs() < 1e-6);
+        assert!(cells.iter().all(|cell| cell.center.x + cell.center.y <= 2.));
+    }
+    #[test]
     fn original_shading_retains_white_reflections_and_local_bevel_contrast() {
         let font = Font::default();
         let layout = font.triangles("COLLECT POWERUPS!");
@@ -251,11 +313,12 @@ mod tests {
             a.color(Vec2::new(7.5, 3.5)),
             "bevel shading varies across a row, not only with height"
         );
-        assert!(
-            a.triangles.iter().all(
-                |triangle| (0..3).all(|i| triangle[i].distance(triangle[(i + 1) % 3]) <= 0.751)
-            )
-        );
+        assert!(a.triangles.iter().all(|triangle| {
+            triangle
+                .points
+                .iter()
+                .all(|p| (p - triangle.center).abs().max_element() <= 0.501)
+        }));
     }
     #[test]
     fn catalog_letters_are_vector_geometry_with_real_counters() {
@@ -285,14 +348,14 @@ mod tests {
             !font.0[&'O']
                 .triangles
                 .iter()
-                .any(|t| inside(Vec2::new(7.5, 9.), t)),
+                .any(|t| inside(Vec2::new(7.5, 9.), &t.points)),
             "O's counter must stay open"
         );
         assert!(
             !font.0[&'A']
                 .triangles
                 .iter()
-                .any(|t| inside(Vec2::new(7.5, 6.5), t)),
+                .any(|t| inside(Vec2::new(7.5, 6.5), &t.points)),
             "A's counter must stay open"
         );
     }

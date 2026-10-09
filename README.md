@@ -701,10 +701,10 @@ including white reflections and dark bevels. They render
 in a native-resolution overlay above the game and warp imagery. The ordinary
 messages hold for the original 100-tick counter, then stretch vertically for
 the 50-tick counter, including the source's inclusive expiry. Oscillating shear
-is applied around each letter's own center. During the stretch phase, the
-lettering and its shadow use opacity `1 / (scale_x * scale_y)`, preserving
-coverage as their area grows: a 2× stretch gives 50% opacity and a 4× stretch
-gives 25%. The smooth stretch geometry is retained. The two-line recharge message
+is applied around each letter's own center. Each smooth glyph is divided into
+fixed source-pixel cells. During expansion, the opaque cells move apart while
+retaining their size, opening real gaps that show the scene through the text.
+The held letters remain joined and retain their reflective shading. The two-line recharge message
 shares one timer and deformation. Spike avoidance and recharge use the longer
 250-tick hold.
 
@@ -750,6 +750,9 @@ exit/death recording. Restart clears messages, independent effects, and timers.
 
 Assets are embedded; `assets/messages/README.md` documents their provenance and
 `tools/message_font.py` regenerates the contours from the original source tree.
+The message renderer caches cell layouts and linear colors, and uses a 2D mesh
+without normal calculations. A manual CPU benchmark is available with
+`cargo test --release benchmark_recharge_rendering -- --ignored --nocapture`.
 
 ## Warp zones
 

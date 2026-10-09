@@ -26,13 +26,6 @@ pub(super) struct Active {
 }
 
 impl Active {
-    pub(super) fn opacity(self) -> f32 {
-        if matches!(self.event.id, Id::GreenTrack | Id::WarpFive | Id::GameOver) {
-            return 1.;
-        }
-        let scale = self.scale();
-        (scale.x * scale.y).recip()
-    }
     pub(super) fn scale(self) -> Vec2 {
         Vec2::new(
             1.,
@@ -179,35 +172,6 @@ fn advance(
 mod tests {
     use super::*;
     #[test]
-    fn stretching_preserves_coverage_with_inverse_area_opacity() {
-        let active = |id: Id, age| Active {
-            event: id.into(),
-            age,
-        };
-        for hold in [Id::CollectPowerups, Id::SuperzapperRecharge] {
-            let start = u32::from(hold.hold()) + 1;
-            assert_eq!(active(hold, start).opacity(), 1.);
-            let stages: Vec<_> = (0..=50).map(|tick| active(hold, start + tick)).collect();
-            assert!(
-                stages
-                    .windows(2)
-                    .all(|pair| pair[0].opacity() > pair[1].opacity())
-            );
-            assert_eq!(stages[25].scale(), Vec2::new(1., 13.5));
-            assert_eq!(stages[2].scale(), Vec2::new(1., 2.));
-            assert_eq!(stages[2].opacity(), 0.5);
-            assert_eq!(stages[6].scale(), Vec2::new(1., 4.));
-            assert_eq!(stages[6].opacity(), 0.25);
-            for stage in stages {
-                let scale = stage.scale();
-                assert!((stage.opacity() * scale.x * scale.y - 1.).abs() < 1e-6);
-            }
-        }
-        for id in [Id::GreenTrack, Id::WarpFive, Id::GameOver] {
-            assert_eq!(active(id, 300).opacity(), 1.);
-        }
-    }
-    #[test]
     fn frozen_previews_keep_exact_age_and_life_gains_emit_one_effect_each() {
         let mut app = App::new();
         app.init_resource::<Messages>()
@@ -312,10 +276,8 @@ mod tests {
             messages.step();
         }
         assert_eq!(messages.banner.unwrap().scale(), Vec2::ONE);
-        assert_eq!(messages.banner.unwrap().opacity(), 1.);
         messages.step();
         assert_eq!(messages.banner.unwrap().scale(), Vec2::new(1., 1.5));
-        assert!((messages.banner.unwrap().opacity() - 1. / 1.5).abs() < 1e-6);
         for _ in 0..50 {
             messages.step();
         }
