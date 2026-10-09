@@ -478,6 +478,26 @@ Invalid geometry, out-of-range values, numbering errors, and unknown fields
 are rejected with the offending file's name. Shared player, weapon, palette,
 and animation behavior stays in Rust.
 
+### Levels past 100
+
+Clearing level 100 returns to level 1. The original `waves` table in `yak.s`
+is longer than that: it holds `_nw1` through `_nw100`, then `_nw85` through
+`_nw96`, then a null sentinel that resets the level counter. `rsetw` reads it
+with `move.l 0(a0,d0.w)` and falls back to `clr cwave` on the null, so twelve
+levels past 100 would replay the wave data from levels 85 to 96 before
+restarting. That band is not reachable in normal play. `sweb0` ends the game
+once the level counter reaches 99, and level selection caps its maximum at 99,
+so the tail only guards against running off the table.
+
+Difficulty is not ramped on any repeat in Tempest 2000. `rsetw` clears `d2`
+and skips the whole ramp when `t2k` is set, so the only mechanism that adds
+difficulty to a repeated level belongs to classic Tempest: it wraps at level 48
+through the sixteen-entry `tradmax` table and adds `(level - 48) >> 7` to every
+enemy climb speed, which takes roughly 129 levels to reach one depth unit.
+Tempest 2000 takes its enemy speeds from fixed tables indexed by level, holds
+Flipper random speed constant, and caps automatic fire at three shots. Level
+difficulty therefore comes from the hand-authored wave data, not from a formula.
+
 ## Level entry
 
 The level begins with the original `setweb` and `rotate_web` sequence: a
