@@ -11,6 +11,91 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn original_level_patterns_have_source_coordinates_palette_and_level32_exception() {
+    use crate::stars::Pattern;
+    for (level, point) in [
+        (1, Vec2::new(6., -27.)),
+        (2, Vec2::new(12., 126.)),
+        (32, Vec2::new(124., 126.)),
+    ] {
+        let stars = Pattern::Level.stars(level);
+        assert_eq!(stars.len(), 256);
+        assert_eq!(stars[0].position, Vec2::new(0., -126.));
+        assert_eq!(stars[1].position, point);
+        assert_eq!((stars[0].depth, stars[255].depth), (510 * LANE_UNIT, 0));
+        assert_eq!(stars[0].color, crate::cry::color(0x8f, 255));
+    }
+    let special = Pattern::Level.stars(32);
+    let reference = Pattern::Level.stars(164);
+    assert!(
+        special
+            .iter()
+            .zip(reference)
+            .all(|(a, b)| a.position == b.position && a.depth == b.depth && a.color == b.color)
+    );
+    let first = Pattern::Level.stars(1);
+    for level in [2, 3, 8, 16, 32, 48, 64, 80, 100] {
+        assert!(
+            first
+                .iter()
+                .zip(Pattern::Level.stars(level))
+                .any(|(a, b)| a.position != b.position),
+            "level {level} lost its distinct pattern"
+        );
+    }
+}
+
+#[test]
+fn original_preview_variants_have_their_own_population_motion_and_trails() {
+    use crate::stars::Pattern;
+    assert_eq!(Pattern::Random.stars(1).len(), 128);
+    assert_eq!(Pattern::Random.stars(1)[0].position, Vec2::new(41., -49.));
+    let rings = Pattern::Rings.stars(1);
+    assert_eq!(rings.len(), 256);
+    assert!(rings.iter().all(|star| star.position.length() < 50.));
+    assert_eq!(Pattern::Rings.step(), 0x1c000);
+    assert_eq!(Pattern::Rings.trails(4), (6, 2 * LANE_UNIT));
+    assert_eq!(Pattern::Selection.step(), 6 * LANE_UNIT);
+    assert_eq!(Pattern::Selection.trails(4), (4, 26 * LANE_UNIT));
+    let selection = Pattern::Selection.stars(2);
+    assert_eq!(
+        selection[4].position.x, 73.,
+        "fractional quarter-angle steps must accumulate before sine lookup"
+    );
+}
+
+#[test]
+fn web_loading_changes_the_pattern_preserves_motion_and_restart_resets_phase() {
+    use crate::stars::{Animation, advance_stars};
+    use crate::{game::Game, level::Level};
+    let mut app = App::new();
+    app.init_resource::<Stars>()
+        .init_resource::<Animation>()
+        .init_resource::<Level>()
+        .init_resource::<Game>()
+        .add_systems(Update, advance_stars);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<Animation>().offset, 6 * LANE_UNIT);
+    app.world_mut().resource_mut::<Level>().number = 2;
+    app.update();
+    assert_eq!(
+        app.world().resource::<Stars>().0[1].position,
+        Vec2::new(12., 126.)
+    );
+    assert_eq!(app.world().resource::<Stars>().0[0].depth, 502 * LANE_UNIT);
+    let level = app.world().resource::<Level>().clone();
+    app.insert_resource(level);
+    app.update();
+    assert_eq!(app.world().resource::<Stars>().0[0].depth, 500 * LANE_UNIT);
+    app.world_mut().resource_mut::<Game>().message_epoch += 1;
+    app.update();
+    assert_eq!(app.world().resource::<Stars>().0[0].depth, 508 * LANE_UNIT);
+    assert_eq!(app.world().resource::<Animation>().offset, 2 * LANE_UNIT);
+}
+
+#[test]
 fn stars_web_lanes_and_exit_flight_share_the_same_vanishing_point() {
     use crate::{
         level::Level,
@@ -279,12 +364,12 @@ fn stars_accelerate_outward_and_brighten_as_the_viewpoint_advances() {
     let mut star = star(100 * LANE_UNIT);
     let before = star.projected(Vec2::ZERO);
     let brightness = star.color().to_srgba().red;
-    star.advance();
+    star.advance(crate::stars::STEP);
     let first_step = star.projected(Vec2::ZERO) - before;
     assert!(star.projected(Vec2::ZERO).length() > before.length());
     assert!(star.color().to_srgba().red > brightness);
     let before = star.projected(Vec2::ZERO);
-    star.advance();
+    star.advance(crate::stars::STEP);
     assert!((star.projected(Vec2::ZERO) - before).length() > first_step.length());
 }
 
@@ -292,7 +377,7 @@ fn stars_accelerate_outward_and_brighten_as_the_viewpoint_advances() {
 fn near_stars_wrap_back_into_the_distance_without_changing_their_ray() {
     let mut star = star(LANE_UNIT);
     let direction = star.projected(Vec2::ZERO).normalize();
-    star.advance();
+    star.advance(crate::stars::STEP);
     assert_eq!(star.depth, 511 * LANE_UNIT);
     assert!(star.projected(Vec2::ZERO).normalize().distance(direction) < 1e-6);
     assert!(star.projected(Vec2::ZERO).is_finite());
@@ -304,7 +389,7 @@ fn motion_repeats_after_256_ticks_without_changing_the_population() {
     let initial: Vec<_> = stars.0.iter().map(|star| star.depth).collect();
     for _ in 0..256 {
         for star in &mut stars.0 {
-            star.advance();
+            star.advance(crate::stars::STEP);
         }
     }
     assert_eq!(stars.0.len(), COUNT);

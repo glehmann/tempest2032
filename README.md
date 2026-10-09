@@ -846,15 +846,43 @@ for sixty fixed bonus ticks rather than for the hidden normal glider. Direct
 warp motion recordings default to thirty seconds. Normal-web exit and shot-hit
 previews are incompatible with direct warp startup.
 
-## Development
+## Background star animations
 
-The background stars move continuously toward the viewer. `gamefx` advances
+Normal play uses the original `siney` / `initpstarfield` background: 256 stars
+whose X/Y sine frequencies are chosen from the current level and the original
+random table. Their depth order and CRY colors follow the source, producing
+different loops, woven curves, and spirals as the field moves toward the viewer.
+Level 32 retains the original special frequency lookup. Both entries in the
+gameplay `fields` table call `siney`, so every normal level uses its own pattern.
+Web entry and retries rebuild the appropriate pattern while preserving the
+moving depth phase; restart resets it. Bonus return regenerates the destination
+web's pattern. The shared web/exit vanishing point is retained.
+
+Other source variants can be selected for inspection:
+
+```sh
+cargo run --release -- --level 2
+cargo run --release -- --level 32 --starfield level
+cargo run --release -- --starfield random
+cargo run --release -- --starfield rings
+cargo run --release -- --starfield selection --level 12
+```
+
+The random initializer uses 128 stars and the original random table. The
+high-score ring field uses 256 stars in eight depth bands, a 1.75-unit motion
+step, and seven samples with gradually increasing separation. The level-select
+field uses fractional sine steps, six-unit motion, and five depth samples.
+`--starfield` overrides the normal background; omitting it selects the original
+level-driven animation. These options work with screenshots and recordings.
+
+`gamefx` advances
 the original star-field viewpoint by two units per tick, and `starfield1` in
 `src/gpu/llama.gas` wraps relative depth over 512 units. Perspective makes the
 stars spread outward faster as they approach, while their brightness rises
-with proximity. Here 180 seeded stars use those motion and brightness rules,
-with screen-sized square dots drawn behind the web. Camera movement also
+with proximity. Screen-sized square dots are drawn behind the web. Camera movement also
 shifts their projected positions.
+
+## Development
 
 ```sh
 cargo fmt --check

@@ -8,7 +8,10 @@ use crate::web::WORLD_UNIT;
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
-pub(crate) const COUNT: usize = 180;
+mod patterns;
+pub(crate) use patterns::{Animation, Pattern};
+
+pub(crate) const COUNT: usize = 256;
 
 pub(crate) const DEPTH_WRAP: i32 = 512 * LANE_UNIT;
 
@@ -30,8 +33,8 @@ pub(crate) struct Star {
 }
 
 impl Star {
-    pub(crate) fn advance(&mut self) {
-        self.depth = (self.depth - STEP).rem_euclid(DEPTH_WRAP);
+    pub(crate) fn advance(&mut self, step: i32) {
+        self.depth = (self.depth - step).rem_euclid(DEPTH_WRAP);
     }
 
     pub(crate) fn projected(&self, viewpoint: Vec2) -> Vec2 {
@@ -66,53 +69,13 @@ pub(crate) struct BonusStars(Vec<Star>);
 
 impl Default for BonusStars {
     fn default() -> Self {
-        let sines = include_bytes!("../assets/warp/sines.bin");
-        let sin = |angle: usize| i32::from(sines[angle & 255] as i8);
-        // rs400 runs 33 iterations per ring but the GPU reads only 256 stars.
-        Self(
-            (0..8)
-                .rev()
-                .flat_map(|ring| {
-                    (0..=32).rev().map(move |step| {
-                        let angle = step * 8;
-                        let phase = ((angle + 64) & 255) * 4;
-                        let hue = ((7 - ring) * 0x20 + (((sin(phase) + 128) & 0xf0) >> 4)) as u8;
-                        Star {
-                            position: Vec2::new(sin(angle) as f32, -sin(angle + 64) as f32)
-                                * (400. / 512.),
-                            depth: ring * 64 * LANE_UNIT + sin(phase).abs() * LANE_UNIT / 2,
-                            color: crate::cry::color(hue, 255),
-                        }
-                    })
-                })
-                .take(256)
-                .collect(),
-        )
+        Self(patterns::rings(400))
     }
 }
 
 impl Default for Stars {
     fn default() -> Self {
-        let mut random = 0x2_000_u32;
-        let mut next = || {
-            random = random.wrapping_mul(1664525).wrapping_add(1013904223);
-            random as f32 / u32::MAX as f32
-        };
-        let colors = [
-            Color::srgb(0.35, 0.65, 0.75),
-            Color::srgb(1.0, 0.45, 0.08),
-            Color::srgb(0.8, 0.85, 0.12),
-            Color::srgb(0.7, 0.7, 0.7),
-        ];
-        Self(
-            (0..COUNT)
-                .map(|index| Star {
-                    position: Vec2::new((next() - 0.5) * 256.0, (next() - 0.5) * 256.0),
-                    depth: (next() * DEPTH_WRAP as f32) as i32 % DEPTH_WRAP,
-                    color: colors[index % colors.len()],
-                })
-                .collect(),
-        )
+        Self(Pattern::Level.stars(1))
     }
 }
 
@@ -143,24 +106,57 @@ pub(crate) fn setup(
 }
 
 pub(crate) fn add_systems(app: &mut App) {
-    app.add_systems(FixedUpdate, advance_stars.run_if(crate::messages::running))
+    app.init_resource::<Animation>()
+        .add_systems(
+            FixedUpdate,
+            advance_stars
+                .after(crate::game::load_level)
+                .run_if(crate::messages::running),
+        )
         .add_systems(Update, draw_stars.after(crate::warp::render::draw));
 }
 
-pub(crate) fn advance_stars(mut stars: ResMut<Stars>) {
-    for star in &mut stars.0 {
-        star.advance();
+pub(crate) fn advance_stars(
+    mut stars: ResMut<Stars>,
+    mut animation: ResMut<Animation>,
+    level: Res<crate::level::Level>,
+    game: Option<Res<Game>>,
+) {
+    let epoch = game.as_ref().map(|game| game.message_epoch);
+    if animation.epoch != epoch {
+        animation.offset = 0;
+        animation.tick = 0;
+        animation.level = None;
+        animation.epoch = epoch;
     }
+    if level.is_changed()
+        || animation.level != Some(level.number)
+        || animation.selected != Some(animation.pattern)
+    {
+        stars.0 = animation.pattern.stars(level.number);
+        for star in &mut stars.0 {
+            star.depth = (star.depth - animation.offset).rem_euclid(DEPTH_WRAP);
+        }
+        animation.level = Some(level.number);
+        animation.selected = Some(animation.pattern);
+    }
+    let step = animation.pattern.step();
+    for star in &mut stars.0 {
+        star.advance(step);
+    }
+    animation.offset = (animation.offset + step).rem_euclid(DEPTH_WRAP);
+    animation.tick = animation.tick.wrapping_add(1);
 }
 
 // Project the moving stars onto a distant camera-aligned plane. This keeps the
 // original's single-pixel dots while allowing the web to cover the background.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn draw_stars(
     stars: Res<Stars>,
     warp: Res<Warp>,
     game: Option<Res<Game>>,
     bonus_stars: Option<Res<BonusStars>>,
+    animation: Option<Res<Animation>>,
     mut meshes: ResMut<Assets<Mesh>>,
     cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<StarField>)>,
     mut fields: Query<(&Mesh3d, &mut Transform), With<StarField>>,
@@ -182,7 +178,21 @@ pub(crate) fn draw_stars(
         spacing: 26 * LANE_UNIT,
         copies: 5,
     };
-    let warp = if bonus.is_some() { &bonus_warp } else { &*warp };
+    let (copies, spacing) = animation
+        .as_ref()
+        .map_or((0, 0), |animation| animation.pattern.trails(animation.tick));
+    let pattern_warp = Warp {
+        distance: 0,
+        copies,
+        spacing,
+    };
+    let warp = if bonus.is_some() {
+        &bonus_warp
+    } else if warp.copies == 0 && copies > 0 {
+        &pattern_warp
+    } else {
+        &*warp
+    };
     let stars = if bonus.is_some() {
         bonus_stars.as_ref().map_or(&stars.0, |stars| &stars.0)
     } else {

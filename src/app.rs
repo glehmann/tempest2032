@@ -53,6 +53,9 @@ fn normal_scene(game: Res<Game>) -> bool {
 
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
+    if let Some(pattern) = args.starfield {
+        app.insert_resource(stars::Animation::new(pattern));
+    }
     crate::messages::add_systems(&mut app);
     if let Some(id) = args.message_preview {
         app.insert_resource(crate::messages::Preview {

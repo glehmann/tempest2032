@@ -25,6 +25,10 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
+    /// Background star animation (default: the original pattern for each level)
+    #[arg(long, value_enum, value_name = "PATTERN")]
+    pub(crate) starfield: Option<crate::stars::Pattern>,
+
     /// Start directly in a playable warp zone (gate-flight/1, tunnel/2, rings/3)
     #[arg(long, value_enum, value_name = "ZONE",conflicts_with_all=["record_exit","record_shot_hit"])]
     pub(crate) warp_zone: Option<crate::warp::ZoneKind>,

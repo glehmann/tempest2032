@@ -214,3 +214,21 @@ fn message_previews_validate_identifiers_ticks_sizes_and_capture_modes() {
         assert!(Cli::try_parse_from(arguments).is_err());
     }
 }
+#[test]
+fn original_starfield_variants_can_be_selected_with_levels_and_capture() {
+    for pattern in ["level", "random", "rings", "selection"] {
+        assert!(
+            Cli::try_parse_from([
+                "t2k",
+                "--starfield",
+                pattern,
+                "--level",
+                "32",
+                "--screenshot",
+                "stars.png"
+            ])
+            .is_ok()
+        );
+    }
+    assert!(Cli::try_parse_from(["t2k", "--starfield", "unknown"]).is_err());
+}
