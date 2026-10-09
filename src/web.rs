@@ -95,8 +95,30 @@ impl Web {
     }
     pub(crate) fn camera_position(&self, glider: Vec3) -> Vec3 {
         let initial = self.glider_transform(self.start()).translation;
+        if self.horizontal_plane() {
+            return Vec3::new(
+                glider.x * 0.5,
+                glider.y * 0.5,
+                30. * WORLD_UNIT + glider.z - initial.z,
+            );
+        }
         Vec3::new(-0.3 + initial.x * 0.15, -0.95 + initial.y * 0.15, 5.3)
             + (glider - initial) * Vec3::new(0.5, 0.5, 1.0)
+    }
+    pub(crate) fn horizontal_plane(&self) -> bool {
+        !self.closed
+            && self
+                .vertices
+                .first()
+                .is_some_and(|first| self.vertices.iter().all(|vertex| vertex[1] == first[1]))
+    }
+    pub(crate) fn camera_rotation(&self) -> Quat {
+        Quat::from_euler(
+            EulerRot::YXZ,
+            if self.horizontal_plane() { 0. } else { 0.105 },
+            0.06,
+            0.,
+        )
     }
     pub(crate) fn orientation(&self, lane: usize) -> Quat {
         Quat::from_rotation_z(f32::from(self.orientations[lane]) * std::f32::consts::TAU / 256.0)

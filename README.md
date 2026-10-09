@@ -15,6 +15,11 @@ starfield fills the background. Geometry is generated in code from editable
 level definitions. Gate flight embeds the original Jaguar CRY surface texture;
 no external asset directory is needed at runtime.
 
+Horizontal plane webs, including level 3's `web1`, use the original half-claw
+viewpoint and 30-unit front distance. Their lens follows the original
+128-pixel projection scale, with extra room in narrow windows. Sideways yaw
+is disabled so the near and far edges remain horizontal as the claw moves.
+
 ## Run
 
 Install Rust 1.89 or newer, then run from this directory:

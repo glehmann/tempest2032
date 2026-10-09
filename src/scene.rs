@@ -86,6 +86,7 @@ pub(crate) fn setup(
     for layer in 0..=1 {
         commands.spawn((
             Camera3d::default(),
+            crate::camera::WebCamera,
             Camera {
                 order: layer as isize,
                 clear_color: if layer == 0 {
@@ -104,7 +105,7 @@ pub(crate) fn setup(
             Transform::from_translation(
                 web.camera_position(web.glider_transform(web.start()).translation),
             )
-            .with_rotation(Quat::from_euler(EulerRot::YXZ, 0.105, 0.06, 0.0)),
+            .with_rotation(web.camera_rotation()),
         ));
     }
 
