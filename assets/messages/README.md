@@ -31,8 +31,11 @@ The reference source tree is not needed at runtime.
 `game-over.cry` retains the full 145x68 CRY bitmap used by `gofeed`, from
 `beasty4.cry` at source coordinates 148,21. Its highlights and shading are
 preserved per pixel. Game Over renders this centered bitmap at `rex`'s depth 96,
-pulsing its X/Y scale with phase increments 15 and 17. Each 60 Hz tick scales
-and rotates the previous 384x240 image with `scar`'s scale 500 and cyclic angle
+pulsing its X/Y scale with phase increments 15 and 17. The original advances
+`gofeed` once per completed GPU frame through `gogame`/`thang`/`db`, rather than
+through the VBlank gameplay timer. The port paces the entire effect at 30 Hz,
+holding each feedback frame for two 60 Hz simulation ticks. Each feedback step
+scales and rotates the previous 384x240 image with `scar`'s scale 500 and cyclic angle
 from -7 to 8, subtracts eight intensity units, then stamps the bitmap again.
 The feedback is opaque CRY pixels rather than translucent vector copies.
 
