@@ -47,6 +47,14 @@ def contours(mask):
 
 def main():
     source, output = map(Path, sys.argv[1:])
+    if output.name == "game-over.cry":
+        pixels = (source / "images/beasty4.cry").read_bytes()
+        output.write_bytes(b"".join(
+            pixels[((21 + y) * 320 + 148) * 2:((21 + y) * 320 + 293) * 2]
+            for y in range(68)
+        ))
+        print(f"{output}: original 145x68 Game Over CRY bitmap")
+        return
     if output.name == "wordart.bin":
         binary = bytearray(b"T2KC")
         for key, image, ox, oy, width, height in [

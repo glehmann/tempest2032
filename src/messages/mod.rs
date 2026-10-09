@@ -2,6 +2,7 @@
 
 mod catalog;
 mod font;
+mod game_over;
 mod render;
 
 use bevy::prelude::*;
@@ -110,6 +111,7 @@ pub(crate) fn add_systems(app: &mut App) {
         .add_systems(Startup, render::setup)
         .add_systems(FixedUpdate, advance.after(crate::game::load_level))
         .add_systems(Update, render::draw.after(crate::warp::render::draw));
+    game_over::add_systems(app);
 }
 
 pub(crate) fn running(preview: Option<Res<Preview>>) -> bool {

@@ -1,0 +1,250 @@
+//! gofeed's full-color bitmap, sine pulse, and fading scale-and-rotate feedback.
+
+use super::Messages;
+use bevy::{
+    asset::RenderAssetUsages,
+    camera::visibility::RenderLayers,
+    prelude::*,
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+};
+
+const WIDTH: usize = 384;
+const HEIGHT: usize = 240;
+const ART_WIDTH: usize = 145;
+const ART_HEIGHT: usize = 68;
+const ART: &[u8] = include_bytes!("../../assets/messages/game-over.cry");
+
+#[derive(Resource)]
+struct Feedback {
+    pixels: Vec<u16>,
+    scratch: Vec<u16>,
+    age: Option<u32>,
+}
+
+impl Default for Feedback {
+    fn default() -> Self {
+        Self {
+            pixels: vec![0; WIDTH * HEIGHT],
+            scratch: vec![0; WIDTH * HEIGHT],
+            age: None,
+        }
+    }
+}
+
+impl Feedback {
+    fn update(&mut self, age: u32) {
+        if self.age == Some(age) {
+            return;
+        }
+        let start = if let Some(previous) = self.age.filter(|previous| *previous < age) {
+            previous + 1
+        } else {
+            self.pixels.fill(0);
+            self.scratch.fill(0);
+            0
+        };
+        for tick in start..=age {
+            crate::cry::feedback(
+                &mut self.pixels,
+                &mut self.scratch,
+                UVec2::new(WIDTH as u32, HEIGHT as u32),
+                ((tick / 8) & 15) as i32 - 7,
+                Vec2::splat(500. / 256.),
+                -8 * 65536,
+            );
+            self.stamp(tick);
+        }
+        self.age = Some(age);
+    }
+
+    fn stamp(&mut self, tick: u32) {
+        let scale = [15, 17].map(|speed| {
+            let scale =
+                0x8000 + (crate::sines::sine((tick.wrapping_mul(speed) & 255) as i32) + 128) * 64;
+            // camel.gas rex projects the 16:16 scale at dstz = 96.
+            ((scale / (96 * 4)) << 9) as f32 / 65536.
+        });
+        let origin = Vec2::new(WIDTH as f32, HEIGHT as f32) / 2.
+            - Vec2::new(ART_WIDTH as f32 * scale[0], ART_HEIGHT as f32 * scale[1]) / 2.;
+        for y in 0..ART_HEIGHT {
+            for x in 0..ART_WIDTH {
+                let index = (y * ART_WIDTH + x) * 2;
+                let pixel = u16::from_be_bytes([ART[index], ART[index + 1]]);
+                if pixel == 0 {
+                    continue;
+                }
+                let dx = (origin.x + x as f32 * scale[0]).floor() as usize;
+                let dy = (origin.y + y as f32 * scale[1]).floor() as usize;
+                self.pixels[dy * WIDTH + dx] = pixel;
+            }
+        }
+    }
+}
+
+#[derive(Component)]
+enum Canvas {
+    Background,
+    Feedback,
+}
+
+#[derive(Resource)]
+struct ImageHandle(Handle<Image>);
+
+pub(super) fn add_systems(app: &mut App) {
+    app.init_resource::<Feedback>()
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, advance.after(super::advance))
+        .add_systems(Update, draw.after(super::render::draw));
+}
+
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let mut image = Image::new_fill(
+        Extent3d {
+            width: WIDTH as u32,
+            height: HEIGHT as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &[0, 0, 0, 255],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    image.sampler = bevy::image::ImageSampler::nearest();
+    let image = images.add(image);
+    commands.spawn((
+        Canvas::Background,
+        Sprite {
+            color: Color::BLACK,
+            custom_size: Some(Vec2::new(WIDTH as f32, HEIGHT as f32)),
+            ..default()
+        },
+        Transform::default(),
+        Visibility::Hidden,
+        RenderLayers::layer(2),
+    ));
+    commands.spawn((
+        Canvas::Feedback,
+        Sprite::from_image(image.clone()),
+        Transform::from_xyz(0., 0., 1.),
+        Visibility::Hidden,
+        RenderLayers::layer(2),
+    ));
+    commands.insert_resource(ImageHandle(image));
+}
+
+fn advance(messages: Res<Messages>, mut feedback: ResMut<Feedback>) {
+    let age = messages.game_over.map(|active| active.age);
+    if feedback.age == age {
+        return;
+    }
+    if let Some(age) = age {
+        feedback.update(age);
+    } else {
+        *feedback = Feedback::default();
+    }
+}
+
+fn draw(
+    feedback: Res<Feedback>,
+    handle: Res<ImageHandle>,
+    mut images: ResMut<Assets<Image>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut canvases: Query<(&Canvas, &mut Sprite, &mut Transform, &mut Visibility)>,
+) {
+    let viewport = windows
+        .iter()
+        .next()
+        .map_or(384., |w| 240. * w.width() / w.height());
+    for (canvas, mut sprite, mut transform, mut visible) in &mut canvases {
+        *visible = if feedback.age.is_some() {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+        match canvas {
+            Canvas::Background => sprite.custom_size = Some(Vec2::new(viewport, 240.)),
+            Canvas::Feedback => transform.scale = Vec3::splat((viewport / WIDTH as f32).min(1.)),
+        }
+    }
+    if feedback.age.is_none() || !feedback.is_changed() {
+        return;
+    }
+    if let Some(image) = images.get_mut(&handle.0) {
+        for (pixel, rgba) in feedback
+            .pixels
+            .iter()
+            .zip(image.data.as_mut().unwrap().as_chunks_mut::<4>().0)
+        {
+            let hue = (pixel >> 8) as usize;
+            for (channel, table) in [&crate::cry::RED, &crate::cry::GREEN, &crate::cry::BLUE]
+                .iter()
+                .enumerate()
+            {
+                rgba[channel] = ((u16::from(table[hue >> 4][hue & 15]) * (pixel & 255)) >> 8) as u8;
+            }
+            rgba[3] = 255;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skipped_render_frames_and_frozen_previews_keep_the_same_feedback() {
+        let mut every_tick = Feedback::default();
+        for age in 0..=90 {
+            every_tick.update(age);
+        }
+        let mut skipped = Feedback::default();
+        skipped.update(90);
+        assert_eq!(every_tick.pixels, skipped.pixels);
+        skipped.update(90);
+        assert_eq!(every_tick.pixels, skipped.pixels);
+        skipped.update(0);
+        let mut fresh = Feedback::default();
+        fresh.update(0);
+        assert_eq!(fresh.pixels, skipped.pixels);
+    }
+
+    #[test]
+    fn original_pixels_keep_their_shading_and_trails_spread_beyond_the_stamp() {
+        assert_eq!(ART.len(), ART_WIDTH * ART_HEIGHT * 2);
+        let mut feedback = Feedback::default();
+        feedback.update(0);
+        let bright = feedback
+            .pixels
+            .iter()
+            .filter(|pixel| **pixel & 255 > 80)
+            .count();
+        assert!(bright > 1000 && bright < 10_000);
+        let colors: std::collections::HashSet<_> = feedback
+            .pixels
+            .iter()
+            .copied()
+            .filter(|pixel| *pixel != 0)
+            .collect();
+        let source: std::collections::HashSet<_> = ART
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pixel| u16::from_be_bytes(*pixel))
+            .collect();
+        assert!(colors.len() > 20 && colors.is_subset(&source));
+        feedback.update(60);
+        assert!(
+            feedback
+                .pixels
+                .iter()
+                .filter(|pixel| **pixel & 255 > 80)
+                .count()
+                > bright
+        );
+        assert!(
+            feedback.pixels[..80 * WIDTH]
+                .iter()
+                .any(|pixel| *pixel & 255 > 80)
+        );
+    }
+}

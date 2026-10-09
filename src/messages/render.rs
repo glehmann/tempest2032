@@ -188,27 +188,12 @@ pub(super) fn draw(
     mut meshes: ResMut<bevy::asset::Assets<Mesh>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
-    game: Res<crate::game::Game>,
 ) {
     let mut triangles = Vec::new();
     let viewport = windows
         .iter()
         .next()
         .map_or(384., |w| 240. * w.width() / w.height());
-    if let Some(active) = messages.game_over {
-        let alpha = (active.age as f32 / 60.).min(1.) * 0.8;
-        let corners = [
-            Vec2::new(-viewport / 2., -120.),
-            Vec2::new(viewport / 2., -120.),
-            Vec2::new(viewport / 2., 120.),
-            Vec2::new(-viewport / 2., 120.),
-        ]
-        .map(|p| (p.extend(0.), Color::BLACK.with_alpha(alpha)));
-        triangles.extend([
-            [corners[0], corners[1], corners[2]],
-            [corners[0], corners[2], corners[3]],
-        ]);
-    }
     if let Some(active) = messages.banner {
         let layout = assets
             .layouts
@@ -261,45 +246,6 @@ pub(super) fn draw(
                         },
                     )
                 })
-            }));
-        }
-    }
-    if let Some(active) = messages.game_over {
-        let layout = assets
-            .layouts
-            .entry(super::Id::GameOver)
-            .or_insert_with(|| font.layout(super::Id::GameOver));
-        let sin = |angle: u32| crate::sines::sine((angle & 255) as i32) as f32;
-        let age = active.age;
-        let scale = Vec2::new(
-            1. + (sin(age.wrapping_mul(15)) + 128.) / 512.,
-            1. + (sin(age.wrapping_mul(17)) + 128.) / 512.,
-        );
-        let fit = ((viewport - 24.) / font.width(super::Id::GameOver)).min(1.);
-        for copy in (0..=(active.age / 6).min(12)).rev() {
-            let angle =
-                (((age / 8) & 15) as f32 - 7.) * std::f32::consts::TAU / 256. * copy as f32 * 0.3;
-            let rotate = Mat2::from_angle(angle);
-            let opacity = if copy == 0 {
-                1.
-            } else {
-                0.35 * 0.75_f32.powi(copy as i32)
-            };
-            for glyph in layout.iter() {
-                triangles.push(std::array::from_fn(|index| {
-                    let p =
-                        rotate * (glyph.points[index] * scale * fit * (1. + copy as f32 * 0.06));
-                    (
-                        Vec3::new(p.x, -p.y, 0.),
-                        glyph.colors[index].with_alpha(opacity),
-                    )
-                }));
-            }
-        }
-        for glyph in font.triangles(&format!("FINAL SCORE\n{:08}", game.score)) {
-            triangles.push(std::array::from_fn(|index| {
-                let p = (glyph.origin + glyph.points[index]) * 0.55;
-                (Vec3::new(p.x, -65. - p.y, 0.), glyph.colors[index])
             }));
         }
     }

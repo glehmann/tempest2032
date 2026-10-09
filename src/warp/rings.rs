@@ -40,29 +40,14 @@ impl Rings {
     }
 
     fn feedback(&mut self, angle: i32, scale: Vec2, fade: i32) {
-        let sin = sine(angle) as f32 / 256.;
-        let cos = sine(angle + 64) as f32 / 256.;
-        for y in 0..HEIGHT {
-            let x_step = Vec2::new(cos, sin) * scale.x;
-            let mut source = Vec2::new(-192., y as f32 - 120.);
-            source = Vec2::new(
-                source.x * cos * scale.x - source.y * sin * scale.y,
-                source.x * sin * scale.x + source.y * cos * scale.y,
-            ) + Vec2::new(192., 120.);
-            for x in 0..WIDTH {
-                let sx = source.x.floor() as i32;
-                let sy = source.y.floor() as i32;
-                let pixel = if (0..WIDTH as i32).contains(&sx) && (0..HEIGHT as i32).contains(&sy) {
-                    self.pixels[sy as usize * WIDTH + sx as usize]
-                } else {
-                    0
-                };
-                let intensity = ((i32::from(pixel & 255) * UNIT + fade) >> 16).clamp(0, 255) as u16;
-                self.scratch[y * WIDTH + x] = (pixel & 0xff00) | intensity;
-                source += x_step;
-            }
-        }
-        std::mem::swap(&mut self.pixels, &mut self.scratch);
+        crate::cry::feedback(
+            &mut self.pixels,
+            &mut self.scratch,
+            UVec2::new(WIDTH as u32, HEIGHT as u32),
+            angle,
+            scale,
+            fade,
+        );
     }
 
     fn plot(&mut self, point: Vec2, color: u16, size: i32) {

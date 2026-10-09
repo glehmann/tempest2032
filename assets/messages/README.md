@@ -28,6 +28,20 @@ held, then move apart during expansion without growing or fading. Layouts and
 linear colors are cached; recursive interior subdivision is not used.
 The reference source tree is not needed at runtime.
 
+`game-over.cry` retains the full 145x68 CRY bitmap used by `gofeed`, from
+`beasty4.cry` at source coordinates 148,21. Its highlights and shading are
+preserved per pixel. Game Over renders this centered bitmap at `rex`'s depth 96,
+pulsing its X/Y scale with phase increments 15 and 17. Each 60 Hz tick scales
+and rotates the previous 384x240 image with `scar`'s scale 500 and cyclic angle
+from -7 to 8, subtracts eight intensity units, then stamps the bitmap again.
+The feedback is opaque CRY pixels rather than translucent vector copies.
+
+Regenerate the Game Over bitmap with:
+
+```sh
+python3 tools/message_font.py /path/to/tempest2k/src assets/messages/game-over.cry
+```
+
 Regenerate with:
 
 ```sh

@@ -71,6 +71,40 @@ pub(crate) fn color(hue: u8, intensity: u8) -> Color {
     Color::srgb_u8(channel(&RED), channel(&GREEN), channel(&BLUE))
 }
 
+pub(crate) fn feedback(
+    pixels: &mut Vec<u16>,
+    scratch: &mut Vec<u16>,
+    size: UVec2,
+    angle: i32,
+    scale: Vec2,
+    fade: i32,
+) {
+    let sin = crate::sines::sine(angle) as f32 / 256.;
+    let cos = crate::sines::sine(angle + 64) as f32 / 256.;
+    let center = size.as_vec2() / 2.;
+    let x_step = Vec2::new(cos, sin) * scale.x;
+    for y in 0..size.y as usize {
+        let source = Vec2::new(-center.x, y as f32 - center.y);
+        let mut source = Vec2::new(
+            source.x * cos * scale.x - source.y * sin * scale.y,
+            source.x * sin * scale.x + source.y * cos * scale.y,
+        ) + center;
+        for x in 0..size.x as usize {
+            let sx = source.x.floor() as i32;
+            let sy = source.y.floor() as i32;
+            let pixel = if (0..size.x as i32).contains(&sx) && (0..size.y as i32).contains(&sy) {
+                pixels[sy as usize * size.x as usize + sx as usize]
+            } else {
+                0
+            };
+            let intensity = ((i32::from(pixel & 255) * 65536 + fade) >> 16).clamp(0, 255) as u16;
+            scratch[y * size.x as usize + x] = (pixel & 0xff00) | intensity;
+            source += x_step;
+        }
+    }
+    std::mem::swap(pixels, scratch);
+}
+
 #[cfg(test)]
 #[path = "tests/cry.rs"]
 mod tests;
