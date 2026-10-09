@@ -67,6 +67,22 @@ fn derive_definition_and_defaults_are_valid() {
     assert!(!cli.fullscreen);
     assert!(!cli.fps);
     assert_eq!(cli.volume, 0.6);
+    assert_eq!(cli.effects_pitch, 2.0);
+}
+
+#[test]
+fn effects_pitch_accepts_positive_multipliers_and_rejects_invalid_values() {
+    for value in ["0.5", "1", "1.5", "2", "4"] {
+        assert_eq!(
+            Cli::try_parse_from(["t2k", "--effects-pitch", value])
+                .unwrap()
+                .effects_pitch,
+            value.parse::<f32>().unwrap()
+        );
+    }
+    for value in ["0", "-1", "4.1", "NaN", "inf", "high"] {
+        assert!(Cli::try_parse_from(["t2k", "--effects-pitch", value]).is_err());
+    }
 }
 
 #[test]

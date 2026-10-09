@@ -29,6 +29,10 @@ pub(crate) struct Cli {
     #[arg(long, default_value_t = 0.6, value_parser = parse_volume)]
     pub(crate) volume: f32,
 
+    /// Gameplay-effect pitch multiplier, leaving voices unchanged (0 < value <= 4)
+    #[arg(long, default_value_t = 2.0, value_parser = parse_effects_pitch)]
+    pub(crate) effects_pitch: f32,
+
     /// Modulate difficulty without changing the level definitions
     #[arg(long, value_enum, value_name = "LEVEL", default_value_t = crate::difficulty::Difficulty::Normal)]
     pub(crate) difficulty: crate::difficulty::Difficulty,
@@ -94,6 +98,14 @@ fn parse_volume(value: &str) -> Result<f32, String> {
         return Err("volume must be from 0 to 1".into());
     }
     Ok(volume)
+}
+
+fn parse_effects_pitch(value: &str) -> Result<f32, String> {
+    let pitch: f32 = value.parse().map_err(|_| "expected a pitch multiplier")?;
+    if !pitch.is_finite() || !(0.0..=4.0).contains(&pitch) || pitch == 0.0 {
+        return Err("effects pitch must be greater than 0 and at most 4".into());
+    }
+    Ok(pitch)
 }
 
 #[cfg(test)]

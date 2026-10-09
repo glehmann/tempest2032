@@ -76,6 +76,11 @@ Use `--volume 0.3` for quieter effects or `--volume 0` for silence. The default
 is `0.6`; values must be between zero and one. The sound pack is embedded in the
 executable, so playback needs no original source tree or ROM at runtime.
 
+Gameplay effects, including engine loops, play one octave higher by default.
+Use `--effects-pitch 1.5` for a smaller increase or `--effects-pitch 1` for the
+unscaled driver rate. The multiplier must be greater than zero and at most four.
+Voices keep their driver rate regardless of this setting.
+
 To regenerate `assets/sounds.bin` from the original source tree:
 
 ```sh

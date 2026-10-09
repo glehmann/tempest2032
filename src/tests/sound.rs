@@ -9,6 +9,7 @@ use crate::{
 fn app() -> App {
     let mut app = App::new();
     app.init_resource::<Sounds>()
+        .init_resource::<EffectsPitch>()
         .init_resource::<Assets<Sample>>()
         .init_resource::<Game>()
         .init_resource::<Time>()
@@ -16,6 +17,43 @@ fn app() -> App {
         .add_systems(Startup, setup)
         .add_systems(Update, update);
     app
+}
+
+#[test]
+fn gameplay_pitch_scales_effects_and_cleanup_without_changing_voices() {
+    for multiplier in [1.0, 1.5, 2.0] {
+        let mut app = app();
+        app.insert_resource(EffectsPitch(multiplier));
+        app.world_mut().resource_mut::<Sounds>().pending.extend([
+            Request {
+                effect: Effect::Shot,
+                period: None,
+            },
+            Request {
+                effect: Effect::Recharge,
+                period: None,
+            },
+        ]);
+        app.update();
+        let mut clips = app
+            .world_mut()
+            .query::<(&AudioPlayer<Sample>, &PlaybackSettings, &Voice)>();
+        for (player, settings, voice) in clips.iter(app.world()) {
+            let catalog = app.world().resource::<Catalog>();
+            let is_shot = player.0 == catalog.shots[Effect::Shot as usize];
+            assert_eq!(settings.speed, if is_shot { multiplier } else { 1.0 });
+            let sample = &catalog.samples[if is_shot {
+                Effect::Shot
+            } else {
+                Effect::Recharge
+            } as usize];
+            let expected = sample.decoder().total_duration().unwrap().as_secs_f64()
+                / f64::from(settings.speed)
+                + 0.25;
+            assert!((voice.deadline - expected).abs() < 0.001);
+        }
+        assert_eq!(clips.iter(app.world()).count(), 2);
+    }
 }
 
 #[test]
