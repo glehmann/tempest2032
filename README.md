@@ -664,6 +664,10 @@ per tick. Its body uses `pwrlaser`'s two lightning-bolt triangles, hue `$8a`,
 and vertex intensities 128, 192, and 255. Four 12-dot rings trail it at eight-unit
 depth intervals, rotating and changing colour through `pulser`. `src/cry.rs`
 decodes these colours with all three Jaguar TOM channel tables.
+The ring centers and cross sections are in web space, so the tube follows the
+lane's depth axis under the same perspective as the web. Only the particle
+dots and lightning glyph face the camera; dot size uses each ring's actual
+view-space distance.
 
 Collection requires the player to be grounded in the same lane, with the
 pickup between zero and 32 depth units ahead. The bolt disappears, and the
