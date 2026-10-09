@@ -25,9 +25,13 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
-    /// Sound-effect volume from 0 (silent) to 1 (full volume)
+    /// Master audio volume from 0 (silent) to 1 (full volume)
     #[arg(long, default_value_t = 0.6, value_parser = parse_volume)]
     pub(crate) volume: f32,
+
+    /// Music volume relative to master audio, from 0 (off) to 1
+    #[arg(long, default_value_t = 0.35, value_parser = parse_volume)]
+    pub(crate) music_volume: f32,
 
     /// Gameplay-effect pitch multiplier, leaving voices unchanged (0 < value <= 4)
     #[arg(long, default_value_t = 2.0, value_parser = parse_effects_pitch)]

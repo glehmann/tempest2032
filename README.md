@@ -70,9 +70,9 @@ their native window backends.
 Original Tempest 2000 samples play for shots, explosions, jumps, power-up drops
 and collection, spike and armor hits, Flipper landings, Pulsar pulses, deaths,
 warp events, and voice announcements. The level-exit engine uses the original
-loop regions and changing pitch. Music is not yet played.
+loop regions and changing pitch.
 
-Use `--volume 0.3` for quieter effects or `--volume 0` for silence. The default
+Use `--volume 0.3` for quieter audio or `--volume 0` for silence. The default
 is `0.6`; values must be between zero and one. The sound pack is embedded in the
 executable, so playback needs no original source tree or ROM at runtime.
 
@@ -103,6 +103,38 @@ The converter limits the alternate normal-shot sample
 to its physical boundary and trims the first "sexy yes" sample to its declared
 length. The ROM omits two unused death samples; a ROM-generated pack leaves
 those entries empty, without affecting gameplay sounds.
+
+## Music
+
+The seven original MOD tracks are embedded and decoded in stereo during
+playback. Music plays at normal tracker pitch and tempo, independently of
+`--effects-pitch`. Use `--music-volume 0.5` to raise the music relative to effects
+or `--music-volume 0` to disable music. The default is `0.35`, multiplied by the
+master `--volume` setting.
+
+Track selection follows `yak.s` and `images_sounds.s`:
+
+| Levels or scene | Original module |
+| --- | --- |
+| 1-16 and 65-80 | `rave4.mod` |
+| 17-32 and 81-96 | `tune7.mod` |
+| 33-48 and 97-99 | `tune5.mod` |
+| 49-64 | `tune12.mod` |
+| Gate flight and psychedelic rings | `tune1.mod` |
+| Green-track tunnel | `tune3.mod` |
+| Game over | `tune13.mod` |
+
+Tracks loop and continue across levels or retries that use the same tune.
+Changing tracks fades the previous music down over one second before starting
+the next. Music stops with the application; it does not require FFmpeg or an
+external tracker player.
+
+Regenerate the embedded modules from the original source tree or cartridge:
+
+```sh
+python3 tools/music.py /path/to/tempest2k assets/music
+python3 tools/music.py "/path/to/Tempest 2000.j64" assets/music
+```
 
 ## Editable levels
 

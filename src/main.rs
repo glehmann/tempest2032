@@ -19,6 +19,7 @@ mod hud;
 mod level;
 mod mesh;
 mod messages;
+mod music;
 mod powerups;
 mod scene;
 mod sines;

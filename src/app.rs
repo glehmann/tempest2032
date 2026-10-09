@@ -170,6 +170,8 @@ pub(crate) fn run(args: cli::Cli) {
     )));
     crate::sound::add_systems(&mut app);
     app.insert_resource(crate::sound::EffectsPitch(args.effects_pitch));
+    crate::music::add_systems(&mut app);
+    app.insert_resource(crate::music::MusicVolume(args.music_volume));
     if args.warp_zone.is_none() {
         app.world_mut()
             .resource_mut::<Game>()
