@@ -14,6 +14,11 @@ speed, so it continues settling after the claw stops. A sparse colored
 starfield fills the background. Geometry is generated in code from editable
 level definitions. Gate flight embeds the original Jaguar CRY surface texture;
 no external asset directory is needed at runtime.
+Normal stars use the web camera's full world-space projection, so their
+expansion point, the web's depth rails, and the exit flight share one vanishing
+point. Web coordinates retain the original `(8, 8)` origin; asymmetric shapes
+and the tracking camera can place the finite web opening away from the screen
+center. The camera does not recenter each web by its bounding box.
 
 Horizontal plane webs, including level 3's `web1`, use the original half-claw
 viewpoint and 30-unit front distance. Their lens follows the original

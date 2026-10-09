@@ -3,8 +3,8 @@
 
 use crate::game::{Game, Status};
 use crate::mesh::colored_mesh;
-use crate::web::FRONT_RADIUS;
 use crate::web::LANE_UNIT;
+use crate::web::WORLD_UNIT;
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
@@ -37,6 +37,14 @@ impl Star {
     pub(crate) fn projected(&self, viewpoint: Vec2) -> Vec2 {
         // llama.gas divides by (z >> 14) + 1, then shifts by seven.
         (self.position - viewpoint) * (128.0 / (self.depth as f32 / LANE_UNIT as f32 + 0.25))
+    }
+
+    fn background_position(&self, camera: &Transform) -> Option<Vec2> {
+        let depth = (self.depth as f32 / LANE_UNIT as f32 + 0.25) * WORLD_UNIT;
+        let relative = camera.rotation.inverse()
+            * (self.position.extend(0.) * WORLD_UNIT - camera.translation.truncate().extend(depth));
+        let distance = -relative.z;
+        (distance > 0.).then(|| relative.truncate() * (BACKGROUND_DISTANCE / distance))
     }
 
     pub(crate) fn color(&self) -> Color {
@@ -180,11 +188,6 @@ pub(crate) fn draw_stars(
     } else {
         &stars.0
     };
-    let viewpoint = if bonus.is_some() {
-        Vec2::ZERO
-    } else {
-        camera.translation.truncate() * (24.0 / FRONT_RADIUS)
-    };
     let particles = bonus.is_some_and(|session| session.kind != crate::warp::ZoneKind::GateFlight);
     let triangles = stars.iter().filter(|_| !particles).flat_map(|star| {
         (0..=warp.copies).flat_map(move |index| {
@@ -194,7 +197,14 @@ pub(crate) fn draw_stars(
                     .rem_euclid(DEPTH_WRAP),
                 color: star.color,
             };
-            let centre = star.projected(viewpoint) * pixel;
+            let centre = if bonus.is_some() {
+                star.projected(Vec2::ZERO) * pixel
+            } else {
+                let Some(centre) = star.background_position(camera) else {
+                    return Vec::new();
+                };
+                centre
+            };
             if centre.x.abs() > half_width || centre.y.abs() > half_height {
                 return Vec::new();
             }

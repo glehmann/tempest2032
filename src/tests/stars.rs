@@ -11,6 +11,135 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn stars_web_lanes_and_exit_flight_share_the_same_vanishing_point() {
+    use crate::{
+        level::Level,
+        stars::BACKGROUND_DISTANCE,
+        web::{FRONT_RADIUS, WORLD_UNIT},
+    };
+    use bevy::{camera::CameraProjection, mesh::VertexAttributeValues};
+
+    for source in [
+        include_str!("../../levels/01.toml"),
+        include_str!("../../levels/03.toml"),
+    ] {
+        let level = Level::parse(source, "shared perspective").unwrap();
+        let lane = level.web.start_lane;
+        let glider = level
+            .web
+            .glider_transform(lane as i32 * LANE_UNIT)
+            .translation;
+        for flight_distance in [0., 100., 500.] {
+            let mut pose = Transform::from_translation(level.web.camera_position(glider))
+                .with_rotation(level.web.camera_rotation());
+            pose.translation.z -= flight_distance * WORLD_UNIT;
+            let projection = PerspectiveProjection {
+                fov: 1.5,
+                aspect_ratio: 1.6,
+                ..default()
+            };
+            let project = |point| {
+                projection
+                    .get_clip_from_view()
+                    .project_point3(pose.compute_affine().inverse().transform_point3(point))
+                    .truncate()
+            };
+            let vanishing = project(pose.translation + Vec3::NEG_Z * 1_000_000.);
+            let mut app = App::new();
+            let mut meshes = Assets::<Mesh>::default();
+            let mesh = meshes.add(colored_mesh([]));
+            app.insert_resource(meshes)
+                .insert_resource(Stars(vec![Star {
+                    position: pose.translation.truncate() / WORLD_UNIT,
+                    depth: 200 * LANE_UNIT,
+                    color: Color::WHITE,
+                }]))
+                .init_resource::<Warp>()
+                .add_systems(Update, draw_stars);
+            app.world_mut().spawn((
+                Camera3d::default(),
+                pose,
+                Projection::Perspective(projection.clone()),
+            ));
+            let field = app
+                .world_mut()
+                .spawn((StarField, Mesh3d(mesh.clone()), Transform::default()))
+                .id();
+            app.update();
+            let field_pose = app.world().get::<Transform>(field).unwrap();
+            let geometry = app.world().resource::<Assets<Mesh>>().get(&mesh).unwrap();
+            let VertexAttributeValues::Float32x3(vertices) =
+                geometry.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
+            else {
+                panic!()
+            };
+            assert_eq!(vertices.len(), 6);
+            let center = (Vec3::from_array(vertices[0]) + Vec3::from_array(vertices[2])) / 2.;
+            assert!((center.z).abs() < 1e-6);
+            assert!(
+                ((field_pose.translation - pose.translation).length() - BACKGROUND_DISTANCE).abs()
+                    < 1e-4
+            );
+            assert!(
+                project(field_pose.transform_point(center)).distance(vanishing) < 1e-6,
+                "star origin must match the world depth axis"
+            );
+            assert!(
+                vanishing.length() > 0.01,
+                "the tilted camera must not force vanishing to the screen center"
+            );
+            for vertex in 0..level.web.vertices.len() {
+                let a = project(level.web.vertex(
+                    vertex as f32,
+                    FRONT_RADIUS,
+                    -(flight_distance + 30.) * WORLD_UNIT,
+                ));
+                let b = project(level.web.vertex(
+                    vertex as f32,
+                    FRONT_RADIUS,
+                    -(flight_distance + 200.) * WORLD_UNIT,
+                ));
+                assert!(
+                    (b - a).perp_dot(vanishing - a).abs() < 1e-5,
+                    "web rail does not converge with stars"
+                );
+            }
+            let flight_a = project(Vec3::new(
+                glider.x,
+                glider.y,
+                -(flight_distance + 100.) * WORLD_UNIT,
+            ));
+            let flight_b = project(Vec3::new(
+                glider.x,
+                glider.y,
+                -(flight_distance + 200.) * WORLD_UNIT,
+            ));
+            assert!(
+                (flight_b - flight_a).perp_dot(vanishing - flight_a).abs() < 1e-5,
+                "exit flight does not converge with stars"
+            );
+        }
+    }
+}
+
+#[test]
+fn rotated_star_rays_follow_camera_projection_and_skip_points_behind_the_view() {
+    use crate::stars::BACKGROUND_DISTANCE;
+    use crate::web::WORLD_UNIT;
+    let star = star(100 * LANE_UNIT);
+    let camera = Transform::from_xyz(0.3, -0.7, 5.3);
+    let legacy =
+        star.projected(camera.translation.truncate() / WORLD_UNIT) * (BACKGROUND_DISTANCE / 128.);
+    assert!(star.background_position(&camera).unwrap().distance(legacy) < 1e-5);
+    assert!(
+        star.background_position(
+            &camera.with_rotation(Quat::from_rotation_y(std::f32::consts::PI))
+        )
+        .is_none()
+    );
+}
+
+#[test]
 fn bonus_uses_original_ring_population_and_six_samples_without_steering_parallax() {
     use crate::game::{Game, Status};
     use crate::stars::BonusStars;
