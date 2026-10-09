@@ -43,6 +43,7 @@ struct WordArt {
     size: Vec2,
     triangles: Vec<[Vec2; 3]>,
     colors: Vec<Color>,
+    pixels: Vec<u16>,
 }
 
 pub(super) struct GlyphTriangle {
@@ -73,6 +74,10 @@ impl Default for Font {
             });
             glyphs.insert(character, Glyph { triangles, shading });
         }
+        assert_eq!(
+            &include_bytes!("../../assets/messages/wordart.bin")[..4],
+            b"T2KC"
+        );
         let mut data = &include_bytes!("../../assets/messages/wordart.bin")[4..];
         let mut art = HashMap::new();
         let ids = [
@@ -95,10 +100,19 @@ impl Default for Font {
                     crate::cry::color((raw >> 8) as u8, raw as u8)
                 })
                 .collect();
+            let triangles = decode(&mut data, 0.002);
+            let pixels = if key == 1 {
+                (0..(size.x * size.y) as usize)
+                    .map(|_| word(&mut data))
+                    .collect()
+            } else {
+                Vec::new()
+            };
             let graphic = WordArt {
                 size,
                 colors,
-                triangles: decode(&mut data, 0.002),
+                triangles,
+                pixels,
             };
             if key == 7 {
                 numeral = Some(graphic);
@@ -132,6 +146,35 @@ impl Font {
         self.1.get(&id).map_or_else(
             || self.triangles(id.text()),
             |art| {
+                if id == super::Id::Points2000 {
+                    return art
+                        .pixels
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, pixel)| **pixel & 255 > 80)
+                        .flat_map(|(index, pixel)| {
+                            let origin = Vec2::new(
+                                (index % art.size.x as usize) as f32,
+                                (index / art.size.x as usize) as f32,
+                            ) - art.size / 2.;
+                            let corners =
+                                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y].map(|p| p + origin);
+                            let color = Color::LinearRgba(
+                                crate::cry::color((pixel >> 8) as u8, *pixel as u8).to_linear(),
+                            );
+                            [
+                                [corners[0], corners[1], corners[2]],
+                                [corners[0], corners[2], corners[3]],
+                            ]
+                            .map(|points| GlyphTriangle {
+                                points,
+                                origin: Vec2::ZERO,
+                                colors: [color; 3],
+                                cell: origin + Vec2::splat(0.5),
+                            })
+                        })
+                        .collect();
+                }
                 art.triangles
                     .iter()
                     .map(|triangle| GlyphTriangle {

@@ -717,7 +717,9 @@ restarting an identical message's animation.
 
 EXCELLENT, 2000, 250/500/750, 1UP, and GAME OVER use vector outlines of their
 separate original artwork. Reward graphics approach with perspective echoes;
-score graphics expand into fragments, and extra-life graphics flash with
+the approaching 2000 reward uses one layer of fixed-size cells that separate
+in both directions as it grows, keeping the playfield visible through the gaps.
+Score graphics expand into fragments, and extra-life graphics flash with
 trailing copies. They coexist with ordinary announcements. A lives increase
 triggers a 1UP effect, without changing how lives are awarded. Game over clears
 ordinary messages, dims the scene, animates the original artwork with changing

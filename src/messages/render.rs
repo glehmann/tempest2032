@@ -47,6 +47,8 @@ mod tests {
         let p = Vec2::new(3.2, -2.6);
         let result = cell_point(p, Vec2::new(3.5, -2.5), Vec2::ONE, 0.75);
         assert!(result.distance(Vec2::new(p.x + p.y * 0.75, p.y - p.x * 0.375)) < 1e-6);
+        let p = Vec2::new(4.1, -2.2);
+        assert!(cell_point(p, Vec2::new(4.5, -2.5), Vec2::splat(0.5), 0.).distance(p * 0.5) < 1e-6);
     }
 
     #[test]
@@ -64,6 +66,33 @@ mod tests {
                 .flat_map(|glyph| glyph.colors)
                 .all(|color| color.to_linear().alpha == 1.)
         );
+    }
+
+    #[test]
+    fn approaching_2000_cells_keep_their_area_as_the_reward_grows() {
+        let font = Font::default();
+        let layout = font.layout(super::super::Id::Points2000);
+        assert!(!layout.is_empty());
+        assert!(
+            layout.len() <= 197 * 65 * 2,
+            "2000 cell layout grew to {} triangles",
+            layout.len()
+        );
+        for glyph in layout {
+            assert!(
+                glyph
+                    .points
+                    .iter()
+                    .all(|p| (*p - glyph.cell).abs().max_element() <= 0.501)
+            );
+            let area =
+                (glyph.points[1] - glyph.points[0]).perp_dot(glyph.points[2] - glyph.points[0]);
+            let points = glyph
+                .points
+                .map(|p| cell_point(p, glyph.cell, Vec2::splat(8.), 0.));
+            let expanded_area = (points[1] - points[0]).perp_dot(points[2] - points[0]);
+            assert!((area - expanded_area).abs() < 1e-4);
+        }
     }
 
     #[test]
@@ -299,7 +328,8 @@ pub(super) fn draw(
             id,
             super::Id::Points250 | super::Id::Points500 | super::Id::Points750
         );
-        let copies = if score {
+        let cells = id == super::Id::Points2000;
+        let copies = if score || cells {
             1
         } else {
             (1 + active.age / 8).min(20)
@@ -324,7 +354,12 @@ pub(super) fn draw(
                     0.
                 };
                 triangles.push(std::array::from_fn(|index| {
-                    let local = (glyph.origin + glyph.points[index]) * scale + centroid * expansion;
+                    let local = if cells {
+                        glyph.origin
+                            + cell_point(glyph.points[index], glyph.cell, Vec2::splat(scale), 0.)
+                    } else {
+                        (glyph.origin + glyph.points[index]) * scale + centroid * expansion
+                    };
                     let color = if id == super::Id::OneUp {
                         flash
                     } else {
@@ -344,7 +379,7 @@ pub(super) fn draw(
 }
 
 fn cell_point(point: Vec2, center: Vec2, scale: Vec2, shear: f32) -> Vec2 {
-    let local = center * scale + (point - center);
+    let local = center * scale + (point - center) * scale.min(Vec2::ONE);
     Vec2::new(local.x + local.y * shear, local.y - local.x * shear * 0.5)
 }
 

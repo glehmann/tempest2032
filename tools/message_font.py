@@ -48,7 +48,7 @@ def contours(mask):
 def main():
     source, output = map(Path, sys.argv[1:])
     if output.name == "wordart.bin":
-        binary = bytearray(b"T2KA")
+        binary = bytearray(b"T2KC")
         for key, image, ox, oy, width, height in [
             (0,"beasty3.cry",137,110,178,42),
             (1,"beasty7.cry",4,84,197,65),
@@ -73,6 +73,10 @@ def main():
                 binary.extend(struct.pack(">H",len(points)))
                 for x,y in points:
                     binary.extend(struct.pack(">hh",x,y))
+            if key == 1:
+                for y in range(height):
+                    start = ((oy+y)*320+ox)*2
+                    binary.extend(pixels[start:start+width*2])
         output.write_bytes(binary)
         print(f"{output}: {len(binary)} bytes, 8 vector word-art graphics")
         return
