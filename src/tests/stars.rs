@@ -94,6 +94,78 @@ fn web_loading_changes_the_pattern_preserves_motion_and_restart_resets_phase() {
 }
 
 #[test]
+fn entry_stars_decelerate_continuously_then_resume_normal_motion_on_every_web() {
+    use crate::{
+        animations::level_entry::APPROACH_TICKS,
+        game::{Game, Status},
+        level::Level,
+        stars::{Animation, DEPTH_WRAP, STEP, advance_stars},
+    };
+    let mut app = App::new();
+    app.init_resource::<Stars>()
+        .init_resource::<Animation>()
+        .init_resource::<Level>()
+        .init_resource::<Game>()
+        .add_systems(Update, advance_stars);
+    for level in [1, 2, 32] {
+        app.world_mut().resource_mut::<Level>().number = level;
+        let mut previous_step = i32::MAX;
+        for tick in 0..=APPROACH_TICKS + 64 {
+            let before = app.world().resource::<Animation>().offset;
+            {
+                let mut game = app.world_mut().resource_mut::<Game>();
+                game.status = if tick < APPROACH_TICKS {
+                    Status::Entering
+                } else {
+                    Status::Playing
+                };
+                game.entry = (tick < APPROACH_TICKS + 64).then_some(tick);
+            }
+            app.update();
+            let step = (app.world().resource::<Animation>().offset - before).rem_euclid(DEPTH_WRAP);
+            if tick == 0 {
+                assert!(step >= 3 * STEP, "web {level} must start with a rush");
+            } else if tick < APPROACH_TICKS {
+                assert!(step < previous_step && step > STEP);
+            } else {
+                assert_eq!(step, STEP, "normal speed must persist through claw rez");
+            }
+            let expected_depth = (510 * LANE_UNIT - app.world().resource::<Animation>().offset)
+                .rem_euclid(DEPTH_WRAP);
+            assert_eq!(app.world().resource::<Stars>().0[0].depth, expected_depth);
+            previous_step = step;
+        }
+    }
+}
+
+#[test]
+fn bonus_and_menu_starfields_do_not_get_the_web_entry_boost() {
+    use crate::{
+        game::{Game, Status},
+        level::Level,
+        stars::{Animation, Pattern, STEP, advance_stars},
+    };
+    for (pattern, status, expected) in [
+        (Pattern::Level, Status::Bonus, STEP),
+        (Pattern::Rings, Status::Entering, 0x1c000),
+        (Pattern::Selection, Status::Entering, 6 * LANE_UNIT),
+    ] {
+        let mut app = App::new();
+        app.init_resource::<Stars>()
+            .insert_resource(Animation::new(pattern))
+            .init_resource::<Level>()
+            .insert_resource(Game {
+                status,
+                entry: Some(0),
+                ..default()
+            })
+            .add_systems(Update, advance_stars);
+        app.update();
+        assert_eq!(app.world().resource::<Animation>().offset, expected);
+    }
+}
+
+#[test]
 fn stars_web_lanes_and_exit_flight_share_the_same_vanishing_point() {
     use crate::{
         level::Level,

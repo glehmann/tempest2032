@@ -140,7 +140,17 @@ pub(crate) fn advance_stars(
         animation.level = Some(level.number);
         animation.selected = Some(animation.pattern);
     }
-    let step = animation.pattern.step();
+    let mut step = animation.pattern.step();
+    if animation.pattern == Pattern::Level
+        && let Some(game) = &game
+        && matches!(game.status, Status::Entering | Status::Playing)
+        && let Some(tick) = game.entry
+    {
+        // yak.s adds vp_z to vp_sf; zoom3 decelerates that entry motion.
+        // Apply its extra travel to the stars while our web approaches separately.
+        step += i32::from(crate::animations::level_entry::APPROACH_TICKS.saturating_sub(tick))
+            * crate::animations::level_exit::ZOOM_ACCELERATION;
+    }
     for star in &mut stars.0 {
         star.advance(step);
     }

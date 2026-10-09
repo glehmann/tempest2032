@@ -858,6 +858,13 @@ Web entry and retries rebuild the appropriate pattern while preserving the
 moving depth phase; restart resets it. Bonus return regenerates the destination
 web's pattern. The shared web/exit vanishing point is retained.
 
+During the 256-tick web approach, stars rush toward the viewer at up to six
+depth units per tick, then decelerate smoothly to the normal two units. This
+accounts for the original entry camera motion in the starfield without moving
+the prototype's camera away from the web. The extra speed drops by `0x400` in
+16.16 units each tick, matching the exit/entry zoom acceleration. Claw rez uses
+normal speed, and each new web or retry starts the rush again.
+
 Other source variants can be selected for inspection:
 
 ```sh
