@@ -139,17 +139,37 @@ pub(crate) fn advance_stars(
         }
         animation.level = Some(level.number);
         animation.selected = Some(animation.pattern);
+        animation.entry_motion.clear();
+        animation.entry_warp = Warp::default();
+        if animation.pattern == Pattern::Level
+            && game
+                .as_ref()
+                .is_some_and(|game| game.status == Status::Entering && game.entry.is_some())
+        {
+            let mut exit = crate::animations::level_exit::Exit::new(
+                level.web.glider_transform(level.web.start()).translation,
+                &level.web,
+            );
+            while exit.flash == 0 {
+                exit.advance();
+                animation
+                    .entry_motion
+                    .push((exit.speed, i32::from(exit.ticks) * 0x4000));
+            }
+        }
     }
     let mut step = animation.pattern.step();
-    if animation.pattern == Pattern::Level
-        && let Some(game) = &game
-        && matches!(game.status, Status::Entering | Status::Playing)
-        && let Some(tick) = game.entry
-    {
-        // yak.s adds vp_z to vp_sf; zoom3 decelerates that entry motion.
-        // Apply its extra travel to the stars while our web approaches separately.
-        step += i32::from(crate::animations::level_entry::APPROACH_TICKS.saturating_sub(tick))
-            * crate::animations::level_exit::ZOOM_ACCELERATION;
+    if game.as_ref().is_some_and(|game| {
+        !matches!(game.status, Status::Entering | Status::Playing) || game.exit.is_some()
+    }) {
+        animation.entry_motion.clear();
+    }
+    if let Some((speed, spacing)) = animation.entry_motion.pop() {
+        step += speed;
+        animation.entry_warp.spacing = spacing;
+        animation.entry_warp.copies = 3;
+    } else {
+        animation.entry_warp = Warp::default();
     }
     for star in &mut stars.0 {
         star.advance(step);
@@ -198,6 +218,11 @@ pub(crate) fn draw_stars(
     };
     let warp = if bonus.is_some() {
         &bonus_warp
+    } else if warp.copies == 0
+        && let Some(animation) = &animation
+        && animation.entry_warp.copies > 0
+    {
+        &animation.entry_warp
     } else if warp.copies == 0 && copies > 0 {
         &pattern_warp
     } else {

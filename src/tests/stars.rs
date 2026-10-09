@@ -94,9 +94,9 @@ fn web_loading_changes_the_pattern_preserves_motion_and_restart_resets_phase() {
 }
 
 #[test]
-fn entry_stars_decelerate_continuously_then_resume_normal_motion_on_every_web() {
+fn entry_replays_exit_speed_and_warp_streaks_in_reverse_on_every_web() {
     use crate::{
-        animations::level_entry::APPROACH_TICKS,
+        animations::{level_entry::APPROACH_TICKS, level_exit::Exit},
         game::{Game, Status},
         level::Level,
         stars::{Animation, DEPTH_WRAP, STEP, advance_stars},
@@ -109,32 +109,39 @@ fn entry_stars_decelerate_continuously_then_resume_normal_motion_on_every_web() 
         .add_systems(Update, advance_stars);
     for level in [1, 2, 32] {
         app.world_mut().resource_mut::<Level>().number = level;
-        let mut previous_step = i32::MAX;
-        for tick in 0..=APPROACH_TICKS + 64 {
+        let web = &app.world().resource::<Level>().web;
+        let mut exit = Exit::new(web.glider_transform(web.start()).translation, web);
+        let mut exit_frames = Vec::new();
+        while exit.flash == 0 {
+            exit.advance();
+            exit_frames.push((exit.speed, i32::from(exit.ticks) * 0x4000));
+        }
+        for (tick, (speed, spacing)) in exit_frames.into_iter().rev().enumerate() {
             let before = app.world().resource::<Animation>().offset;
             {
                 let mut game = app.world_mut().resource_mut::<Game>();
-                game.status = if tick < APPROACH_TICKS {
+                game.status = if tick < usize::from(APPROACH_TICKS) {
                     Status::Entering
                 } else {
                     Status::Playing
                 };
-                game.entry = (tick < APPROACH_TICKS + 64).then_some(tick);
+                game.entry = (tick < usize::from(APPROACH_TICKS + 64)).then_some(tick as u16);
             }
             app.update();
             let step = (app.world().resource::<Animation>().offset - before).rem_euclid(DEPTH_WRAP);
-            if tick == 0 {
-                assert!(step >= 3 * STEP, "web {level} must start with a rush");
-            } else if tick < APPROACH_TICKS {
-                assert!(step < previous_step && step > STEP);
-            } else {
-                assert_eq!(step, STEP, "normal speed must persist through claw rez");
-            }
+            assert_eq!(step, STEP + speed);
+            let animation = app.world().resource::<Animation>();
+            assert_eq!(animation.entry_warp.copies, 3);
+            assert_eq!(animation.entry_warp.spacing, spacing);
             let expected_depth = (510 * LANE_UNIT - app.world().resource::<Animation>().offset)
                 .rem_euclid(DEPTH_WRAP);
             assert_eq!(app.world().resource::<Stars>().0[0].depth, expected_depth);
-            previous_step = step;
         }
+        let before = app.world().resource::<Animation>().offset;
+        app.update();
+        let animation = app.world().resource::<Animation>();
+        assert_eq!((animation.offset - before).rem_euclid(DEPTH_WRAP), STEP);
+        assert_eq!(animation.entry_warp.copies, 0);
     }
 }
 
@@ -366,59 +373,71 @@ fn bonus_uses_original_ring_population_and_six_samples_without_steering_parallax
 
 #[test]
 fn warp_draws_four_depth_spaced_samples_and_returns_to_single_dots() {
-    let mut app = App::new();
-    let mut meshes = Assets::<Mesh>::default();
-    let mesh = meshes.add(colored_mesh([]));
-    app.insert_resource(meshes)
-        .insert_resource(Stars(vec![Star {
-            position: Vec2::ZERO,
-            depth: 32 * LANE_UNIT,
-            color: Color::WHITE,
-        }]))
-        .insert_resource(Warp {
-            distance: 0,
-            spacing: 16 * LANE_UNIT,
-            copies: 3,
-        })
-        .add_systems(Update, draw_stars);
-    app.world_mut().spawn((
-        Camera3d::default(),
-        Transform::default(),
-        Projection::Perspective(PerspectiveProjection::default()),
-    ));
-    app.world_mut()
-        .spawn((StarField, Mesh3d(mesh.clone()), Transform::default()));
-    app.world_mut().run_schedule(Update);
-    let colors = match app
-        .world()
-        .resource::<Assets<Mesh>>()
-        .get(&mesh)
-        .unwrap()
-        .attribute(Mesh::ATTRIBUTE_COLOR)
-        .unwrap()
-    {
-        bevy::mesh::VertexAttributeValues::Float32x4(colors) => colors,
-        _ => panic!("star mesh needs colors"),
-    };
-    assert_eq!(colors.len(), 24);
-    assert!(
-        colors
-            .chunks_exact(6)
-            .map(|dot| dot[0][0])
-            .collect::<Vec<_>>()
-            .windows(2)
-            .all(|pair| pair[0] > pair[1])
-    );
-    *app.world_mut().resource_mut::<Warp>() = Warp::default();
-    app.world_mut().run_schedule(Update);
-    assert_eq!(
-        app.world()
+    use crate::stars::Animation;
+    for entering in [false, true] {
+        let mut app = App::new();
+        let mut meshes = Assets::<Mesh>::default();
+        let mesh = meshes.add(colored_mesh([]));
+        app.insert_resource(meshes)
+            .insert_resource(Stars(vec![Star {
+                position: Vec2::ZERO,
+                depth: 32 * LANE_UNIT,
+                color: Color::WHITE,
+            }]))
+            .insert_resource(Warp {
+                distance: 0,
+                spacing: 16 * LANE_UNIT,
+                copies: 3,
+            })
+            .add_systems(Update, draw_stars);
+        if entering {
+            let warp = std::mem::take(&mut *app.world_mut().resource_mut::<Warp>());
+            let mut animation = Animation::default();
+            animation.entry_warp = warp;
+            app.insert_resource(animation);
+        }
+        app.world_mut().spawn((
+            Camera3d::default(),
+            Transform::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+        ));
+        app.world_mut()
+            .spawn((StarField, Mesh3d(mesh.clone()), Transform::default()));
+        app.world_mut().run_schedule(Update);
+        let colors = match app
+            .world()
             .resource::<Assets<Mesh>>()
             .get(&mesh)
             .unwrap()
-            .count_vertices(),
-        6
-    );
+            .attribute(Mesh::ATTRIBUTE_COLOR)
+            .unwrap()
+        {
+            bevy::mesh::VertexAttributeValues::Float32x4(colors) => colors,
+            _ => panic!("star mesh needs colors"),
+        };
+        assert_eq!(colors.len(), 24);
+        assert!(
+            colors
+                .chunks_exact(6)
+                .map(|dot| dot[0][0])
+                .collect::<Vec<_>>()
+                .windows(2)
+                .all(|pair| pair[0] > pair[1])
+        );
+        *app.world_mut().resource_mut::<Warp>() = Warp::default();
+        if entering {
+            app.world_mut().resource_mut::<Animation>().entry_warp = Warp::default();
+        }
+        app.world_mut().run_schedule(Update);
+        assert_eq!(
+            app.world()
+                .resource::<Assets<Mesh>>()
+                .get(&mesh)
+                .unwrap()
+                .count_vertices(),
+            6
+        );
+    }
 }
 
 fn star(depth: i32) -> Star {

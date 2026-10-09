@@ -115,6 +115,8 @@ pub(crate) struct Animation {
     pub(super) tick: u32,
     pub(super) epoch: Option<u32>,
     pub(super) selected: Option<Pattern>,
+    pub(super) entry_motion: Vec<(i32, i32)>,
+    pub(super) entry_warp: super::Warp,
 }
 
 impl Animation {
