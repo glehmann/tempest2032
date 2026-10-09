@@ -165,6 +165,10 @@ pub(crate) fn run(args: cli::Cli) {
         }))
         .add_systems(Startup, (setup, warp::render::setup));
     add_systems(&mut app);
+    app.insert_resource(bevy::audio::GlobalVolume::new(bevy::audio::Volume::Linear(
+        args.volume,
+    )));
+    crate::sound::add_systems(&mut app);
     if args.warp_zone.is_none() {
         app.world_mut()
             .resource_mut::<Game>()

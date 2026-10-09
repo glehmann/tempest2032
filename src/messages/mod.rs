@@ -121,6 +121,7 @@ pub(crate) fn running(preview: Option<Res<Preview>>) -> bool {
 }
 
 fn advance(
+    mut commands: Commands,
     mut messages: ResMut<Messages>,
     mut preview: Option<ResMut<Preview>>,
     mut game: ResMut<crate::game::Game>,
@@ -163,6 +164,13 @@ fn advance(
         preview.elapsed += 1;
         if preview.capture_tick.is_none() && preview.elapsed > u32::from(preview.id.hold()) + 90 {
             preview.elapsed = 0;
+        }
+    }
+    for event in &messages.events {
+        if game.status != crate::game::Status::Bonus
+            || !matches!(event.id, Id::Points250 | Id::Points500 | Id::Points750)
+        {
+            crate::sound::announcement(&mut commands, event.id);
         }
     }
     messages.step();

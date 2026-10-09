@@ -251,8 +251,9 @@ pub(crate) fn start_spiral_flip(flipper: &mut Flipper, player_lane: usize, web: 
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(crate) fn move_enemies(
+    mut commands: Commands,
     level: Res<Level>,
     game: Res<Game>,
     player: Single<&Glider>,
@@ -350,6 +351,7 @@ pub(crate) fn move_enemies(
                             1
                         };
                 flipper.motion = if angle >= level.web.flip_angle(from, flipper.lane, direction) {
+                    crate::sound::play(&mut commands, crate::sound::Effect::Tink);
                     Motion::Pause(if released.as_ref().is_some_and(|r| r.burst) {
                         0
                     } else {

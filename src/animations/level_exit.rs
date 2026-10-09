@@ -151,6 +151,7 @@ pub(crate) fn animate(
     };
     let (glider, weapon, transform, visibility) = &mut *player;
     let was_wireframe = exit.wireframe;
+    let was_flash = exit.flash;
     if exit.advance() {
         game.exit = None;
         game.invulnerable = 0;
@@ -168,6 +169,9 @@ pub(crate) fn animate(
                 commands.entity(entity).despawn();
             }
         }
+    }
+    if exit.flash > 0 && was_flash == 0 {
+        crate::sound::play(&mut commands, crate::sound::Effect::Warp);
     }
     transform.translation.z = 0.12 - exit.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT;
     if exit.wireframe {

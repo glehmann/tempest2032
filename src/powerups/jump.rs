@@ -15,6 +15,7 @@ pub(crate) fn queue_jump(keys: Res<ButtonInput<KeyCode>>, mut upgrades: ResMut<U
 }
 
 pub(crate) fn update_jump(
+    mut commands: Commands,
     game: Res<Game>,
     keys: Res<ButtonInput<KeyCode>>,
     mut upgrades: ResMut<Upgrades>,
@@ -26,6 +27,7 @@ pub(crate) fn update_jump(
     let requested = std::mem::take(&mut upgrades.jump_queued)
         || keys.any_pressed([KeyCode::KeyJ, KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     if upgrades.jump_height == 0 && upgrades.jump_enabled && requested {
+        crate::sound::play(&mut commands, crate::sound::Effect::Jump);
         upgrades.jump_velocity = 2 * LANE_UNIT;
     }
     if upgrades.jump_velocity != 0 {

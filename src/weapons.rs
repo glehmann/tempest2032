@@ -180,6 +180,14 @@ pub(crate) fn fire_bullets(
         return;
     }
     weapon.firing = true;
+    crate::sound::play(
+        &mut commands,
+        if upgrades.as_ref().is_some_and(|u| u.laser) {
+            crate::sound::Effect::Laser
+        } else {
+            crate::sound::Effect::Shot
+        },
+    );
     let lane = level.web.selected_lane(glider.progress) as usize;
     let position = transform.translation - Vec3::Z * 0.18;
     let mut shot = commands.spawn((

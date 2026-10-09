@@ -186,6 +186,7 @@ pub(crate) fn resolve_hits(
                     continue;
                 }
                 commands.entity(entity).insert(mirror.transform(&level.web));
+                crate::sound::play(&mut commands, crate::sound::Effect::Shield);
                 commands.entity(shot).despawn();
                 commands.spawn((
                     EnemyShot {
@@ -219,6 +220,7 @@ pub(crate) fn resolve_hits(
                 && matches!(flipper.motion, Motion::Climb)
             {
                 let part = beast_assets.parts[beast.stage - 1].clone();
+                crate::sound::play(&mut commands, crate::sound::Effect::Shield);
                 beast.stage -= 1;
                 mesh.0 = beast_assets.frames[beast.stage].clone();
                 commands.entity(shot).despawn();
@@ -239,6 +241,11 @@ pub(crate) fn resolve_hits(
                 break;
             }
             if let Ok((_, mut spike)) = spikes.get_mut(entity) {
+                crate::sound::pitched(
+                    &mut commands,
+                    crate::sound::Effect::Spike,
+                    524 + ((spike.length / LANE_UNIT) & 511) as u16,
+                );
                 game.score += 3;
                 spike.length -= 3 * LANE_UNIT;
                 if spike.length < 0 {

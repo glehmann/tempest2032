@@ -25,6 +25,10 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
+    /// Sound-effect volume from 0 (silent) to 1 (full volume)
+    #[arg(long, default_value_t = 0.6, value_parser = parse_volume)]
+    pub(crate) volume: f32,
+
     /// Modulate difficulty without changing the level definitions
     #[arg(long, value_enum, value_name = "LEVEL", default_value_t = crate::difficulty::Difficulty::Normal)]
     pub(crate) difficulty: crate::difficulty::Difficulty,
@@ -82,6 +86,14 @@ fn parse_message_size(value: &str) -> Result<bevy::prelude::UVec2, String> {
         return Err("dimensions must be 320..8192 by 240..8192".into());
     }
     Ok(bevy::prelude::UVec2::new(width, height))
+}
+
+fn parse_volume(value: &str) -> Result<f32, String> {
+    let volume: f32 = value.parse().map_err(|_| "expected a number from 0 to 1")?;
+    if !volume.is_finite() || !(0.0..=1.0).contains(&volume) {
+        return Err("volume must be from 0 to 1".into());
+    }
+    Ok(volume)
 }
 
 #[cfg(test)]

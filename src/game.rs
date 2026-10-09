@@ -333,6 +333,7 @@ pub(crate) fn load_level(
     let Some(reason) = game.load.take() else {
         return;
     };
+    crate::sound::reset(&mut commands);
     let bonus = match reason {
         LoadReason::Warp {
             kind,

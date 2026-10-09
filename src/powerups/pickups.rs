@@ -63,6 +63,7 @@ pub(crate) fn spawn_drop(
     depth: i32,
     web: &Web,
 ) {
+    crate::sound::play(commands, crate::sound::Effect::Warp);
     let mut transform = web.glider_transform(lane as i32 * LANE_UNIT);
     transform.translation.z = -(depth as f32 / LANE_UNIT as f32) * WORLD_UNIT + 0.06;
     commands.spawn((
@@ -116,6 +117,7 @@ pub(crate) fn advance_powerups(
             && pickup.tick(lane, upgrades.jump_height == 0)
         {
             let reward = upgrades.collect(&mut game.score);
+            crate::sound::pitched(&mut commands, crate::sound::Effect::Warp, 428);
             game.announcements.extend(
                 upgrades
                     .announcements

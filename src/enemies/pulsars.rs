@@ -100,7 +100,13 @@ impl Pulsar {
     }
 }
 
-pub(crate) fn pulse(level: Res<Level>, game: Res<Game>, mut pulse: ResMut<Pulse>) {
+pub(crate) fn pulse(
+    mut commands: Commands,
+    level: Res<Level>,
+    game: Res<Game>,
+    mut pulse: ResMut<Pulse>,
+    pulsars: Query<&Pulsar>,
+) {
     let Some(settings) = level.pulse_settings() else {
         return;
     };
@@ -112,6 +118,9 @@ pub(crate) fn pulse(level: Res<Level>, game: Res<Game>, mut pulse: ResMut<Pulse>
     if pulse.ticks >= settings.phase_ticks {
         pulse.ticks = 0;
         pulse.phase = (pulse.phase + 1) & 15;
+        if pulse.phase == 7 && pulsars.iter().any(Pulsar::climbing) {
+            crate::sound::play(&mut commands, crate::sound::Effect::Pulse);
+        }
     }
 }
 

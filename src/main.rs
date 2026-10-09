@@ -22,6 +22,7 @@ mod messages;
 mod powerups;
 mod scene;
 mod sines;
+mod sound;
 mod stars;
 mod warp;
 mod weapons;

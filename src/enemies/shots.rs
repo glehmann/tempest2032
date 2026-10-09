@@ -88,6 +88,7 @@ pub(crate) fn fire_enemy_shots(
             depth,
             angle: 0,
         };
+        crate::sound::play(&mut commands, crate::sound::Effect::Shot);
         commands.spawn((
             Transform::from_translation({
                 let mut p = level

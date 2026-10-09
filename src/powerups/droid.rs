@@ -171,6 +171,7 @@ pub(crate) fn move_droid(
         transform.rotation = Quat::from_euler(EulerRot::XYZ, angle, angle * 2.0, angle * 3.0);
         droid.cooldown = droid.cooldown.saturating_sub(1);
         if target.is_some() && droid.cooldown == 0 && bullets.iter().count() < MAX_BULLETS + 8 {
+            crate::sound::play(&mut commands, crate::sound::Effect::Laser);
             let lane = level.web.selected_lane(droid.progress) as usize;
             let mut position = level
                 .web

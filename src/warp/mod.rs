@@ -311,6 +311,7 @@ impl Session {
 }
 
 pub(crate) fn advance(
+    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     levels: Res<Levels>,
     mut game: ResMut<Game>,
@@ -321,6 +322,8 @@ pub(crate) fn advance(
     let Some(mut session) = game.bonus.take() else {
         return;
     };
+    let was_flying = matches!(session.phase, Phase::Flying);
+    let passed = session.passed;
     session.tick = session.tick.wrapping_add(1);
     if let Some(tunnel) = &mut session.tunnel {
         tunnel.settle(session.phase);
@@ -353,6 +356,7 @@ pub(crate) fn advance(
         }
         Phase::Failure(ticks) => session.phase = Phase::Failure(ticks - 1),
         Phase::Success(1) => {
+            crate::sound::play(&mut commands, crate::sound::Effect::Excellent);
             let tunnel = session.kind == ZoneKind::Tunnel;
             if !tunnel || levels.0[session.destination].number < 91 {
                 game.announce(crate::messages::Id::WarpFive);
@@ -378,6 +382,23 @@ pub(crate) fn advance(
         }
         Phase::Success(ticks) => session.phase = Phase::Success(ticks - 1),
         Phase::Victory(ticks) => session.phase = Phase::Victory(ticks - 1),
+    }
+    for index in passed..session.passed {
+        let boosts = (0..=index)
+            .filter(|&gate| session.spec(gate).2 == 3)
+            .count();
+        crate::sound::pitched(
+            &mut commands,
+            if boosts.is_multiple_of(2) {
+                crate::sound::Effect::YesTwo
+            } else {
+                crate::sound::Effect::YesOne
+            },
+            512 + boosts as u16 * 5,
+        );
+    }
+    if was_flying && matches!(session.phase, Phase::Failure(_)) {
+        crate::sound::play(&mut commands, crate::sound::Effect::LargeExplosion);
     }
     if let Some(mut rings) = session.rings.take() {
         let position = session.position();

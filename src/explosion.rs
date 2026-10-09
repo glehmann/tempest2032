@@ -159,6 +159,7 @@ pub(crate) struct Explosion {
 
 /// Spawn the death ring where a Flipper was destroyed.
 pub(crate) fn spawn_explosion(commands: &mut Commands, assets: &BurstAssets, centre: Vec3) {
+    crate::sound::play(commands, crate::sound::Effect::Explosion);
     commands.spawn((
         Explosion {
             centre,

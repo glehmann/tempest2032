@@ -66,6 +66,22 @@ fn derive_definition_and_defaults_are_valid() {
     assert!(cli.seconds.is_none());
     assert!(!cli.fullscreen);
     assert!(!cli.fps);
+    assert_eq!(cli.volume, 0.6);
+}
+
+#[test]
+fn sound_volume_accepts_silence_and_rejects_nonfinite_or_out_of_range_values() {
+    for value in ["0", "0.25", "1"] {
+        assert_eq!(
+            Cli::try_parse_from(["t2k", "--volume", value])
+                .unwrap()
+                .volume,
+            value.parse::<f32>().unwrap()
+        );
+    }
+    for value in ["NaN", "inf", "1.01", "-0.1", "loud"] {
+        assert!(Cli::try_parse_from(["t2k", "--volume", value]).is_err());
+    }
 }
 
 #[test]

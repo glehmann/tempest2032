@@ -61,9 +61,40 @@ frame. Simulation runs at 60 Hz without render interpolation.
 On Linux, the build needs a C/C++ toolchain and X11 and Wayland development
 libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 `libx11-dev`, `libxi-dev`, `libxrandr-dev`, `libxcursor-dev`,
-`libxkbcommon-dev`, and `libwayland-dev`. Running needs a graphical desktop
-and a Vulkan-capable graphics driver. Windows and macOS use their native
-window backends.
+`libxkbcommon-dev`, `libwayland-dev`, and `libasound2-dev`. Running needs a
+graphical desktop and a Vulkan-capable graphics driver. Windows and macOS use
+their native window backends.
+
+## Sound effects
+
+Original Tempest 2000 samples play for shots, explosions, jumps, power-up drops
+and collection, spike and armor hits, Flipper landings, Pulsar pulses, deaths,
+warp events, and voice announcements. The level-exit engine uses the original
+loop regions and changing pitch. Music is not yet played.
+
+Use `--volume 0.3` for quieter effects or `--volume 0` for silence. The default
+is `0.6`; values must be between zero and one. The sound pack is embedded in the
+executable, so playback needs no original source tree or ROM at runtime.
+
+To regenerate `assets/sounds.bin` from the original source tree:
+
+```sh
+python3 tools/sounds.py /path/to/tempest2k assets/sounds.bin
+```
+
+The same tool accepts the original 2 MiB cartridge as input:
+
+```sh
+python3 tools/sounds.py "/path/to/Tempest 2000.j64" assets/sounds.bin
+```
+
+The pack retains signed 8-bit PCM, playback periods, and loop metadata from
+`src/incbin/sound_samples_table.bin`. Playback converts PCM to floating point
+using PAL ProTracker period timing. Explosion pitch varies without consuming
+gameplay random numbers. The converter limits the alternate normal-shot sample
+to its physical boundary and trims the first "sexy yes" sample to its declared
+length. The ROM omits two unused death samples; a ROM-generated pack leaves
+those entries empty, without affecting gameplay sounds.
 
 ## Editable levels
 
