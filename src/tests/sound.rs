@@ -19,6 +19,23 @@ fn app() -> App {
 }
 
 #[test]
+fn effect_rates_and_durations_match_the_jaguar_dsp_not_amiga_periods() {
+    assert_eq!(samples()[5].decoder().sample_rate(), 16_114);
+    assert_eq!(samples()[22].decoder().sample_rate(), 19_302);
+    assert_eq!(samples()[7].decoder().sample_rate(), 8_057);
+    let recharge = samples()[22]
+        .decoder()
+        .total_duration()
+        .unwrap()
+        .as_secs_f64();
+    assert!((recharge - 2.246).abs() < 0.001);
+    assert!(playback_speed(512, 568) > 1.0);
+    assert!(playback_speed(512, 428) < 1.0);
+    assert_eq!(playback_speed(512, 512), 1.0);
+    assert!(playback_speed(428, 20) > playback_speed(428, 10));
+}
+
+#[test]
 fn all_effects_decode_as_finite_signed_pcm_at_their_original_periods() {
     for (index, sample) in samples().into_iter().enumerate() {
         if sample.data.is_empty() {

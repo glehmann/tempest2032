@@ -1,4 +1,4 @@
-//! Original signed PCM effects, Amiga-period pitch, and bounded non-spatial playback.
+//! Original signed PCM effects, Jaguar DSP pitch, and bounded non-spatial playback.
 
 use bevy::{
     audio::{AddAudioSource, Source, Volume},
@@ -6,8 +6,18 @@ use bevy::{
 };
 use std::time::Duration;
 
-const CLOCK: f64 = 3_546_895.;
+const DSP_RATE: f64 = 26_590_906. / (64. * 28.);
 const MAX_VOICES: usize = 16;
+
+fn playback_rate(pitch: u16) -> u32 {
+    // moomoo.dat PLAYFX2 at $4440 scales pitch by 28/43. The DSP adds
+    // that increment to an 8:8 sample position per SSI tick, with SCLK = 27.
+    (DSP_RATE * (u32::from(pitch) * 28 / 43).max(1) as f64 / 256.).round() as u32
+}
+
+fn playback_speed(base: u16, pitch: u16) -> f32 {
+    playback_rate(pitch) as f32 / playback_rate(base) as f32
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(usize)]
@@ -126,7 +136,7 @@ impl Source for Decoder {
         1
     }
     fn sample_rate(&self) -> u32 {
-        (CLOCK / f64::from(self.sample.period)).round() as u32
+        playback_rate(self.sample.period)
     }
     fn total_duration(&self) -> Option<Duration> {
         (!self.sample.looping).then(|| {
@@ -240,7 +250,7 @@ fn update(
     for (entity, engine, mut settings, sink) in &mut engines {
         if let Some(period) = period {
             running[engine.0] = true;
-            let speed = 428. / (f32::from(period) * (engine.0 + 1) as f32);
+            let speed = playback_speed(428, period * (engine.0 + 1) as u16);
             settings.speed = speed;
             if let Some(sink) = sink {
                 sink.set_speed(speed);
@@ -257,7 +267,7 @@ fn update(
                     AudioPlayer(catalog.engines[index].clone()),
                     PlaybackSettings::ONCE
                         .with_volume(Volume::Linear(0.18))
-                        .with_speed(428. / (f32::from(period) * (index + 1) as f32)),
+                        .with_speed(playback_speed(428, period * (index + 1) as u16)),
                 ));
             }
         }
@@ -288,8 +298,8 @@ fn update(
                 }
             })
             .max(1);
-        let speed = f32::from(sample.period) / f32::from(period);
-        let deadline = now + sample.data.len() as f64 * f64::from(period) / CLOCK + 0.25;
+        let speed = playback_speed(sample.period, period);
+        let deadline = now + sample.data.len() as f64 / f64::from(playback_rate(period)) + 0.25;
         let entity = commands
             .spawn((
                 Voice {

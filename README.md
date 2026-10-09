@@ -88,10 +88,13 @@ The same tool accepts the original 2 MiB cartridge as input:
 python3 tools/sounds.py "/path/to/Tempest 2000.j64" assets/sounds.bin
 ```
 
-The pack retains signed 8-bit PCM, playback periods, and loop metadata from
-`src/incbin/sound_samples_table.bin`. Playback converts PCM to floating point
-using PAL ProTracker period timing. Explosion pitch varies without consuming
-gameplay random numbers. The converter limits the alternate normal-shot sample
+The pack retains signed 8-bit PCM, pitch values, and loop metadata from
+`src/incbin/sound_samples_table.bin`. The table's legacy "period" field is a
+direct playback increment for effects. Playback follows the Jaguar driver in
+`src/dat/moomoo.dat`: multiply pitch by 28/43, then advance an 8:8 sample position
+at the SSI rate with clock divider 27. Higher pitch values play faster.
+Explosion pitch varies without consuming gameplay random numbers.
+The converter limits the alternate normal-shot sample
 to its physical boundary and trims the first "sexy yes" sample to its declared
 length. The ROM omits two unused death samples; a ROM-generated pack leaves
 those entries empty, without affecting gameplay sounds.
