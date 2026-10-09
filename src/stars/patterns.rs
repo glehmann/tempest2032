@@ -1,11 +1,25 @@
-//! Original random, sine, menu, and ring field initializers from yak.s.
+//! Original sine, menu, and ring field initializers from yak.s.
 
 use super::{DEPTH_WRAP, Star};
 use crate::{cry, web::LANE_UNIT};
 use bevy::prelude::*;
 use clap::ValueEnum;
 
-const RANDOM: &[u8; 512] = include_bytes!("../../assets/stars/rantab.bin");
+// Even-offset bytes of src/dat/rantab.dat, masked to seven bits by siney (yak.s:9131).
+const RANTAB: [u8; 256] = [
+    92, 49, 117, 85, 44, 101, 66, 112, 40, 73, 14, 63, 2, 9, 61, 60, 42, 68, 88, 59, 86, 71, 36,
+    122, 26, 90, 24, 111, 98, 43, 96, 105, 82, 18, 94, 110, 45, 68, 89, 46, 78, 55, 55, 114, 39,
+    55, 120, 79, 61, 13, 123, 48, 54, 87, 7, 100, 49, 50, 17, 5, 95, 29, 30, 69, 30, 63, 112, 3, 1,
+    28, 24, 106, 29, 32, 20, 98, 105, 77, 124, 11, 28, 45, 97, 39, 77, 0, 80, 41, 76, 1, 50, 74,
+    65, 31, 126, 88, 15, 72, 91, 12, 13, 85, 73, 57, 27, 6, 5, 89, 127, 59, 54, 118, 38, 19, 106,
+    86, 85, 123, 94, 24, 71, 113, 71, 79, 109, 10, 30, 8, 58, 7, 34, 1, 80, 83, 84, 7, 96, 29, 69,
+    47, 96, 48, 65, 99, 55, 42, 31, 8, 105, 113, 103, 110, 95, 94, 15, 81, 25, 58, 62, 47, 73, 2,
+    120, 0, 49, 1, 125, 9, 4, 54, 91, 88, 65, 116, 100, 11, 95, 31, 17, 97, 77, 66, 98, 80, 107,
+    99, 105, 33, 4, 87, 107, 27, 117, 92, 126, 99, 39, 80, 64, 67, 40, 87, 52, 62, 53, 23, 110, 12,
+    125, 81, 50, 116, 21, 48, 35, 103, 99, 12, 83, 75, 68, 51, 3, 21, 114, 15, 112, 14, 11, 94, 72,
+    108, 125, 64, 124, 5, 50, 44, 103, 23, 15, 115, 84, 41, 26, 52, 64, 78, 101, 22, 89, 120, 2,
+    57, 46, 127,
+];
 const SINES: &[u8; 256] = include_bytes!("../../assets/warp/sines.bin");
 
 fn sine(angle: u32) -> i32 {
@@ -16,7 +30,6 @@ fn sine(angle: u32) -> i32 {
 pub(crate) enum Pattern {
     #[default]
     Level,
-    Random,
     Rings,
     Selection,
 }
@@ -28,7 +41,7 @@ impl Pattern {
                 let code = (level.saturating_sub(1) & 255) as u32;
                 let code = if code == 31 { 163 } else { code };
                 let x_step = (code + 1) * 2;
-                let y_step = x_step + u32::from(RANDOM[x_step as usize % RANDOM.len()] & 127) + 4;
+                let y_step = x_step + u32::from(RANTAB[x_step as usize / 2 % RANTAB.len()]) + 4;
                 patterned(
                     x_step * LANE_UNIT as u32,
                     y_step * LANE_UNIT as u32,
@@ -42,25 +55,6 @@ impl Pattern {
                 patterned(step, step, 0, ((code & 127) + 64) * LANE_UNIT as u32)
             }
             Self::Rings => rings(200),
-            Self::Random => {
-                let mut cursor = 0;
-                let mut next = || {
-                    cursor += 1;
-                    RANDOM[cursor & 255]
-                };
-                (0..128)
-                    .map(|_| {
-                        let x = next();
-                        let y = next();
-                        let z = next();
-                        Star {
-                            position: Vec2::new(f32::from(x) - 128., 128. - f32::from(y)),
-                            depth: i32::from(z) * 2 * LANE_UNIT,
-                            color: cry::color((x & 240) | (y >> 4), 255),
-                        }
-                    })
-                    .collect()
-            }
         }
     }
 

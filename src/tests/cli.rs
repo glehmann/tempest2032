@@ -216,7 +216,7 @@ fn message_previews_validate_identifiers_ticks_sizes_and_capture_modes() {
 }
 #[test]
 fn original_starfield_variants_can_be_selected_with_levels_and_capture() {
-    for pattern in ["level", "random", "rings", "selection"] {
+    for pattern in ["level", "rings", "selection"] {
         assert!(
             Cli::try_parse_from([
                 "t2k",
@@ -231,4 +231,5 @@ fn original_starfield_variants_can_be_selected_with_levels_and_capture() {
         );
     }
     assert!(Cli::try_parse_from(["t2k", "--starfield", "unknown"]).is_err());
+    assert!(Cli::try_parse_from(["t2k", "--starfield", "random"]).is_err());
 }

@@ -863,13 +863,13 @@ Other source variants can be selected for inspection:
 ```sh
 cargo run --release -- --level 2
 cargo run --release -- --level 32 --starfield level
-cargo run --release -- --starfield random
 cargo run --release -- --starfield rings
 cargo run --release -- --starfield selection --level 12
 ```
 
-The random initializer uses 128 stars and the original random table. The
-high-score ring field uses 256 stars in eight depth bands, a 1.75-unit motion
+The original random initializer, `initstarfield`, has no callers and is not
+exposed here. The level pattern lookup values are embedded in Rust source.
+The high-score ring field uses 256 stars in eight depth bands, a 1.75-unit motion
 step, and seven samples with gradually increasing separation. The level-select
 field uses fractional sine steps, six-unit motion, and five depth samples.
 `--starfield` overrides the normal background; omitting it selects the original

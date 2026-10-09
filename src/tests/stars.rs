@@ -48,8 +48,6 @@ fn original_level_patterns_have_source_coordinates_palette_and_level32_exception
 #[test]
 fn original_preview_variants_have_their_own_population_motion_and_trails() {
     use crate::stars::Pattern;
-    assert_eq!(Pattern::Random.stars(1).len(), 128);
-    assert_eq!(Pattern::Random.stars(1)[0].position, Vec2::new(41., -49.));
     let rings = Pattern::Rings.stars(1);
     assert_eq!(rings.len(), 256);
     assert!(rings.iter().all(|star| star.position.length() < 50.));
