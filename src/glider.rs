@@ -138,8 +138,8 @@ pub(crate) fn claw_mesh(frame: usize) -> Mesh {
 }
 
 pub(crate) fn claw_frame(progress: i32) -> usize {
-    // dsclaw uses 16:16 fractional progress. WEB reverses the original lane order.
-    ((-(progress + LANE_UNIT / 2)).rem_euclid(LANE_UNIT) >> 13) as usize
+    // Pose coordinates use the lane tangent, so poses advance with progress.
+    ((progress + LANE_UNIT / 2).rem_euclid(LANE_UNIT) >> 13) as usize
 }
 
 pub(crate) fn animate_glider(frames: Res<ClawFrames>, mut gliders: Query<(&Glider, &mut Mesh3d)>) {

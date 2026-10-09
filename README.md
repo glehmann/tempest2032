@@ -6,8 +6,8 @@ and straight extrusion. Blue lane surfaces fade into the tunnel, and yellow
 edges mark the glider's current lane. The solid gold glider uses the original
 `sclaw0` through `sclaw7` vertex layouts, with shaded faces and a thin extruded
 body. The claw stays at each lane's midpoint while fractional movement progress
-selects its rolling pose. The pose order accounts for this prototype's reversed
-vertex ordering. It holds its pose when stopped.
+selects its rolling pose in the direction of movement. It holds its pose when
+stopped.
 
 An offset perspective camera follows half the claw's displacement at a capped
 speed, so it continues settling after the claw stops. A sparse colored

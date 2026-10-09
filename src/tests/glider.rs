@@ -19,6 +19,32 @@ use bevy::prelude::*;
 use std::time::Duration;
 
 #[test]
+fn short_presses_change_the_pose_without_shifting_from_the_lane_midpoint() {
+    let start = 15 * LANE_UNIT;
+    for (key, direction) in [(KeyCode::KeyA, 1), (KeyCode::KeyD, -1)] {
+        let mut app = movement_app(start, &[key]);
+        let initial = glider_transform(start).translation;
+        ticks(&mut app, 4);
+        let (progress, _) = state(&mut app);
+        assert_eq!(Level::default().web.selected_lane(progress), 15.0);
+        let position = app
+            .world_mut()
+            .query::<&Transform>()
+            .single(app.world())
+            .unwrap()
+            .translation;
+        assert_eq!(position, initial);
+        assert_eq!((progress - start).signum(), direction);
+        assert_ne!(claw_frame(progress), claw_frame(start));
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(key);
+        ticks(&mut app, 10);
+        assert_eq!(state(&mut app), (progress, 0));
+    }
+}
+
+#[test]
 fn movement_stops_at_both_open_web_endpoints() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/03.toml")),
@@ -62,19 +88,13 @@ fn right_follows_the_original_web5_from_its_first_lane_to_its_second() {
         let mut app = movement_app(15 * LANE_UNIT, &[key]);
         ticks(&mut app, 8);
         let (progress, _) = state(&mut app);
-        let position = glider_transform(progress).translation;
-        assert!(position.distance(Vec3::new(-8.0 / 3.0, 8.0 / 3.0, 0.12)) < 1e-5);
+        assert_eq!(Level::default().web.selected_lane(progress), 14.0);
     }
     for key in [KeyCode::ArrowLeft, KeyCode::KeyA] {
         let mut app = movement_app(15 * LANE_UNIT, &[key]);
         ticks(&mut app, 8);
         let (progress, _) = state(&mut app);
-        assert!(
-            glider_transform(progress)
-                .translation
-                .distance(Vec3::new(0.0, 4.0, 0.12))
-                < 1e-5
-        );
+        assert_eq!(Level::default().web.selected_lane(progress), 0.0);
     }
 }
 
@@ -149,14 +169,14 @@ fn claw_animation_tracks_movement_reversal_and_stopping() {
     let frame = |app: &App| app.world().get::<Mesh3d>(glider).unwrap().0.clone();
 
     ticks(&mut app, 1);
-    assert_eq!(frame(&app), ids[3]);
+    assert_eq!(frame(&app), ids[4]);
     ticks(&mut app, 5);
-    assert_eq!(frame(&app), ids[1]);
+    assert_eq!(frame(&app), ids[6]);
     let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
     input.release(KeyCode::KeyA);
     input.press(KeyCode::KeyD);
     ticks(&mut app, 1);
-    assert_eq!(frame(&app), ids[1]);
+    assert_eq!(frame(&app), ids[6]);
     ticks(&mut app, 6);
     assert_eq!(frame(&app), ids[4]);
     app.world_mut()
@@ -169,7 +189,7 @@ fn claw_animation_tracks_movement_reversal_and_stopping() {
 #[test]
 fn claw_animation_repeats_each_lane_and_across_the_web_seam() {
     for step in 0..8 {
-        let phase = -(step as i32 * (LANE_UNIT / 8) + LANE_UNIT / 2);
+        let phase = step as i32 * (LANE_UNIT / 8) - LANE_UNIT / 2;
         for lane in 0..LANES {
             assert_eq!(claw_frame(lane as i32 * LANE_UNIT + phase), step);
         }
