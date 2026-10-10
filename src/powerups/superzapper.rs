@@ -266,9 +266,12 @@ fn bolt_points(target: Vec3, origin: Vec3, frame: u32) -> [Vec3; 33] {
     })
 }
 
+/// `gamefx` rebuilds `flashcol` every frame: `sine[frames]` supplies the high
+/// nibble and `sine[frames + 0x40]` the low one, so the bolt pulses through the
+/// CRY palette instead of holding a fixed colour.
 fn bolt_hue(frame: u32) -> u8 {
     let phase = (frame & 255) as i32;
-    (((crate::sines::sine(phase + 64) + 128) & 0xf0) | ((crate::sines::sine(phase) + 128) >> 4))
+    (((crate::sines::sine(phase) + 128) & 0xf0) | ((crate::sines::sine(phase + 0x40) + 128) >> 4))
         as u8
 }
 

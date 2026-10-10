@@ -734,7 +734,9 @@ Jaguar gameplay recording, including its 150, 300, and 450 score updates.
 Two vector lightning bolts connect each target to the selected lane's two rim
 edges at the claw's current depth. Each has 32 segments, with the original
 `ox.gas` 8-bit random sequence adding X/Y displacement in world space before
-projection. The bolts retain the original flashing CRY hue and depth shading.
+projection. The bolts use the flashing `flashcol` CRY index that `gamefx`
+rebuilds every frame from the sine table, so they pulse through the palette
+rather than holding one colour, with the original depth shading.
 The sweep ends when no
 eligible targets remain; it does not cancel future spawns. The second press
 is a last-chance zap that hits one enemy and ignores enemy shots. That second

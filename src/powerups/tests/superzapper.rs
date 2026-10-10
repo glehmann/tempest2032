@@ -493,6 +493,36 @@ fn world_space_lightning_noise_expands_near_the_camera() {
 }
 
 #[test]
+fn bolt_colour_pulses_through_the_cry_palette_instead_of_holding_one_hue() {
+    let cycle: std::collections::HashSet<u8> = (0..256).map(bolt_hue).collect();
+    // The original flashes the whole CRY ramp, so many distinct indices appear.
+    assert!(
+        cycle.len() > 40,
+        "only {} palette indices in one cycle",
+        cycle.len()
+    );
+    let srgba = |frame: u32| {
+        let c = crate::cry::color(bolt_hue(frame), 255).to_srgba();
+        let byte = |v: f32| (v * 255.) as u8;
+        (byte(c.red), byte(c.green), byte(c.blue))
+    };
+    let rendered: std::collections::HashSet<(u8, u8, u8)> = (0..256).map(srgba).collect();
+    assert!(rendered.len() > 8, "bolt colour barely varies");
+    assert!(
+        rendered.iter().any(|(r, _, b)| *r > 128 && *b < 51),
+        "an orange phase is expected"
+    );
+    assert!(
+        rendered.iter().any(|(r, _, b)| *b > 77 && *r < 77),
+        "a blue phase is expected"
+    );
+    assert_eq!(
+        (0..256).map(bolt_hue).collect::<Vec<_>>(),
+        (256..512).map(bolt_hue).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn lightning_is_finite_shaded_vector_geometry_with_thirty_two_segments_per_bolt() {
     let target = Vec3::new(-1., 2., -20.);
     let origin = Vec3::new(3., -1., -5.);
@@ -525,8 +555,11 @@ fn lightning_is_finite_shaded_vector_geometry_with_thirty_two_segments_per_bolt(
         );
         assert!(triangles.iter().flatten().all(|(_, c)| *c == vertices[0].1));
     }
+    // gamefx: high nibble from sine[frames], low nibble from sine[frames + 0x40].
     assert_eq!(
         [bolt_hue(0), bolt_hue(64), bolt_hue(128), bolt_hue(192)],
-        [0xf8, 0x8f, 0x08, 0x80]
+        [0x8f, 0xf8, 0x80, 0x08]
     );
+    assert_eq!(bolt_hue(256), bolt_hue(0));
+    assert!(!matches!(bolt_hue(0), 0) && !matches!(bolt_hue(0), 255));
 }
