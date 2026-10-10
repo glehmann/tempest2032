@@ -733,8 +733,9 @@ first hit to the last. This cadence was checked frame by frame against a
 Jaguar gameplay recording, including its 150, 300, and 450 score updates.
 Vector lightning connects the claw to each target. The sweep ends when no
 eligible targets remain; it does not cancel future spawns. The second press
-is a last-chance zap that hits one enemy and ignores enemy shots. Both uses
-recharge on web entry, including a retry after losing a life. Holding `Z`
+is a last-chance zap that hits one enemy and ignores enemy shots. That second
+use has no lightning beam: the original clears its bolt flag before rendering.
+Both uses recharge on web entry, including a retry after losing a life. Holding `Z`
 does not spend the second use automatically. An empty zap still uses a charge.
 
 Zaps bypass Beastie armor and normal shot windows, and open Tankers normally.

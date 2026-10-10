@@ -196,11 +196,13 @@ pub(crate) fn advance(
     }
     commands.entity(entity).despawn();
     explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
-    zapper.bolt = Some(pose.translation);
-    zapper.bolt_ticks = 4;
-    zapper.delay = 3;
     if zapper.single {
-        zapper.active = false;
+        // r_end1 falls through clzapa and clears bolt_lock before drawing.
+        zapper.cancel();
+    } else {
+        zapper.bolt = Some(pose.translation);
+        zapper.bolt_ticks = 4;
+        zapper.delay = 3;
     }
 }
 

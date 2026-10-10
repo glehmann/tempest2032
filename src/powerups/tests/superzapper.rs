@@ -60,6 +60,8 @@ fn one_press_matches_the_recorded_jaguar_three_flipper_clear() {
         );
     }
     assert_eq!(app.world().resource::<Upgrades>().zapper.uses, 1);
+    assert!(app.world().resource::<Upgrades>().zapper.bolt.is_some());
+    assert_eq!(app.world().resource::<Upgrades>().zapper.bolt_ticks, 4);
 }
 
 #[test]
@@ -166,7 +168,10 @@ fn second_use_hits_one_enemy_ignores_shots_and_third_use_does_nothing() {
         enemy(&mut app, lane, 40 * LANE_UNIT, Motion::Climb);
     }
     press(&mut app);
-    ticks(&mut app, 20);
+    ticks(&mut app, 1);
+    assert!(app.world().resource::<Upgrades>().zapper.bolt.is_none());
+    assert_eq!(app.world().resource::<Upgrades>().zapper.bolt_ticks, 0);
+    ticks(&mut app, 19);
     assert!(app.world().get_entity(bullet).is_ok());
     assert_eq!(
         app.world_mut()
