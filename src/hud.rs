@@ -7,6 +7,7 @@ use bevy::diagnostic::{
     Diagnostic, DiagnosticPath, DiagnosticsStore, SystemInformationDiagnosticsPlugin,
 };
 use bevy::prelude::*;
+use bevy::sprite_render::AlphaMode2d;
 use std::collections::VecDeque;
 use std::time::Duration;
 
@@ -35,7 +36,10 @@ pub(crate) fn setup(
     let mesh = meshes.add(message_mesh(Vec::new()));
     commands.spawn((
         Mesh2d(mesh.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial::default())),
+        MeshMaterial2d(materials.add(ColorMaterial {
+            alpha_mode: AlphaMode2d::Blend,
+            ..default()
+        })),
         RenderLayers::layer(2),
         Transform::from_xyz(0., 0., 1.),
         bevy::camera::visibility::NoFrustumCulling,

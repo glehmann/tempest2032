@@ -6,6 +6,10 @@ in `yak.s`. Its `T2KH` header is followed by eleven records containing width,
 height, contour count, contour points, and CRY shading samples, all big-endian
 u16 values. The HUD uses the same simplified, tessellated, shaded contours as
 the announcement font. Warp pyramids use `makepyr`'s three shaded triangles.
+HUD digits and claws also have a 0.35-source-pixel transparent fringe along
+their outer contours and holes. The fringe uses shaded vector triangles,
+with shared corner offsets and alpha fading to zero. Interior tessellation
+edges stay opaque, so the fade does not introduce seams through the artwork.
 
 Regenerate the HUD artwork with:
 

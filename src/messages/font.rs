@@ -50,7 +50,8 @@ pub(crate) fn shaded_graphic(data: &mut &[u8]) -> Vec<[(Vec2, Color); 3]> {
     let width = usize::from(word(data));
     let height = usize::from(word(data));
     let mut cells = Vec::new();
-    for triangle in decode(data, 0.02) {
+    let geometry = decode(data, 0.02);
+    for &triangle in &geometry {
         split_cells(triangle, &mut cells);
     }
     let shading: Vec<_> = (0..width * height)
@@ -59,7 +60,7 @@ pub(crate) fn shaded_graphic(data: &mut &[u8]) -> Vec<[(Vec2, Color); 3]> {
             crate::cry::color((raw >> 8) as u8, raw as u8)
         })
         .collect();
-    cells
+    let mut triangles: Vec<_> = cells
         .into_iter()
         .map(|cell| {
             cell.points.map(|p| {
@@ -68,6 +69,57 @@ pub(crate) fn shaded_graphic(data: &mut &[u8]) -> Vec<[(Vec2, Color); 3]> {
                     Color::LinearRgba(shade(&shading, width, height, p).to_linear()),
                 )
             })
+        })
+        .collect();
+    triangles.extend(feather_edges(&geometry, &shading, width, height));
+    triangles
+}
+
+fn feather_edges(
+    geometry: &[[Vec2; 3]],
+    shading: &[Color],
+    width: usize,
+    height: usize,
+) -> Vec<[(Vec2, Color); 3]> {
+    let key = |p: Vec2| [p.x.to_bits(), p.y.to_bits()];
+    let mut edges = HashMap::new();
+    for triangle in geometry {
+        let winding = (triangle[1] - triangle[0])
+            .perp_dot(triangle[2] - triangle[0])
+            .signum();
+        for i in 0..3 {
+            let a = triangle[i];
+            let b = triangle[(i + 1) % 3];
+            let mut pair = [key(a), key(b)];
+            pair.sort_unstable();
+            if edges.remove(&pair).is_none() {
+                edges.insert(pair, (a, b, -(b - a).normalize_or_zero().perp() * winding));
+            }
+        }
+    }
+    let mut normals = HashMap::<_, Vec2>::new();
+    for &(a, b, normal) in edges.values() {
+        *normals.entry(key(a)).or_default() += normal;
+        *normals.entry(key(b)).or_default() += normal;
+    }
+    edges
+        .values()
+        .flat_map(|&(a, b, normal)| {
+            let outer = |p: Vec2| {
+                let bisector = normals[&key(p)].normalize_or_zero();
+                p + bisector * (0.35 / bisector.dot(normal).max(0.5))
+            };
+            let color = |p| Color::LinearRgba(shade(shading, width, height, p).to_linear());
+            let corners = [
+                (a, color(a)),
+                (b, color(b)),
+                (outer(b), color(b).with_alpha(0.)),
+                (outer(a), color(a).with_alpha(0.)),
+            ];
+            [
+                [corners[0], corners[1], corners[2]],
+                [corners[0], corners[2], corners[3]],
+            ]
         })
         .collect()
 }
@@ -417,6 +469,58 @@ fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
 mod tests {
     use super::*;
     use clap::ValueEnum;
+    #[test]
+    fn feathering_fades_only_the_outer_and_hole_edges_without_internal_seams() {
+        let outer = [
+            Vec2::ZERO,
+            Vec2::new(10., 0.),
+            Vec2::splat(10.),
+            Vec2::new(0., 10.),
+        ];
+        let inner = [
+            Vec2::splat(3.),
+            Vec2::new(7., 3.),
+            Vec2::splat(7.),
+            Vec2::new(3., 7.),
+        ];
+        let geometry: Vec<_> = (0..4)
+            .flat_map(|i| {
+                let next = (i + 1) % 4;
+                [
+                    [outer[i], outer[next], inner[next]],
+                    [outer[i], inner[next], inner[i]],
+                ]
+            })
+            .collect();
+        let fringe = feather_edges(&geometry, &[Color::WHITE; 100], 10, 10);
+        assert_eq!(fringe.len(), 16);
+        let transparent: Vec<_> = fringe
+            .iter()
+            .flatten()
+            .filter(|(_, c)| c.to_linear().alpha == 0.)
+            .map(|(p, _)| *p)
+            .collect();
+        assert!(transparent.iter().any(|p| p.x < 0.));
+        assert!(
+            transparent
+                .iter()
+                .any(|p| p.x > 3. && p.x < 7. && p.y > 3. && p.y < 7.)
+        );
+        assert!(transparent.iter().all(|p| {
+            p.x < 0.
+                || p.x > 10.
+                || p.y < 0.
+                || p.y > 10.
+                || (p.x > 3. && p.x < 7. && p.y > 3. && p.y < 7.)
+        }));
+        assert!(
+            fringe
+                .iter()
+                .flatten()
+                .all(|(_, c)| c.to_linear().alpha == 0.
+                    || *c == Color::LinearRgba(Color::WHITE.to_linear()))
+        );
+    }
     #[test]
     fn pixel_staircase_becomes_a_straight_diagonal_without_erasing_corners() {
         let mut outline = vec![Vec2::ZERO, Vec2::new(12., 0.)];

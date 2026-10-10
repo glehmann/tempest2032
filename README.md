@@ -688,10 +688,12 @@ The HUD uses the original score numerals, claw-shaped life icons, and shaded
 warp pyramids. Score and life artwork is traced from the original sprite sheet,
 simplified to remove pixel-step ripples and tessellated into vector meshes
 with the original CRY shading, using the same method as the announcement
-lettering. No bitmap textures or
-system-font labels are used for these indicators. Up to eight life icons and
-three warp pyramids are displayed. Level, upgrade, control, and bonus-stage
-debug labels are removed; upgrades still announce themselves when collected.
+lettering. No bitmap textures or system-font labels are used for these
+indicators. Up to eight life icons and
+three warp pyramids are displayed. A narrow transparent vector fringe softens
+the digits' and claws' borders while retaining their interior shading.
+Level, upgrade, control, and bonus-stage debug labels are removed; upgrades
+still announce themselves when collected.
 The paused overlay uses a vector play symbol. `--fps` enables the optional
 diagnostic text overlay.
 
