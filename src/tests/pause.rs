@@ -98,11 +98,21 @@ fn restart_resumes_and_discarded_jump_inputs_do_not_reappear() {
     app.world_mut()
         .resource_mut::<crate::powerups::Upgrades>()
         .jump_queued = true;
+    app.world_mut()
+        .resource_mut::<crate::powerups::Upgrades>()
+        .zapper
+        .queued = true;
     key(&mut app, KeyCode::KeyP);
     assert!(
         !app.world()
             .resource::<crate::powerups::Upgrades>()
             .jump_queued
+    );
+    assert!(
+        !app.world()
+            .resource::<crate::powerups::Upgrades>()
+            .zapper
+            .queued
     );
     key(&mut app, KeyCode::KeyR);
     assert!(!app.world().resource::<Time<Virtual>>().is_paused());

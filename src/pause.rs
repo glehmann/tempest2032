@@ -23,7 +23,8 @@ pub(crate) fn add_systems(app: &mut App) {
         (input, audio)
             .chain()
             .after(bevy::input::InputSystems)
-            .before(crate::powerups::queue_jump),
+            .before(crate::powerups::queue_jump)
+            .before(crate::powerups::superzapper::queue),
     )
     .add_systems(Update, draw);
 }
@@ -63,6 +64,7 @@ fn input(
     }
     if let Some(upgrades) = &mut upgrades {
         upgrades.jump_queued = false;
+        upgrades.zapper.queued = false;
     }
 }
 

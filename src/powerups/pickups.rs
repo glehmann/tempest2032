@@ -1,7 +1,6 @@
 //! Power-up drops, collection, reward effects, and missed-pickup cleanup.
 //! Pickups appear after eligible kills and travel toward the glider on a lane.
 
-use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::fuseballs;
 use crate::enemies::pulsars::Pulsar;
@@ -95,13 +94,7 @@ pub(crate) fn advance_powerups(
     mut pickups: Query<(Entity, &mut PowerUp)>,
     enemies: Query<(Entity, &Flipper, &Transform)>,
     shots: Query<Entity, With<EnemyShot>>,
-    tankers: Query<(Entity, &tankers::Tanker, &tankers::Contents, &Transform)>,
-    shells: Res<tankers::TankerAssets>,
-    (flippers, fuse_assets, pulsar_assets): (
-        Res<FlipperAssets>,
-        Res<fuseballs::FuseAssets>,
-        Res<crate::enemies::pulsar_render::PulsarAssets>,
-    ),
+    tankers: Query<(Entity, &tankers::Tanker, &Transform)>,
     (spikers, mirrors, aliens): (
         Query<(Entity, &spikers::Spiker, &Transform)>,
         Query<Entity, With<crate::enemies::mirrors::Mirror>>,
@@ -128,75 +121,27 @@ pub(crate) fn advance_powerups(
                 Reward::Droid => {
                     spawn_droid(&mut commands, &assets, &level.web);
                 }
-                reward @ (Reward::Zap | Reward::Skip) => {
-                    if reward == Reward::Skip {
-                        game.outta_here = true;
-                    }
-                    for (entity, alien, pose) in &aliens {
-                        if reward == Reward::Skip || !alien.climbing() {
-                            commands.entity(entity).despawn();
-                            explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
-                            if reward == Reward::Zap {
-                                game.random =
-                                    game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-                                game.score += 250 * (1 + ((game.random >> 16) % 3));
-                            }
-                        }
-                    }
-                    for (entity, pulsar, pose) in &pulsars {
+                Reward::Skip => {
+                    game.outta_here = true;
+                    for (entity, pose) in enemies
+                        .iter()
+                        .map(|(e, _, p)| (e, p))
+                        .chain(tankers.iter().map(|(e, _, p)| (e, p)))
+                        .chain(spikers.iter().map(|(e, _, p)| (e, p)))
+                        .chain(fuses.iter().map(|(e, _, p)| (e, p)))
+                        .chain(pulsars.iter().map(|(e, _, p)| (e, p)))
+                        .chain(aliens.iter().map(|(e, _, p)| (e, p)))
+                    {
                         commands.entity(entity).despawn();
                         explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
-                        if reward == Reward::Zap {
-                            game.score += pulsar.points();
-                        }
-                    }
-                    for (entity, _, pose) in &fuses {
-                        commands.entity(entity).despawn();
-                        explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
-                        if reward == Reward::Zap {
-                            game.score += 250;
-                        }
-                    }
-                    for (entity, _, pose) in &spikers {
-                        commands.entity(entity).despawn();
-                        explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
-                        if reward == Reward::Zap {
-                            game.score += 150;
-                        }
-                    }
-                    for (entity, tanker, contents, transform) in &tankers {
-                        if reward == Reward::Zap {
-                            tankers::open(
-                                &mut commands,
-                                &mut game,
-                                &level,
-                                &flippers,
-                                &shells,
-                                &fuse_assets,
-                                &pulsar_assets,
-                                tanker,
-                                *contents,
-                            );
-                        }
-                        commands.entity(entity).despawn();
-                        explosion::spawn_explosion(&mut commands, &bursts, transform.translation);
-                    }
-                    for (enemy, _, transform) in &enemies {
-                        commands.entity(enemy).despawn();
-                        explosion::spawn_explosion(&mut commands, &bursts, transform.translation);
-                        if reward == Reward::Zap {
-                            game.score += 150;
-                        }
                     }
                     for shot in &shots {
                         commands.entity(shot).despawn();
                     }
-                    if reward == Reward::Skip {
-                        for entity in &mirrors {
-                            commands.entity(entity).despawn();
-                        }
-                        game.remaining = 0;
+                    for entity in &mirrors {
+                        commands.entity(entity).despawn();
                     }
+                    game.remaining = 0;
                 }
                 _ => {}
             }

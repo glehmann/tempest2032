@@ -8,6 +8,7 @@ pub(crate) mod droid;
 pub(crate) mod jump;
 pub(crate) mod pickups;
 pub(crate) mod render;
+pub(crate) mod superzapper;
 
 pub(crate) use droid::{Droid, move_droid, spawn_droid};
 pub(crate) use jump::{queue_jump, update_jump};
@@ -23,6 +24,7 @@ pub(crate) struct Upgrades {
     pub(crate) jump_height: i32,
     jump_velocity: i32,
     pub(crate) jump_queued: bool,
+    pub(crate) zapper: superzapper::Superzapper,
     pub(crate) droid: bool,
     warp_tokens: u8,
     frame: u32,
@@ -40,6 +42,7 @@ impl Default for Upgrades {
             jump_height: 0,
             jump_velocity: 0,
             jump_queued: false,
+            zapper: superzapper::Superzapper::default(),
             droid: false,
             warp_tokens: 0,
             frame: 0,
@@ -92,6 +95,7 @@ impl Upgrades {
                 Reward::Droid
             }
             5 => {
+                self.zapper.powerup();
                 self.message(crate::messages::Id::Excellent);
                 self.warp_tokens = (self.warp_tokens + 1).min(3);
                 self.message(match self.warp_tokens {
@@ -131,6 +135,7 @@ impl Upgrades {
     }
 
     pub(crate) fn land(&mut self) {
+        self.zapper.cancel();
         self.jump_height = 0;
         self.jump_velocity = 0;
         self.jump_queued = false;

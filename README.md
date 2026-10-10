@@ -703,6 +703,8 @@ diagnostic text overlay.
 | Right arrow or D | Move counterclockwise |
 | Enter, numpad Enter, or Space | Fire, hold for repeat fire |
 | J or Shift | Jump, after collecting the jump upgrade |
+| Z | Superzapper |
+| P or Pause | Pause or resume |
 | R | Restart level one |
 | Escape | Quit |
 
@@ -717,6 +719,25 @@ Opposite directions held together cancel each other.
 These directions follow the original `claw_right` and `domove`: Right adds to
 the original web's counterclockwise lane order. This renderer reverses the
 vertex order, so it also reverses the input sign.
+
+### Superzapper
+
+Press `Z` during gameplay to trigger the Superzapper. The first use displays
+"EAT ELECTRIC DEATH!", plays the original crackle sample, and sweeps eligible
+enemies and ordinary enemy shots one target every four simulation ticks.
+Vector lightning connects the claw to each target. The sweep ends when no
+eligible targets remain; it does not cancel future spawns. The second press
+is a last-chance zap that hits one enemy and ignores enemy shots. Both uses
+recharge on web entry, including a retry after losing a life. Holding `Z`
+does not spend the second use automatically. An empty zap still uses a charge.
+
+Zaps bypass Beastie armor and normal shot windows, and open Tankers normally.
+Tankers' released enemies remain eligible for subsequent bolts. Mirrors,
+climbing Alien Droids, approaching enemies, existing spikes, and reflected
+shots are immune, matching the original collision routines. Zap kills award
+points without dropping power-ups or advancing the pickup counter. The sixth
+power-up starts the same full sweep without spending a manual use; if both
+manual uses were spent, it restores the last-chance zap.
 
 Shots launch from the current lane and travel straight down the tunnel.
 They stay in their launch lane as the claw moves. The normal weapon fires

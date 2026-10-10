@@ -163,7 +163,15 @@ pub(crate) fn run(args: cli::Cli) {
             }),
             ..default()
         }))
-        .add_systems(Startup, (setup, warp::render::setup, crate::hud::setup));
+        .add_systems(
+            Startup,
+            (
+                setup,
+                warp::render::setup,
+                crate::hud::setup,
+                powerups::superzapper::setup,
+            ),
+        );
     add_systems(&mut app);
     app.insert_resource(bevy::audio::GlobalVolume::new(bevy::audio::Volume::Linear(
         args.volume,
@@ -269,7 +277,7 @@ fn add_systems(app: &mut App) {
         .init_resource::<pulsars::Pulse>()
         .add_systems(
             PreUpdate,
-            powerups::queue_jump
+            (powerups::queue_jump, powerups::superzapper::queue)
                 .after(bevy::input::InputSystems)
                 .run_if(normal_scene)
                 .run_if(crate::pause::running),
@@ -312,6 +320,7 @@ fn add_systems(app: &mut App) {
                 )
                     .chain(),
                 (
+                    powerups::superzapper::advance,
                     move_enemies,
                     mirrors::advance,
                     aliens::advance,
@@ -373,6 +382,13 @@ fn add_systems(app: &mut App) {
             (aliens::draw_points, aliens::draw_beams).after(fit_camera),
         )
         .add_systems(Update, draw_particle_shots.after(fit_camera))
+        .add_systems(
+            Update,
+            powerups::superzapper::draw
+                .after(fit_camera)
+                .after(restart_game)
+                .after(load_level),
+        )
         .add_systems(
             Update,
             pulsar_render::draw.after(fit_camera).after(sync_web),
