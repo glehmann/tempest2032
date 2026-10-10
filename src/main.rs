@@ -1,4 +1,4 @@
-//! Tempest 2000 prototype entry point. Parses the command line and starts Bevy.
+//! Parse the command line, install a Steam shortcut, or start the Bevy game.
 
 use clap::Parser;
 
@@ -26,6 +26,7 @@ mod scene;
 mod sines;
 mod sound;
 mod stars;
+mod steam;
 mod warp;
 mod weapons;
 mod web;
@@ -34,5 +35,13 @@ mod web;
 mod test_support;
 
 fn main() {
-    app::run(cli::Cli::parse());
+    let args = cli::Cli::parse();
+    if args.steam_install {
+        if let Err(error) = steam::run(args.steam_dir.as_deref(), args.steam_user) {
+            eprintln!("Steam installation failed: {error}");
+            std::process::exit(1);
+        }
+    } else {
+        app::run(args);
+    }
 }

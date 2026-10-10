@@ -1,5 +1,4 @@
-//! Clap command-line options for level selection, custom catalogs, screenshots,
-//! and scripted movement, exit, and shot-hit recordings.
+//! Clap options for gameplay, capture previews, and Steam installation.
 
 use clap::ArgGroup;
 use clap::Parser;
@@ -8,7 +7,24 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[command(version, about = "Tempest 2000-inspired desktop prototype")]
 #[command(group(ArgGroup::new("recording").args(["record_motion", "record_exit", "record_shot_hit"])))]
+#[command(group(ArgGroup::new("game_options").multiple(true).args([
+    "level", "levels", "fullscreen", "fps", "volume", "music_volume", "effects_pitch",
+    "difficulty", "starfield", "warp_zone", "warp_course", "message_preview", "message_tick",
+    "message_size", "screenshot", "record_motion", "record_exit", "record_shot_hit", "seconds",
+])))]
 pub(crate) struct Cli {
+    /// Copy this executable and add T2K to Steam as a non-Steam game, then exit
+    #[arg(long, conflicts_with = "game_options")]
+    pub(crate) steam_install: bool,
+
+    /// Steam data directory containing steamapps and userdata (otherwise detected)
+    #[arg(long, value_name = "PATH", requires = "steam_install")]
+    pub(crate) steam_dir: Option<PathBuf>,
+
+    /// Steam account ID, as used in the userdata directory
+    #[arg(long, value_name = "ACCOUNT_ID", requires = "steam_install", value_parser = clap::value_parser!(u32).range(1..))]
+    pub(crate) steam_user: Option<u32>,
+
     /// Start on this level
     #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
     pub(crate) level: u32,

@@ -58,6 +58,43 @@ use clap::{CommandFactory, error::ErrorKind};
 use std::path::PathBuf;
 
 #[test]
+fn steam_install_is_a_standalone_mode_with_optional_directory_and_account() {
+    let cli = Cli::try_parse_from(["t2k", "--steam-install"]).unwrap();
+    assert!(cli.steam_install);
+    assert!(cli.steam_dir.is_none() && cli.steam_user.is_none());
+    let cli = Cli::try_parse_from([
+        "t2k",
+        "--steam-install",
+        "--steam-dir",
+        "Steam Directory",
+        "--steam-user",
+        "42",
+    ])
+    .unwrap();
+    assert_eq!(cli.steam_dir, Some(PathBuf::from("Steam Directory")));
+    assert_eq!(cli.steam_user, Some(42));
+    for args in [
+        vec!["t2k", "--steam-dir", "somewhere"],
+        vec!["t2k", "--steam-user", "42"],
+        vec!["t2k", "--steam-install", "--steam-user", "0"],
+        vec!["t2k", "--steam-install", "--steam-user", "abc"],
+        vec!["t2k", "--steam-install", "--fullscreen"],
+        vec!["t2k", "--steam-install", "--level", "2"],
+        vec!["t2k", "--steam-install", "--volume", "0.5"],
+        vec!["t2k", "--steam-install", "--screenshot", "shot.png"],
+        vec!["t2k", "--steam-install", "--record-motion", "out"],
+        vec![
+            "t2k",
+            "--steam-install",
+            "--message-preview",
+            "particle-laser",
+        ],
+    ] {
+        assert!(Cli::try_parse_from(args).is_err());
+    }
+}
+
+#[test]
 fn derive_definition_and_defaults_are_valid() {
     Cli::command().debug_assert();
     let cli = Cli::try_parse_from(["t2k"]).unwrap();

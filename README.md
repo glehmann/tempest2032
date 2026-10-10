@@ -69,6 +69,57 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 graphical desktop and a Vulkan-capable graphics driver. Windows and macOS use
 their native window backends.
 
+## Steam installation
+
+Close Steam completely, then run the executable you want to install:
+
+```sh
+t2k --steam-install
+```
+
+For a local optimized build, use `cargo run --release -- --steam-install`.
+The command copies the executable into a stable per-user directory, adds T2K
+as a non-Steam game for the most recently used Steam account, prints the paths
+and shortcut ID, and exits without opening the game. Start Steam afterward to
+load the shortcut. The initial launch option is `--fullscreen`.
+
+Native Steam is detected on Linux, Steam Deck, Windows, and macOS. Flatpak and
+Snap Steam are also detected on Linux. Installation locations are:
+
+| Platform | Executable location |
+| --- | --- |
+| Linux / Steam Deck | `$XDG_DATA_HOME/t2k/t2k`, normally `~/.local/share/t2k/t2k` |
+| Windows | `%LOCALAPPDATA%\T2K\t2k.exe` |
+| macOS | `~/Library/Application Support/T2K/t2k` |
+| Flatpak / Snap Steam | `t2k/t2k` inside that Steam installation's data directory |
+
+All game assets and levels are embedded, so the installed executable runs
+independently of the source tree or downloaded copy. Re-running the command
+updates that installed copy while retaining its Steam shortcut ID, custom name,
+launch options, working directory, icon, tags, and other existing settings.
+Running it from the installed copy also works and skips copying onto itself.
+Unix executable permissions are preserved.
+
+If detection is ambiguous or Steam is installed in a custom location, use:
+
+```sh
+t2k --steam-install --steam-dir "/path/to/Steam" --steam-user 12345678
+```
+
+`--steam-user` is the numeric account ID from the `userdata/` directory,
+not the full 17-digit Steam ID. Both overrides are optional and require
+`--steam-install`. Installation cannot be combined with gameplay or capture
+options. If Steam is absent, an account has never signed in, or its configuration
+is unreadable, the command exits with an explanatory error.
+`--steam-dir` points to the Steam data directory containing `steamapps/` and
+`userdata/`. On macOS, this is normally `~/Library/Application Support/Steam`.
+
+Existing shortcuts and unrecognized binary VDF fields are preserved. Before a
+changed shortcut file is replaced, its exact contents are saved beside it as
+`shortcuts.vdf.t2k-backup`, with numbered suffixes if needed. File replacements
+are atomic, and a `shortcuts.vdf.t2k.lock` file prevents concurrent T2K installers.
+This is local non-Steam-game registration; it does not publish a Steam store app.
+
 ## Sound effects
 
 Original Tempest 2000 samples play for shots, explosions, jumps, power-up drops
