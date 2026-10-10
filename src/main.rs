@@ -20,6 +20,7 @@ mod level;
 mod mesh;
 mod messages;
 mod music;
+mod pause;
 mod powerups;
 mod scene;
 mod sines;

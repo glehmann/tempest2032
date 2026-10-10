@@ -187,7 +187,7 @@ pub(crate) fn setup(
     ));
     commands.spawn((
         ControlsLegend,
-        Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit"),
+        Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    P  Pause    R  Restart    ESC  Quit"),
         TextFont {
             font_size: 14.0,
             ..default()

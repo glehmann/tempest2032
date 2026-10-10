@@ -224,7 +224,12 @@ pub(crate) fn add_systems(app: &mut App) {
         .init_resource::<Sounds>()
         .init_resource::<EffectsPitch>()
         .add_systems(Startup, setup)
-        .add_systems(Update, update.after(crate::game::load_level));
+        .add_systems(
+            Update,
+            update
+                .after(crate::game::load_level)
+                .run_if(crate::pause::running),
+        );
 }
 
 fn setup(mut commands: Commands, mut assets: ResMut<Assets<Sample>>) {

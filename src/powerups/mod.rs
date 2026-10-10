@@ -22,7 +22,7 @@ pub(crate) struct Upgrades {
     pub(crate) jump_enabled: bool,
     pub(crate) jump_height: i32,
     jump_velocity: i32,
-    jump_queued: bool,
+    pub(crate) jump_queued: bool,
     pub(crate) droid: bool,
     warp_tokens: u8,
     frame: u32,

@@ -35,6 +35,9 @@ cargo run
 
 The first build compiles Bevy and takes longer than subsequent builds.
 For an optimized build, use `cargo run --release`.
+Click the **Pause** button or press `P` or the keyboard's `Pause` key to pause
+and resume. Pausing freezes gameplay, animations, timers, and audio, and shows
+a paused overlay. `R` restarts and resumes the game; `Esc` still quits.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.

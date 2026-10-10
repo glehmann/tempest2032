@@ -172,6 +172,7 @@ pub(crate) fn run(args: cli::Cli) {
     app.insert_resource(crate::sound::EffectsPitch(args.effects_pitch));
     crate::music::add_systems(&mut app);
     app.insert_resource(crate::music::MusicVolume(args.music_volume));
+    crate::pause::add_systems(&mut app);
     if args.warp_zone.is_none() {
         app.world_mut()
             .resource_mut::<Game>()
@@ -270,7 +271,8 @@ fn add_systems(app: &mut App) {
             PreUpdate,
             powerups::queue_jump
                 .after(bevy::input::InputSystems)
-                .run_if(normal_scene),
+                .run_if(normal_scene)
+                .run_if(crate::pause::running),
         )
         .add_systems(
             FixedUpdate,

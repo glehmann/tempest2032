@@ -99,7 +99,12 @@ pub(crate) fn add_systems(app: &mut App) {
     app.add_audio_source::<Track>()
         .init_resource::<MusicVolume>()
         .add_systems(Startup, setup)
-        .add_systems(Update, update.after(crate::game::load_level));
+        .add_systems(
+            Update,
+            update
+                .after(crate::game::load_level)
+                .run_if(crate::pause::running),
+        );
 }
 
 fn setup(mut commands: Commands, mut assets: ResMut<Assets<Track>>) {
