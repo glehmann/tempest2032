@@ -1,5 +1,5 @@
 //! Editable TOML level definitions, validation, enemy-generator settings,
-//! the level catalog, and level-owned actor cleanup markers.
+//! embedded fallbacks, the level catalog, and level-owned actor cleanup markers.
 
 use crate::difficulty::Scale;
 use crate::web::LANE_UNIT;
@@ -8,6 +8,8 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use std::path::Path;
 use std::sync::LazyLock;
+
+include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 
 #[derive(Resource, Clone)]
 pub(crate) struct Level {
@@ -440,23 +442,34 @@ impl Default for Levels {
 
 impl Levels {
     pub(crate) fn load(directory: &Path) -> Result<Self, String> {
-        let entries = std::fs::read_dir(directory)
-            .map_err(|err| format!("{}: {err}", directory.display()))?;
         let mut levels = Vec::new();
-        for entry in entries {
-            let path = entry.map_err(|err| err.to_string())?.path();
-            if path.extension().is_none_or(|ext| ext != "toml") {
-                continue;
+        match std::fs::read_dir(directory) {
+            Ok(entries) => {
+                for entry in entries {
+                    let path = entry.map_err(|err| err.to_string())?.path();
+                    if path.extension().is_none_or(|ext| ext != "toml") {
+                        continue;
+                    }
+                    let source = std::fs::read_to_string(&path)
+                        .map_err(|err| format!("{}: {err}", path.display()))?;
+                    levels.push((
+                        path.clone(),
+                        Level::parse(&source, &path.display().to_string())?,
+                    ));
+                }
             }
-            let source = std::fs::read_to_string(&path)
-                .map_err(|err| format!("{}: {err}", path.display()))?;
-            levels.push((
-                path.clone(),
-                Level::parse(&source, &path.display().to_string())?,
-            ));
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(format!("{}: {err}", directory.display())),
         }
-        if levels.is_empty() {
-            return Err(format!("{}: no TOML levels found", directory.display()));
+        for &(name, source) in BUNDLED_LEVELS {
+            let name = format!("embedded levels/{name}");
+            let level = Level::parse(source, &name)?;
+            if !levels
+                .iter()
+                .any(|(_, external)| external.number == level.number)
+            {
+                levels.push((name.into(), level));
+            }
         }
         levels.sort_by_key(|(_, level)| level.number);
         for (index, (path, level)) in levels.iter().enumerate() {
@@ -494,6 +507,10 @@ pub(crate) struct LevelActor;
 #[cfg(test)]
 #[path = "tests/level.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/level_loading.rs"]
+mod loading_tests;
 
 #[cfg(test)]
 #[path = "tests/later_levels.rs"]

@@ -13,7 +13,7 @@ pub(crate) struct Cli {
     #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
     pub(crate) level: u32,
 
-    /// Directory containing the TOML level definitions
+    /// Directory containing TOML overrides for the embedded levels
     #[arg(long, default_value = "levels", value_name = "DIRECTORY")]
     pub(crate) levels: PathBuf,
 

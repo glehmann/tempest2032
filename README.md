@@ -141,8 +141,16 @@ python3 tools/music.py "/path/to/Tempest 2000.j64" assets/music
 
 ## Editable levels
 
-Levels load from `levels/*.toml` at startup. Edit the files and relaunch the app;
-no Rust changes are needed. The supplied levels are:
+All shipped levels are embedded in the executable. At startup, TOML files in
+`levels/`, or the directory selected by `--levels`, take priority over embedded
+definitions with the same `number`. Missing levels use the embedded versions,
+so the game runs with an absent, empty, or partial levels directory.
+Edit an override file and relaunch the app; no Rust changes are needed.
+Existing invalid or unreadable files still produce an error, and duplicate
+numbers and gaps beyond the bundled catalog still fail validation.
+The shipped TOML files are included automatically when compiling, including
+newly added levels. You can copy just the executable to another PC; the
+`levels/` directory is optional for customization. The supplied levels are:
 
 - `levels/01.toml`: the existing `web5` level, with 25 Flippers, first spawn after
   61 gameplay ticks, and subsequent spawns every 121 ticks.
