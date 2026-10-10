@@ -3,7 +3,7 @@
 use super::Upgrades;
 use crate::{
     enemies::{
-        Enemy,
+        Enemy, SpawnOrder,
         aliens::AlienDroid,
         beasts::Reflected,
         flipper_render::FlipperAssets,
@@ -108,6 +108,7 @@ pub(crate) fn advance(
             Option<&EnemyShot>,
             Option<&Reflected>,
             Option<&ReturnedShot>,
+            &SpawnOrder,
         ),
         Or<(With<Enemy>, With<EnemyShot>)>,
     >,
@@ -141,7 +142,21 @@ pub(crate) fn advance(
     let target = targets
         .iter()
         .filter(
-            |(_, _, flipper, tanker, _, fuse, pulsar, spiker, alien, shot, reflected, returned)| {
+            |(
+                _,
+                _,
+                flipper,
+                tanker,
+                _,
+                fuse,
+                pulsar,
+                spiker,
+                alien,
+                shot,
+                reflected,
+                returned,
+                _,
+            )| {
                 if let Some(flipper) = flipper {
                     !matches!(flipper.motion, Motion::Approach)
                 } else if let Some(tanker) = tanker {
@@ -159,8 +174,8 @@ pub(crate) fn advance(
                 }
             },
         )
-        .min_by_key(|target| target.0.to_bits());
-    let Some((entity, pose, flipper, tanker, contents, fuse, pulsar, spiker, alien, _, _, _)) =
+        .max_by_key(|(.., order)| order.0);
+    let Some((entity, pose, flipper, tanker, contents, fuse, pulsar, spiker, alien, _, _, _, _)) =
         target
     else {
         zapper.active = false;

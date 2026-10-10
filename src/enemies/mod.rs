@@ -11,6 +11,7 @@ use crate::explosion;
 use crate::level::Level;
 use crate::powerups;
 use bevy::prelude::*;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub(crate) mod aliens;
 pub(crate) mod beasts;
@@ -25,7 +26,19 @@ pub(crate) mod spikers;
 pub(crate) mod tankers;
 
 #[derive(Component, Default)]
+#[require(SpawnOrder)]
 pub(crate) struct Enemy;
+
+#[derive(Component)]
+pub(crate) struct SpawnOrder(pub(crate) u64);
+
+impl Default for SpawnOrder {
+    fn default() -> Self {
+        // Keep insertion order independent of entity-slot reuse and simulation time.
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        Self(NEXT.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 pub(crate) fn setup(
     commands: &mut Commands,

@@ -159,6 +159,40 @@ fn a_zap_and_bullet_in_the_same_tick_cannot_score_the_same_enemy_twice() {
 }
 
 #[test]
+fn last_chance_zaps_the_newest_eligible_enemy_regardless_of_depth() {
+    for (old_depth, new_depth) in [(10, 120), (120, 10)] {
+        let mut app = app();
+        press(&mut app);
+        ticks(&mut app, 1);
+        let older = enemy(&mut app, 2, old_depth * LANE_UNIT, Motion::Climb);
+        let newer = enemy(&mut app, 3, new_depth * LANE_UNIT, Motion::Climb);
+        enemy(&mut app, 4, 200 * LANE_UNIT, Motion::Approach);
+        shot(&mut app);
+        press(&mut app);
+        ticks(&mut app, 1);
+        assert!(app.world().get_entity(older).is_ok());
+        assert!(app.world().get_entity(newer).is_err());
+        assert_eq!(app.world().resource::<Game>().score, 150);
+    }
+}
+
+#[test]
+fn newest_first_selection_survives_entity_slot_reuse() {
+    let mut app = app();
+    press(&mut app);
+    ticks(&mut app, 1);
+    let disposable = enemy(&mut app, 1, 30 * LANE_UNIT, Motion::Climb);
+    let older = enemy(&mut app, 2, 120 * LANE_UNIT, Motion::Climb);
+    app.world_mut().despawn(disposable);
+    let newer = enemy(&mut app, 3, 10 * LANE_UNIT, Motion::Climb);
+    assert_eq!(disposable.index(), newer.index());
+    press(&mut app);
+    ticks(&mut app, 1);
+    assert!(app.world().get_entity(older).is_ok());
+    assert!(app.world().get_entity(newer).is_err());
+}
+
+#[test]
 fn second_use_hits_one_enemy_ignores_shots_and_third_use_does_nothing() {
     let mut app = app();
     press(&mut app);

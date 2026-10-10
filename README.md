@@ -735,6 +735,9 @@ Vector lightning connects the claw to each target. The sweep ends when no
 eligible targets remain; it does not cancel future spawns. The second press
 is a last-chance zap that hits one enemy and ignores enemy shots. That second
 use has no lightning beam: the original clears its bolt flag before rendering.
+Targets follow the original newest-first active-object list: the first eligible
+object is zapped. On level one, the newest Flipper is usually the farthest down
+the web, but the zapper does not compare distances.
 Both uses recharge on web entry, including a retry after losing a life. Holding `Z`
 does not spend the second use automatically. An empty zap still uses a charge.
 

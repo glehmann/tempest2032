@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use std::f32::consts::TAU;
 
 #[derive(Component)]
-#[require(LevelActor)]
+#[require(LevelActor, crate::enemies::SpawnOrder)]
 pub(crate) struct EnemyShot {
     pub(crate) lane: usize,
     pub(crate) depth: i32,
