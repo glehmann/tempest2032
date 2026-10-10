@@ -731,7 +731,11 @@ One press starts the entire sweep. At 60 Hz, consecutive hits are about
 67 ms apart; three Flippers disappear within about 0.13 seconds from the
 first hit to the last. This cadence was checked frame by frame against a
 Jaguar gameplay recording, including its 150, 300, and 450 score updates.
-Vector lightning connects the claw to each target. The sweep ends when no
+Two vector lightning bolts connect each target to the selected lane's two rim
+edges at the claw's current depth. Each has 32 segments, with the original
+`ox.gas` 8-bit random sequence adding X/Y displacement in world space before
+projection. The bolts retain the original flashing CRY hue and depth shading.
+The sweep ends when no
 eligible targets remain; it does not cancel future spawns. The second press
 is a last-chance zap that hits one enemy and ignores enemy shots. That second
 use has no lightning beam: the original clears its bolt flag before rendering.

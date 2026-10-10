@@ -418,25 +418,115 @@ fn reentering_or_restarting_a_web_recharges_and_clears_pending_zaps() {
 }
 
 #[test]
-fn lightning_is_finite_vector_geometry_anchored_at_the_claw_and_target() {
-    let start = Vec2::new(-100., 50.);
-    let end = Vec2::new(40., -20.);
-    for frame in [0, 1, u32::MAX] {
-        let triangles = bolt_triangles(start, end, frame);
-        assert_eq!(triangles.len(), 128);
+fn lightning_attaches_to_both_lane_edges_at_the_claws_current_depth() {
+    for web in [
+        Level::default().web,
+        Web {
+            closed: false,
+            vertices: vec![[2., 8.], [8., 8.], [14., 8.]],
+            orientations: vec![0, 0],
+            start_lane: 0,
+            depth: 160,
+        },
+    ] {
+        for lane in 0..web.lanes() {
+            for fraction in [0, LANE_UNIT / 4, LANE_UNIT / 2 - 1] {
+                let progress = lane as i32 * LANE_UNIT + fraction;
+                let z = 2.12;
+                let origins = bolt_origins(&web, progress, z);
+                let selected = web.selected_lane(progress);
+                assert_eq!(
+                    origins,
+                    [
+                        web.vertex(selected, FRONT_RADIUS, z),
+                        web.vertex(selected + 1., FRONT_RADIUS, z)
+                    ]
+                );
+                assert_eq!(
+                    (origins[0] + origins[1]) / 2.,
+                    web.glider_transform(progress).translation.with_z(z)
+                );
+                assert!(origins[0].distance(origins[1]) > 0.);
+            }
+        }
+    }
+}
+
+#[test]
+fn lightning_uses_the_original_lfsr_and_fixed_point_xy_noise_with_exact_endpoints() {
+    let target = Vec3::new(1., 2., -12.);
+    let origin = Vec3::new(4., 5., 0.12);
+    let points = bolt_points(target, origin, 0);
+    assert_eq!(points[0], target);
+    assert_eq!(points[32], origin);
+    assert!(
+        points[1]
+            .distance(target.lerp(origin, 1. / 32.) + Vec3::new(0.875, 0.5625, 0.) * WORLD_UNIT)
+            < 1e-6
+    );
+    assert!(
+        points[2].distance(
+            target.lerp(origin, 2. / 32.) + Vec3::new(-1.28125, 1.640625, 0.) * WORLD_UNIT
+        ) < 1e-6
+    );
+    for (i, p) in points.iter().enumerate() {
+        let noise = *p - target.lerp(origin, i as f32 / 32.);
+        assert!(noise.x.abs() <= 2. * WORLD_UNIT + 1e-6);
+        assert!(noise.y.abs() <= 2. * WORLD_UNIT + 1e-6);
+        assert_eq!(noise.z, 0.);
+    }
+    assert_eq!(points, bolt_points(target, origin, 1));
+    assert_eq!(points, bolt_points(target, origin, 256));
+    assert_ne!(points, bolt_points(target, origin, 2));
+}
+
+#[test]
+fn world_space_lightning_noise_expands_near_the_camera() {
+    let near = bolt_points(Vec3::new(0., 0., -20.), Vec3::new(0., 0., -5.), 0);
+    let far = bolt_points(Vec3::new(0., 0., -40.), Vec3::new(0., 0., -25.), 0);
+    let projection = Mat4::perspective_rh(1., 1.6, 0.1, 100.);
+    assert_eq!(near[31].truncate(), far[31].truncate());
+    assert!(
+        projection.project_point3(near[31]).truncate().length()
+            > projection.project_point3(far[31]).truncate().length() * 3.
+    );
+}
+
+#[test]
+fn lightning_is_finite_shaded_vector_geometry_with_thirty_two_segments_per_bolt() {
+    let target = Vec3::new(-1., 2., -20.);
+    let origin = Vec3::new(3., -1., -5.);
+    let projection = Mat4::perspective_rh(1., 1.6, 0.1, 100.);
+    for frame in [0, 2, u32::MAX] {
+        let vertices: Vec<_> = bolt_points(target, origin, frame)
+            .iter()
+            .map(|&p| {
+                (
+                    projection.project_point3(p).truncate(),
+                    crate::cry::color(bolt_hue(frame), 160),
+                )
+            })
+            .collect();
+        let triangles = bolt_triangles(&vertices);
+        assert_eq!(triangles.len(), 64);
         assert!(triangles.iter().flatten().all(|(p, _)| p.is_finite()));
         assert!(
-            triangles
-                .iter()
-                .flatten()
-                .any(|(p, _)| p.truncate().distance(start) <= 0.21)
+            ((triangles[0][0].0 + triangles[0][1].0) / 2.)
+                .truncate()
+                .distance(vertices[0].0)
+                < 1e-6
         );
+        let last = triangles.last().unwrap();
         assert!(
-            triangles
-                .iter()
-                .flatten()
-                .any(|(p, _)| p.truncate().distance(end) <= 0.21)
+            ((last[1].0 + last[2].0) / 2.)
+                .truncate()
+                .distance(vertices[32].0)
+                < 1e-6
         );
+        assert!(triangles.iter().flatten().all(|(_, c)| *c == vertices[0].1));
     }
-    assert_ne!(bolt_triangles(start, end, 0), bolt_triangles(start, end, 1));
+    assert_eq!(
+        [bolt_hue(0), bolt_hue(64), bolt_hue(128), bolt_hue(192)],
+        [0xf8, 0x8f, 0x08, 0x80]
+    );
 }

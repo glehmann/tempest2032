@@ -19,7 +19,9 @@ use crate::{
     explosion,
     game::{Game, Status},
     glider::Glider,
+    level::Level,
     messages::{Id, message_mesh},
+    web::{FRONT_RADIUS, WORLD_UNIT, Web},
 };
 use bevy::{camera::visibility::RenderLayers, prelude::*};
 
@@ -239,66 +241,98 @@ pub(crate) fn setup(
     commands.insert_resource(BoltAssets(mesh));
 }
 
-fn bolt_triangles(start: Vec2, end: Vec2, frame: u32) -> Vec<[(Vec3, Color); 3]> {
-    let normal = (end - start).normalize_or_zero().perp();
-    let vertices: [Vec2; 33] = std::array::from_fn(|i| {
-        let jitter = if i == 0 || i == 32 {
-            0.
-        } else {
-            let noise = (i as u32)
-                .wrapping_mul(747796405)
-                .wrapping_add(frame.wrapping_mul(2891336453));
-            ((noise ^ (noise >> 16)) & 255) as f32 / 255. * 4. - 2.
-        };
-        start.lerp(end, i as f32 / 32.) + normal * jitter
-    });
-    let hue = frame.wrapping_mul(16) as u8;
-    let mut triangles = Vec::with_capacity(128);
-    for (width, color) in [(0.8, crate::cry::color(hue, 150)), (0.2, Color::WHITE)] {
-        for edge in vertices.windows(2) {
-            let side = (edge[1] - edge[0]).normalize_or_zero().perp() * width;
-            let corners = [
-                edge[0] - side,
-                edge[0] + side,
-                edge[1] + side,
-                edge[1] - side,
-            ];
-            for face in [[0, 1, 2], [0, 2, 3]] {
-                triangles.push(face.map(|i| (corners[i].extend(0.5), color)));
-            }
+fn bolt_origins(web: &Web, progress: i32, z: f32) -> [Vec3; 2] {
+    // draw_objects calls fline twice, using webinfo's two lane ends at claw Z.
+    let lane = web.selected_lane(progress);
+    [lane, lane + 1.].map(|edge| web.vertex(edge, FRONT_RADIUS, z))
+}
+
+fn bolt_points(target: Vec3, origin: Vec3, frame: u32) -> [Vec3; 33] {
+    let mut seed = frame as u8 | 1;
+    std::array::from_fn(|i| {
+        if i == 0 {
+            return target;
         }
-    }
-    triangles
+        if i == 32 {
+            return origin;
+        }
+        let p = target.lerp(origin, i as f32 / 32.);
+        // ox.gas: (8-bit LFSR - 128) << 10 in 16:16 XY; Z is unchanged.
+        let mut noise = || {
+            seed = (seed >> 1) ^ if seed & 1 != 0 { 0xb8 } else { 0 };
+            (f32::from(seed) - 128.) / 64. * WORLD_UNIT
+        };
+        p + Vec3::new(noise(), -noise(), 0.)
+    })
+}
+
+fn bolt_hue(frame: u32) -> u8 {
+    let phase = (frame & 255) as i32;
+    (((crate::sines::sine(phase + 64) + 128) & 0xf0) | ((crate::sines::sine(phase) + 128) >> 4))
+        as u8
+}
+
+fn bolt_triangles(vertices: &[(Vec2, Color)]) -> Vec<[(Vec3, Color); 3]> {
+    vertices
+        .windows(2)
+        .flat_map(|edge| {
+            let side = (edge[1].0 - edge[0].0).normalize_or_zero().perp() * 0.5;
+            let corners = [
+                ((edge[0].0 - side).extend(0.5), edge[0].1),
+                ((edge[0].0 + side).extend(0.5), edge[0].1),
+                ((edge[1].0 + side).extend(0.5), edge[1].1),
+                ((edge[1].0 - side).extend(0.5), edge[1].1),
+            ];
+            [
+                [corners[0], corners[1], corners[2]],
+                [corners[0], corners[2], corners[3]],
+            ]
+        })
+        .collect()
 }
 
 pub(crate) fn draw(
     upgrades: Res<Upgrades>,
     game: Res<Game>,
+    level: Res<Level>,
     assets: Res<BoltAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    player: Single<&Transform, With<Glider>>,
+    player: Single<(&Glider, &Transform)>,
     cameras: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
 ) {
     let zapper = &upgrades.zapper;
-    let projected = zapper
+    let mut triangles = Vec::new();
+    if let Some(target) = zapper
         .bolt
         .filter(|_| zapper.bolt_ticks > 0 && game.status == Status::Playing)
-        .and_then(|target| {
-            cameras.iter().find_map(|(camera, pose)| {
-                let size = camera.logical_viewport_size()?;
-                let project = |p| {
-                    camera
-                        .world_to_viewport(pose, p)
-                        .ok()
-                        .map(|p| Vec2::new(p.x - size.x / 2., size.y / 2. - p.y) * (240. / size.y))
-                };
-                Some((project(player.translation)?, project(target)?))
-            })
-        });
-    *meshes.get_mut(&assets.0).unwrap() =
-        message_mesh(projected.map_or_else(Vec::new, |(start, end)| {
-            bolt_triangles(start, end, zapper.frame)
-        }));
+        && let Some((camera, pose, size)) = cameras.iter().find_map(|(camera, pose)| {
+            camera
+                .logical_viewport_size()
+                .map(|size| (camera, pose, size))
+        })
+    {
+        let (glider, claw) = *player;
+        let view = pose.affine().inverse();
+        let hue = bolt_hue(zapper.frame);
+        for origin in bolt_origins(&level.web, glider.progress, claw.translation.z) {
+            let projected: Option<Vec<_>> = bolt_points(target, origin, zapper.frame)
+                .iter()
+                .map(|&p| {
+                    let xy = camera.world_to_viewport(pose, p).ok()?;
+                    let xy = Vec2::new(xy.x - size.x / 2., size.y / 2. - xy.y) * (240. / size.y);
+                    // fline depth-cues with z_max=1300 and Z shifted from 16:16 to 16:2.
+                    let depth = -view.transform_point3(p).z;
+                    let intensity =
+                        (255. * (1. - depth / (1300. * WORLD_UNIT / 4.)).clamp(0., 1.)) as u8;
+                    Some((xy, crate::cry::color(hue, intensity)))
+                })
+                .collect();
+            if let Some(projected) = projected {
+                triangles.extend(bolt_triangles(&projected));
+            }
+        }
+    }
+    *meshes.get_mut(&assets.0).unwrap() = message_mesh(triangles);
 }
 
 #[cfg(test)]
