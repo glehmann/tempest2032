@@ -38,6 +38,31 @@ fn shot(app: &mut App) -> Entity {
 }
 
 #[test]
+fn one_press_matches_the_recorded_jaguar_three_flipper_clear() {
+    let mut app = app();
+    for lane in 0..3 {
+        enemy(&mut app, lane, 40 * LANE_UNIT, Motion::Climb);
+    }
+    press(&mut app);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .reset(KeyCode::KeyZ);
+    // The recording scores 150, 300, 450 at 5.370, 5.437, 5.503 seconds.
+    for (elapsed_ticks, score) in [(1, 150), (3, 150), (1, 300), (3, 300), (1, 450)] {
+        ticks(&mut app, elapsed_ticks);
+        assert_eq!(app.world().resource::<Game>().score, score);
+        assert_eq!(
+            app.world_mut()
+                .query::<&Flipper>()
+                .iter(app.world())
+                .count(),
+            3 - (score / 150) as usize,
+        );
+    }
+    assert_eq!(app.world().resource::<Upgrades>().zapper.uses, 1);
+}
+
+#[test]
 fn a_short_tap_starts_a_four_tick_sweep_without_spending_the_second_use_while_held() {
     let mut app = app();
     for lane in 0..3 {

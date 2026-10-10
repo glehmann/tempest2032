@@ -727,6 +727,10 @@ vertex order, so it also reverses the input sign.
 Press `Z` during gameplay to trigger the Superzapper. The first use displays
 "EAT ELECTRIC DEATH!", plays the original crackle sample, and sweeps eligible
 enemies and ordinary enemy shots one target every four simulation ticks.
+One press starts the entire sweep. At 60 Hz, consecutive hits are about
+67 ms apart; three Flippers disappear within about 0.13 seconds from the
+first hit to the last. This cadence was checked frame by frame against a
+Jaguar gameplay recording, including its 150, 300, and 450 score updates.
 Vector lightning connects the claw to each target. The sweep ends when no
 eligible targets remain; it does not cancel future spawns. The second press
 is a last-chance zap that hits one enemy and ignores enemy shots. Both uses
