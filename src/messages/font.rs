@@ -1,4 +1,4 @@
-//! Rounded vector contours with the original glyph proportions and advance.
+//! Simplified vector contours with the original glyph proportions and advance.
 
 use bevy::prelude::*;
 use lyon_tessellation::{
@@ -311,6 +311,57 @@ fn word(data: &mut &[u8]) -> u16 {
     value
 }
 
+fn simplify_contour(points: &[Vec2]) -> Vec<Vec2> {
+    fn distance(p: Vec2, a: Vec2, b: Vec2) -> f32 {
+        let edge = b - a;
+        let t = ((p - a).dot(edge) / edge.length_squared().max(f32::EPSILON)).clamp(0., 1.);
+        p.distance_squared(a + edge * t)
+    }
+    fn segment(points: &[Vec2], output: &mut Vec<Vec2>) {
+        let a = points[0];
+        let b = points[points.len() - 1];
+        let farthest = (1..points.len() - 1)
+            .map(|i| (i, distance(points[i], a, b)))
+            .max_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((i, _)) = farthest.filter(|(_, distance)| *distance > 0.8 * 0.8) {
+            segment(&points[..=i], output);
+            segment(&points[i..], output);
+        } else {
+            output.push(a);
+        }
+    }
+    // Split the closed loop before simplifying so its seam cannot erase a corner.
+    let split = (1..points.len())
+        .max_by(|&a, &b| {
+            points[a]
+                .distance_squared(points[0])
+                .total_cmp(&points[b].distance_squared(points[0]))
+        })
+        .unwrap();
+    let mut result = Vec::new();
+    segment(&points[..=split], &mut result);
+    let mut remaining = points[split..].to_vec();
+    remaining.push(points[0]);
+    segment(&remaining, &mut result);
+    // The split endpoints can land on a pixel step rather than a real corner.
+    while result.len() > 3 {
+        let redundant = (0..result.len()).find(|&i| {
+            distance(
+                result[i],
+                result[(i + result.len() - 1) % result.len()],
+                result[(i + 1) % result.len()],
+            ) <= 0.8 * 0.8
+        });
+        let Some(i) = redundant else { break };
+        result.remove(i);
+    }
+    if result.len() < 3 {
+        points.to_vec()
+    } else {
+        result
+    }
+}
+
 fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
     let count = word(data);
     let mut path = Path::builder();
@@ -318,10 +369,23 @@ fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
         let points: Vec<_> = (0..word(data))
             .map(|_| Vec2::new(word(data) as i16 as f32, word(data) as i16 as f32))
             .collect();
-        let midpoint = (points[0] + points[points.len() - 1]) / 2.;
-        path.begin(point(midpoint.x, midpoint.y));
+        let points = simplify_contour(&points);
+        // Round actual corners locally, without bending the long fitted diagonals.
+        let corner = |i: usize| {
+            let p = points[i];
+            let before = points[(i + points.len() - 1) % points.len()] - p;
+            let after = points[(i + 1) % points.len()] - p;
+            let radius = 0.75_f32.min(before.length() / 2.).min(after.length() / 2.);
+            (
+                p + before.normalize_or_zero() * radius,
+                p + after.normalize_or_zero() * radius,
+            )
+        };
+        let start = corner(points.len() - 1).1;
+        path.begin(point(start.x, start.y));
         for (i, control) in points.iter().enumerate() {
-            let end = (*control + points[(i + 1) % points.len()]) / 2.;
+            let (begin, end) = corner(i);
+            path.line_to(point(begin.x, begin.y));
             path.quadratic_bezier_to(point(control.x, control.y), point(end.x, end.y));
         }
         path.end(true);
@@ -353,6 +417,21 @@ fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
 mod tests {
     use super::*;
     use clap::ValueEnum;
+    #[test]
+    fn pixel_staircase_becomes_a_straight_diagonal_without_erasing_corners() {
+        let mut outline = vec![Vec2::ZERO, Vec2::new(12., 0.)];
+        for i in 0..12 {
+            outline.push(Vec2::new(12. - i as f32, i as f32 + 1.));
+            outline.push(Vec2::new(11. - i as f32, i as f32 + 1.));
+        }
+        let simplified = simplify_contour(&outline);
+        assert_eq!(simplified.len(), 3);
+        assert!(simplified.contains(&Vec2::ZERO));
+        assert!(simplified.contains(&Vec2::new(12., 0.)));
+        assert!(simplified.contains(&Vec2::new(0., 12.)));
+        let small = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
+        assert_eq!(simplify_contour(&small), small);
+    }
     #[test]
     fn clipping_preserves_the_outline_area_without_duplicate_cell_edges() {
         let mut cells = Vec::new();

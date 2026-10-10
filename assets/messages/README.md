@@ -4,7 +4,7 @@
 icon from `beasty4.cry`. Source rectangles match `ashowscore` and `setlives`
 in `yak.s`. Its `T2KH` header is followed by eleven records containing width,
 height, contour count, contour points, and CRY shading samples, all big-endian
-u16 values. The HUD uses the same rounded, tessellated, shaded contours as
+u16 values. The HUD uses the same simplified, tessellated, shaded contours as
 the announcement font. Warp pyramids use `makepyr`'s three shaded triangles.
 
 Regenerate the HUD artwork with:
@@ -15,8 +15,11 @@ python3 tools/message_font.py /path/to/tempest2k/src assets/messages/hud.bin
 
 `afont.bin` contains scalable outlines derived from Joby's `afont` letters in
 the original `beasty4.cry` sheet. `tools/message_font.py` extracts the glyph
-boundaries and removes redundant contour points. The renderer rounds the
-contour corners with quadratic curves and tessellates at the display scale.
+boundaries and removes redundant contour points. At startup, the renderer
+simplifies the pixel stair-steps with a 0.8-source-pixel line-fit tolerance,
+then rounds retained corners with quadratic curves capped at 0.75 source
+pixels. Long diagonals remain straight instead of following each pixel step.
+The outlines are tessellated into cached vector geometry.
 Glyphs retain the original 15×18 proportions and 17-unit advance. Lowercase
 characters use the original uppercase forms.
 
