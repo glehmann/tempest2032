@@ -22,21 +22,54 @@ struct CellTriangle {
 
 impl Glyph {
     fn color(&self, position: Vec2) -> Color {
-        let p = (position - Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::new(14., 17.));
-        let x = p.x as usize;
-        let y = p.y as usize;
-        let sample = |x: usize, y: usize| self.shading[y * 15 + x].to_srgba().to_f32_array();
-        let a = sample(x, y);
-        let b = sample((x + 1).min(14), y);
-        let c = sample(x, (y + 1).min(17));
-        let d = sample((x + 1).min(14), (y + 1).min(17));
-        let rgb: [f32; 3] = std::array::from_fn(|i| {
-            let top = a[i] + (b[i] - a[i]) * p.x.fract();
-            let bottom = c[i] + (d[i] - c[i]) * p.x.fract();
-            top + (bottom - top) * p.y.fract()
-        });
-        Color::srgb(rgb[0], rgb[1], rgb[2])
+        shade(&self.shading, 15, 18, position)
     }
+}
+
+fn shade(shading: &[Color], width: usize, height: usize, position: Vec2) -> Color {
+    let p = (position - Vec2::splat(0.5)).clamp(
+        Vec2::ZERO,
+        Vec2::new((width - 1) as f32, (height - 1) as f32),
+    );
+    let x = p.x as usize;
+    let y = p.y as usize;
+    let sample = |x: usize, y: usize| shading[y * width + x].to_srgba().to_f32_array();
+    let a = sample(x, y);
+    let b = sample((x + 1).min(width - 1), y);
+    let c = sample(x, (y + 1).min(height - 1));
+    let d = sample((x + 1).min(width - 1), (y + 1).min(height - 1));
+    let rgb: [f32; 3] = std::array::from_fn(|i| {
+        let top = a[i] + (b[i] - a[i]) * p.x.fract();
+        let bottom = c[i] + (d[i] - c[i]) * p.x.fract();
+        top + (bottom - top) * p.y.fract()
+    });
+    Color::srgb(rgb[0], rgb[1], rgb[2])
+}
+
+pub(crate) fn shaded_graphic(data: &mut &[u8]) -> Vec<[(Vec2, Color); 3]> {
+    let width = usize::from(word(data));
+    let height = usize::from(word(data));
+    let mut cells = Vec::new();
+    for triangle in decode(data, 0.02) {
+        split_cells(triangle, &mut cells);
+    }
+    let shading: Vec<_> = (0..width * height)
+        .map(|_| {
+            let raw = word(data);
+            crate::cry::color((raw >> 8) as u8, raw as u8)
+        })
+        .collect();
+    cells
+        .into_iter()
+        .map(|cell| {
+            cell.points.map(|p| {
+                (
+                    p,
+                    Color::LinearRgba(shade(&shading, width, height, p).to_linear()),
+                )
+            })
+        })
+        .collect()
 }
 
 struct WordArt {

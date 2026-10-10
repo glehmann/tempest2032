@@ -56,17 +56,9 @@ fn pause_stops_fixed_updates_and_resumes_without_catching_up() {
 }
 
 #[test]
-fn clicking_the_button_toggles_once_and_updates_the_overlay() {
+fn keyboard_pause_and_resume_update_visibility_without_text_or_buttons() {
     let mut app = app();
-    let button = app
-        .world_mut()
-        .query_filtered::<Entity, With<PauseButton>>()
-        .single(app.world())
-        .unwrap();
-    app.world_mut()
-        .entity_mut(button)
-        .insert(Interaction::Pressed);
-    app.update();
+    key(&mut app, KeyCode::KeyP);
     assert!(app.world().resource::<Time<Virtual>>().is_paused());
     for _ in 0..10 {
         app.update();
@@ -81,19 +73,14 @@ fn clicking_the_button_toggles_once_and_updates_the_overlay() {
         Display::Flex
     );
     assert_eq!(
-        app.world_mut()
-            .query_filtered::<&Text, With<ButtonLabel>>()
-            .single(app.world())
-            .unwrap()
-            .0,
-        "RESUME [P]"
+        app.world_mut().query::<&Text>().iter(app.world()).count(),
+        0
     );
-    app.world_mut().entity_mut(button).insert(Interaction::None);
-    app.update();
-    app.world_mut()
-        .entity_mut(button)
-        .insert(Interaction::Pressed);
-    app.update();
+    assert_eq!(
+        app.world_mut().query::<&Button>().iter(app.world()).count(),
+        0
+    );
+    key(&mut app, KeyCode::Pause);
     assert!(!app.world().resource::<Time<Virtual>>().is_paused());
     assert_eq!(
         app.world_mut()

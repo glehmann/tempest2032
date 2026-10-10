@@ -11,6 +11,96 @@ use bevy::prelude::*;
 use bevy::time::{TimePlugin, TimeUpdateStrategy};
 use std::time::{Duration, Instant};
 
+fn vector_app() -> App {
+    let mut app = App::new();
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<ColorMaterial>>()
+        .init_resource::<crate::game::Game>()
+        .init_resource::<crate::powerups::Upgrades>()
+        .init_resource::<Time<Virtual>>()
+        .add_systems(Startup, crate::hud::setup)
+        .add_systems(Update, crate::hud::update_hud);
+    app.world_mut()
+        .spawn((Window::default(), bevy::window::PrimaryWindow));
+    app.update();
+    app
+}
+
+fn hud_vertices(app: &App) -> usize {
+    app.world()
+        .resource::<Assets<Mesh>>()
+        .get(&app.world().resource::<super::HudAssets>().mesh)
+        .unwrap()
+        .count_vertices()
+}
+
+#[test]
+fn vector_hud_tracks_lives_and_warp_tokens_without_text_or_new_assets() {
+    let mut app = vector_app();
+    let initial = hud_vertices(&app);
+    assert!(initial > 0);
+    assert_eq!(
+        app.world_mut().query::<&Text>().iter(app.world()).count(),
+        0
+    );
+    app.world_mut()
+        .resource_mut::<crate::powerups::Upgrades>()
+        .seed_warp_tokens(3);
+    app.update();
+    assert_eq!(hud_vertices(&app), initial + 27);
+    app.world_mut().resource_mut::<crate::game::Game>().lives = 0;
+    app.update();
+    assert!(hud_vertices(&app) < initial);
+    app.world_mut().resource_mut::<crate::game::Game>().score = 1234567890;
+    app.update();
+    assert!(hud_vertices(&app) > initial);
+    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 1);
+    assert_eq!(app.world().resource::<Assets<ColorMaterial>>().len(), 1);
+}
+
+#[test]
+fn vector_hud_refits_on_resize_and_updates_when_paused() {
+    use bevy::mesh::VertexAttributeValues;
+    let mut app = vector_app();
+    app.world_mut()
+        .query::<&mut Window>()
+        .single_mut(app.world_mut())
+        .unwrap()
+        .resolution
+        .set(600., 1200.);
+    app.world_mut().resource_mut::<Time<Virtual>>().pause();
+    app.update();
+    let mesh = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&app.world().resource::<super::HudAssets>().mesh)
+        .unwrap();
+    let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        panic!("HUD must contain vector positions")
+    };
+    assert!(
+        positions
+            .iter()
+            .all(|p| p[0].abs() <= 60. && p[1].abs() <= 120.)
+    );
+    assert!(positions.iter().any(|p| p[2] == 2.));
+    app.world_mut().resource_mut::<Time<Virtual>>().unpause();
+    app.update();
+    let mesh = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&app.world().resource::<super::HudAssets>().mesh)
+        .unwrap();
+    let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    else {
+        panic!()
+    };
+    assert!(positions.iter().all(|p| p[2] == 0.));
+}
+
 fn fps_app() -> App {
     let mut app = App::new();
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_nanos(

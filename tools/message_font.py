@@ -47,6 +47,30 @@ def contours(mask):
 
 def main():
     source, output = map(Path, sys.argv[1:])
+    if output.name == "hud.bin":
+        pixels = (source / "images/beasty4.cry").read_bytes()
+        binary = bytearray(b"T2KH")
+        # yak.s ashowscore/setlives use these regions, not the announcement font.
+        for ox, oy, width, height in [
+            *[(148 + digit * 16, 89, 16, 19) for digit in range(10)],
+            (148, 111, 26, 17),
+        ]:
+            crop = b"".join(
+                pixels[((oy + y) * 320 + ox) * 2:((oy + y) * 320 + ox + width) * 2]
+                for y in range(height)
+            )
+            mask = [[crop[(y * width + x) * 2 + 1] > 80 for x in range(width)] for y in range(height)]
+            paths = contours(mask)
+            assert paths
+            binary.extend(struct.pack(">HHH", width, height, len(paths)))
+            for points in paths:
+                binary.extend(struct.pack(">H", len(points)))
+                for x, y in points:
+                    binary.extend(struct.pack(">hh", x, y))
+            binary.extend(crop)
+        output.write_bytes(binary)
+        print(f"{output}: {len(binary)} bytes, 10 vector digits and the original life icon")
+        return
     if output.name == "game-over.cry":
         pixels = (source / "images/beasty4.cry").read_bytes()
         output.write_bytes(b"".join(

@@ -1,5 +1,18 @@
 # Message lettering
 
+`hud.bin` stores the ten original 16x19 score numerals and the 26x17 claw life
+icon from `beasty4.cry`. Source rectangles match `ashowscore` and `setlives`
+in `yak.s`. Its `T2KH` header is followed by eleven records containing width,
+height, contour count, contour points, and CRY shading samples, all big-endian
+u16 values. The HUD uses the same rounded, tessellated, shaded contours as
+the announcement font. Warp pyramids use `makepyr`'s three shaded triangles.
+
+Regenerate the HUD artwork with:
+
+```sh
+python3 tools/message_font.py /path/to/tempest2k/src assets/messages/hud.bin
+```
+
 `afont.bin` contains scalable outlines derived from Joby's `afont` letters in
 the original `beasty4.cry` sheet. `tools/message_font.py` extracts the glyph
 boundaries and removes redundant contour points. The renderer rounds the

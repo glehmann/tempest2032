@@ -169,9 +169,6 @@ pub(crate) struct PowerAssets {
     droid_material: Handle<StandardMaterial>,
 }
 
-#[derive(Component)]
-pub(crate) struct PowerHud;
-
 pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -191,48 +188,6 @@ pub(crate) fn setup(
             ..default()
         }),
     });
-    commands.spawn((
-        PowerHud,
-        Visibility::Visible,
-        Text::default(),
-        TextFont {
-            font_size: 25.0,
-            ..default()
-        },
-        TextColor(Color::srgb(0.4, 0.9, 1.0)),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(100),
-            left: px(26),
-            ..default()
-        },
-    ));
-}
-
-pub(crate) fn update_notice(
-    upgrades: Res<Upgrades>,
-    game: Res<crate::game::Game>,
-    mut hud: Single<(&mut Text, &mut Visibility), With<PowerHud>>,
-) {
-    if game.status == crate::game::Status::Bonus {
-        *hud.1 = Visibility::Hidden;
-        return;
-    }
-    *hud.1 = Visibility::Visible;
-    let active = format!(
-        "{}{}{}",
-        if upgrades.laser { "LASER  " } else { "" },
-        if upgrades.jump_enabled {
-            "JUMP [J / SHIFT]  "
-        } else {
-            ""
-        },
-        if upgrades.droid { "DROID" } else { "" }
-    );
-    let text = format!("{active}\nWARP TOKENS {}/3", upgrades.warp_tokens());
-    if hud.0.0 != text {
-        hud.0.0 = text;
-    }
 }
 
 #[cfg(test)]

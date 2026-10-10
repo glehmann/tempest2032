@@ -331,7 +331,7 @@ fn cell_point(point: Vec2, center: Vec2, scale: Vec2, shear: f32) -> Vec2 {
     Vec2::new(local.x + local.y * shear, local.y - local.x * shear * 0.5)
 }
 
-fn message_mesh(triangles: Vec<[(Vec3, Color); 3]>) -> Mesh {
+pub(crate) fn message_mesh(triangles: Vec<[(Vec3, Color); 3]>) -> Mesh {
     let mut positions = Vec::with_capacity(triangles.len() * 3);
     let mut colors = Vec::with_capacity(triangles.len() * 3);
     for triangle in triangles {

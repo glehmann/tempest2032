@@ -1,5 +1,5 @@
-//! Scene startup, web surfaces and wireframes, selected-lane highlights,
-//! and level labels. Rebuilds the visible web when the active level changes.
+//! Scene startup, web surfaces and wireframes, and selected-lane highlights.
+//! Rebuilds the visible web when the active level changes.
 
 use bevy::{
     camera::visibility::RenderLayers, core_pipeline::tonemapping::Tonemapping, prelude::*,
@@ -33,12 +33,6 @@ pub(crate) struct WebAssets {
     pub(crate) yellow: Handle<StandardMaterial>,
     pub(crate) surface: Handle<StandardMaterial>,
 }
-
-#[derive(Component)]
-pub(crate) struct LevelLabel;
-
-#[derive(Component)]
-pub(crate) struct ControlsLegend;
 
 pub(crate) fn tunnel_mesh(web: &Web, color: [f32; 3]) -> Mesh {
     let mut triangles = Vec::new();
@@ -169,37 +163,6 @@ pub(crate) fn setup(
     commands.insert_resource(frames);
 
     stars::setup(&mut commands, &mut meshes, &mut materials);
-
-    commands.spawn((
-        LevelLabel,
-        Text::new(format!("LEVEL {:02}", level.number)),
-        TextFont {
-            font_size: 18.0,
-            ..default()
-        },
-        TextColor(Color::srgb(0.5, 0.5, 0.7)),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(22),
-            right: px(26),
-            ..default()
-        },
-    ));
-    commands.spawn((
-        ControlsLegend,
-        Text::new("LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    P  Pause    R  Restart    ESC  Quit"),
-        TextFont {
-            font_size: 14.0,
-            ..default()
-        },
-        TextColor(Color::srgb(0.4, 0.4, 0.5)),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: px(22),
-            left: px(26),
-            ..default()
-        },
-    ));
 }
 
 pub(crate) fn spawn_web(
@@ -286,7 +249,6 @@ pub(crate) fn sync_web(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     root: Single<Entity, With<entry::WebRoot>>,
-    mut label: Single<&mut Text, With<LevelLabel>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if !level.is_changed() {
@@ -305,7 +267,6 @@ pub(crate) fn sync_web(
         let [r, g, b] = level.appearance.lines;
         material.base_color = Color::srgb(r, g, b);
     }
-    label.0 = format!("LEVEL {:02}", level.number);
     for mut window in &mut windows {
         window.title = format!("T2K | Level {}", level.number);
     }

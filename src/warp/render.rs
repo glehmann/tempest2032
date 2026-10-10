@@ -1,12 +1,10 @@
-//! Warp-zone polygons, particle scenes, CRY feedback, crosshair, and bonus HUD.
+//! Warp-zone polygons, particle scenes, CRY feedback, and crosshair.
 
 use super::{GATES, Phase, SCALE, ZoneKind};
 use crate::{
     cry,
     game::{Game, Status},
-    level::Level,
     mesh::colored_mesh,
-    scene::{ControlsLegend, LevelLabel},
 };
 use bevy::{
     asset::RenderAssetUsages,
@@ -35,9 +33,6 @@ pub(crate) enum WarpNode {
     Tunnel,
     Rings,
 }
-
-#[derive(Component)]
-pub(crate) struct WarpHud;
 
 #[derive(Component)]
 pub(crate) struct Crosshair;
@@ -382,22 +377,6 @@ pub(crate) fn setup(
         gates,
         icons,
     });
-    commands.spawn((
-        WarpHud,
-        Text::default(),
-        TextFont {
-            font_size: 22.,
-            ..default()
-        },
-        TextColor(Color::srgb(0.7, 1., 0.9)),
-        Visibility::Hidden,
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(110),
-            left: px(26),
-            ..default()
-        },
-    ));
     commands
         .spawn((
             Node {
@@ -427,7 +406,6 @@ pub(crate) fn setup(
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn draw(
     game: Res<Game>,
-    level: Res<Level>,
     assets: Res<WarpAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
@@ -436,17 +414,6 @@ pub(crate) fn draw(
     mut nodes: Query<
         (&WarpNode, &mut Transform, &mut Mesh3d, &mut Visibility),
         (Without<Camera3d>, With<WarpNode>),
-    >,
-    mut texts: Query<
-        (
-            &mut Text,
-            Option<&mut Visibility>,
-            Option<&WarpHud>,
-            Option<&LevelLabel>,
-            Option<&ControlsLegend>,
-            Option<&mut TextColor>,
-        ),
-        (Without<WarpNode>, Without<Crosshair>),
     >,
     mut crosshairs: Query<&mut Visibility, (With<Crosshair>, Without<Text>, Without<WarpNode>)>,
     mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
@@ -464,52 +431,6 @@ pub(crate) fn draw(
         } else {
             Visibility::Hidden
         };
-    }
-    for (mut text, visibility, hud, label, controls, color) in &mut texts {
-        if hud.is_some() {
-            if let Some(mut visibility) = visibility {
-                *visibility = if bonus {
-                    Visibility::Visible
-                } else {
-                    Visibility::Hidden
-                };
-            }
-            if let Some(session) = session {
-                text.0 = if let Some(tunnel) = &session.tunnel {
-                    format!(
-                        "TRACK {}/64   TAIL {:.1}",
-                        tunnel.segments.min(1024) / 16,
-                        tunnel.tail.max(0) as f32 / 65536.,
-                    )
-                } else {
-                    format!(
-                        "{} {}/{}   SPEED {:.2}",
-                        if session.kind == ZoneKind::Rings {
-                            "RINGS"
-                        } else {
-                            "GATES"
-                        },
-                        session.passed,
-                        GATES,
-                        session.speed as f32 / 65536.,
-                    )
-                };
-            }
-        } else if label.is_some() {
-            text.0 = session.map_or_else(
-                || format!("LEVEL {:02}", level.number),
-                |s| format!("WARP {} | COURSE {}", s.kind.label(), s.course + 1),
-            );
-        } else if controls.is_some() {
-            if let Some(mut color) = color {
-                color.0 = if bonus {
-                    Color::srgb(0.95, 0.95, 0.95)
-                } else {
-                    Color::srgb(0.4, 0.4, 0.5)
-                };
-            }
-            text.0 = if game.status == Status::GameOver { "R  Restart    ESC  Quit" } else if session.is_some_and(|s| s.kind == ZoneKind::Tunnel) { "LEFT / RIGHT or A / D  Follow track    R  Restart    ESC  Quit" } else if bonus { "ARROWS / W A S D  Steer    R  Restart    ESC  Quit" } else { "LEFT / RIGHT or A / D  Move    ENTER / SPACE  Fire    J / SHIFT  Jump    R  Restart    ESC  Quit" }.into();
-        }
     }
     let Some(session) = session else { return };
     for mut window in &mut windows {
@@ -619,6 +540,7 @@ pub(crate) fn draw(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::level::Level;
     use crate::warp::{Gate, Session, ZoneKind};
 
     #[test]
@@ -801,11 +723,6 @@ mod tests {
                 Transform::default(),
             ))
             .id();
-        let label = app.world_mut().spawn((LevelLabel, Text::default())).id();
-        let controls = app
-            .world_mut()
-            .spawn((ControlsLegend, Text::default(), TextColor(Color::WHITE)))
-            .id();
         let mut session = Session::new(ZoneKind::GateFlight, 0, Some(1), 0);
         session.gates.push_back(Gate {
             index: 0,
@@ -816,20 +733,6 @@ mod tests {
         game.status = Status::Bonus;
         game.bonus = Some(session);
         app.update();
-        assert!(
-            app.world()
-                .get::<Text>(label)
-                .unwrap()
-                .0
-                .contains("GATE FLIGHT")
-        );
-        assert!(
-            app.world()
-                .get::<Text>(controls)
-                .unwrap()
-                .0
-                .contains("Steer")
-        );
         let Projection::Perspective(p) = app.world().get::<Projection>(camera).unwrap() else {
             panic!()
         };
@@ -867,13 +770,6 @@ mod tests {
                 .query::<(&WarpNode, &Visibility)>()
                 .iter(app.world())
                 .all(|(_, visibility)| *visibility == Visibility::Hidden)
-        );
-        assert!(
-            app.world()
-                .get::<Text>(controls)
-                .unwrap()
-                .0
-                .contains("Fire")
         );
     }
 }

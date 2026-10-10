@@ -8,7 +8,6 @@ use crate::enemies::flipper_render::flipper_dot_color;
 use crate::enemies::flipper_render::flipper_mesh;
 use crate::enemies::shots::enemy_shot_mesh;
 use crate::explosion;
-use crate::hud::GameHud;
 use crate::level::Level;
 use crate::powerups;
 use bevy::prelude::*;
@@ -65,19 +64,4 @@ pub(crate) fn setup(
             })
             .collect(),
     });
-    commands.spawn((
-        GameHud,
-        Text::default(),
-        TextFont {
-            font_size: 22.0,
-            ..default()
-        },
-        TextColor(Color::srgb(1.0, 0.85, 0.25)),
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(26),
-            top: px(22),
-            ..default()
-        },
-    ));
 }

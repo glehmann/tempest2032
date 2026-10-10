@@ -163,7 +163,7 @@ pub(crate) fn run(args: cli::Cli) {
             }),
             ..default()
         }))
-        .add_systems(Startup, (setup, warp::render::setup));
+        .add_systems(Startup, (setup, warp::render::setup, crate::hud::setup));
     add_systems(&mut app);
     app.insert_resource(bevy::audio::GlobalVolume::new(bevy::audio::Volume::Linear(
         args.volume,
@@ -385,7 +385,6 @@ fn add_systems(app: &mut App) {
                 exit::draw.after(restart_game),
                 shot_death::draw.after(restart_game),
                 spikers::draw.after(restart_game),
-                powerups::update_notice,
             ),
         );
 }

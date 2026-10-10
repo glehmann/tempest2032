@@ -35,15 +35,16 @@ cargo run
 
 The first build compiles Bevy and takes longer than subsequent builds.
 For an optimized build, use `cargo run --release`.
-Click the **Pause** button or press `P` or the keyboard's `Pause` key to pause
+Press `P` or the keyboard's `Pause` key to pause
 and resume. Pausing freezes gameplay, animations, timers, and audio, and shows
-a paused overlay. `R` restarts and resumes the game; `Esc` still quits.
+a dimmed overlay with a vector play icon. Press `P` or `Pause` again to resume.
+`R` restarts and resumes the game; `Esc` still quits.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
 Pass `--fullscreen` to start borderless fullscreen on the primary monitor
-instead of a window, and `--fps` to show the frame rate in the top-right corner
-under the level label. The label refreshes every 0.5 seconds and shows the
+instead of a window, and `--fps` to show the frame rate in the top-right corner.
+The label refreshes every 0.5 seconds and shows the
 fastest and slowest frame times in milliseconds over the last two seconds.
 Every frame counts, so a single hitch appears at the next refresh and stays
 in the range until it ages out. The same line reports this process's average
@@ -680,6 +681,18 @@ After the flash, the next configured level begins with score, lives, and
 unspent warp tokens preserved. Upgrades reset on entry to the next web.
 The last level loops back to the first. R cancels the exit
 and starts a fresh game.
+
+## HUD
+
+The HUD uses the original score numerals, claw-shaped life icons, and shaded
+warp pyramids. Score and life artwork is traced from the original sprite sheet,
+rounded and tessellated into vector meshes with the original CRY shading,
+using the same method as the announcement lettering. No bitmap textures or
+system-font labels are used for these indicators. Up to eight life icons and
+three warp pyramids are displayed. Level, upgrade, control, and bonus-stage
+debug labels are removed; upgrades still announce themselves when collected.
+The paused overlay uses a vector play symbol. `--fps` enables the optional
+diagnostic text overlay.
 
 ## Controls
 
