@@ -157,6 +157,10 @@ direct playback increment for effects. Playback follows the Jaguar driver in
 `src/dat/moomoo.dat`: multiply pitch by 28/43, then advance an 8:8 sample position
 at the SSI rate with clock divider 27. Higher pitch values play faster.
 Explosion pitch varies without consuming gameplay random numbers.
+The upgraded laser fires every three ticks instead of four and its 405 ms sample
+is more than twice as loud as the plain shot, so four copies overlap while the
+trigger is held. It therefore plays at a fifth of the usual effect gain, which
+brings its sustained level back in line with the normal shot.
 The converter limits the alternate normal-shot sample
 to its physical boundary and trims the first "sexy yes" sample to its declared
 length. The ROM omits two unused death samples; a ROM-generated pack leaves
@@ -166,8 +170,8 @@ those entries empty, without affecting gameplay sounds.
 
 The seven original MOD tracks are embedded and decoded in stereo during
 playback. Music plays at normal tracker pitch and tempo, independently of
-`--effects-pitch`. Use `--music-volume 0.5` to raise the music relative to effects
-or `--music-volume 0` to disable music. The default is `0.35`, multiplied by the
+`--effects-pitch`. Use `--music-volume 0.5` to lower the music relative to effects
+or `--music-volume 0` to disable music. The default is `1.0`, multiplied by the
 master `--volume` setting.
 
 Track selection follows `yak.s` and `images_sounds.s`:

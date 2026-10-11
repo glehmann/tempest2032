@@ -104,7 +104,7 @@ fn derive_definition_and_defaults_are_valid() {
     assert!(!cli.fullscreen);
     assert!(!cli.fps);
     assert_eq!(cli.volume, 0.6);
-    assert_eq!(cli.music_volume, 0.35);
+    assert_eq!(cli.music_volume, 1.0);
     assert_eq!(cli.effects_pitch, 2.0);
 }
 

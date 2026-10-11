@@ -72,6 +72,16 @@ impl Effect {
             _ => 3,
         }
     }
+
+    /// The laser sample is both far louder than the plain shot and long enough
+    /// to overlap the next two shots, so holding the trigger stacks four copies
+    /// of it. It needs a much lower gain than the 121 ms click it replaces.
+    fn gain(self) -> f32 {
+        match self {
+            Self::Laser => 0.2,
+            _ => 1.0,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -348,7 +358,9 @@ fn update(
                 AudioPlayer(catalog.shots[index].clone()),
                 PlaybackSettings::DESPAWN
                     .with_speed(speed)
-                    .with_volume(Volume::Linear(if priority >= 100 { 0.7 } else { 0.4 })),
+                    .with_volume(Volume::Linear(
+                        if priority >= 100 { 0.7 } else { 0.4 } * request.effect.gain(),
+                    )),
             ))
             .id();
         active.push((entity, priority));

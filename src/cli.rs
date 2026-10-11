@@ -46,7 +46,7 @@ pub(crate) struct Cli {
     pub(crate) volume: f32,
 
     /// Music volume relative to master audio, from 0 (off) to 1
-    #[arg(long, default_value_t = 0.35, value_parser = parse_volume)]
+    #[arg(long, default_value_t = 1.0, value_parser = parse_volume)]
     pub(crate) music_volume: f32,
 
     /// Gameplay-effect pitch multiplier, leaving voices unchanged (0 < value <= 4)

@@ -74,6 +74,12 @@ fn effect_rates_and_durations_match_the_jaguar_dsp_not_amiga_periods() {
 }
 
 #[test]
+fn the_laser_is_gained_down_because_it_overlaps_itself_four_times() {
+    assert!(Effect::Laser.gain() < Effect::Shot.gain());
+    assert_eq!(Effect::Shot.gain(), 1.0);
+}
+
+#[test]
 fn all_effects_decode_as_finite_signed_pcm_at_their_original_periods() {
     for (index, sample) in samples().into_iter().enumerate() {
         if sample.data.is_empty() {
