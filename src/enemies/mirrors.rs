@@ -197,7 +197,14 @@ pub(crate) fn advance(
 #[allow(clippy::type_complexity)]
 pub(crate) fn draw_points(
     assets: Res<MirrorAssets>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Mirror>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<Mirror>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut mirrors: Query<(
         &Mirror,
         &mut Transform,

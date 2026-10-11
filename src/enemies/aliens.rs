@@ -335,7 +335,14 @@ pub(crate) fn check_player(
 #[allow(clippy::type_complexity)]
 pub(crate) fn draw_points(
     assets: Res<AlienAssets>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<AlienDroid>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<AlienDroid>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut aliens: Query<(
         &AlienDroid,
         &mut Transform,

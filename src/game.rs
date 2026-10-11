@@ -324,7 +324,11 @@ pub(crate) fn load_level(
             Option<&mut Projection>,
             Option<&crate::warp::render::SavedCamera>,
         ),
-        (With<Camera3d>, Without<Glider>),
+        (
+            With<Camera3d>,
+            Without<Glider>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
     >,
     power_assets: Option<Res<powerups::PowerAssets>>,
     mut warp: Option<ResMut<stars::Warp>>,

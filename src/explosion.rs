@@ -181,7 +181,14 @@ pub(crate) fn age_explosions(
     assets: Res<BurstAssets>,
     mut frames: ResMut<Frames>,
     mut meshes: ResMut<Assets<Mesh>>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Explosion>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<Explosion>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut explosions: Query<(Entity, &mut Explosion, &mut Mesh3d, &mut Transform)>,
 ) {
     frames.0 = frames.0.wrapping_add(1);

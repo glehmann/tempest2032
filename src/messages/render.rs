@@ -99,47 +99,6 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    #[ignore = "manual CPU message render benchmark"]
-    fn benchmark_recharge_rendering() {
-        let font = Font::default();
-        let layout = font.layout(super::super::Id::SuperzapperRecharge);
-        eprintln!("Recharge layout: {} triangles", layout.len());
-        let mut meshes = bevy::asset::Assets::<Mesh>::default();
-        let mesh = meshes.add(message_mesh(Vec::new()));
-        let mut app = App::new();
-        app.insert_resource(font)
-            .insert_resource(meshes)
-            .insert_resource(Assets {
-                mesh: mesh.clone(),
-                layouts: HashMap::new(),
-            })
-            .init_resource::<crate::game::Game>()
-            .insert_resource(Messages {
-                banner: Some(super::super::Active {
-                    event: super::super::Id::SuperzapperRecharge.into(),
-                    age: 280,
-                }),
-                clock: 280,
-                ..default()
-            })
-            .add_systems(Update, draw);
-        app.update();
-        let start = std::time::Instant::now();
-        for _ in 0..200 {
-            app.update();
-        }
-        eprintln!(
-            "Message mesh: {} vertices; mean CPU draw: {:.3} ms",
-            app.world()
-                .resource::<bevy::asset::Assets<Mesh>>()
-                .get(&mesh)
-                .unwrap()
-                .count_vertices(),
-            start.elapsed().as_secs_f64() * 1000. / 200.
-        );
-    }
 }
 
 pub(super) fn setup(
@@ -186,70 +145,16 @@ pub(super) fn draw(
     font: Res<Font>,
     mut assets: ResMut<Assets>,
     mut meshes: ResMut<bevy::asset::Assets<Mesh>>,
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    cameras: Query<(&Camera, &GlobalTransform), super::geometry::GameCameras>,
 ) {
     let mut triangles = Vec::new();
-    let viewport = windows
-        .iter()
-        .next()
-        .map_or(384., |w| 240. * w.width() / w.height());
-    if let Some(active) = messages.banner {
-        let layout = assets
-            .layouts
-            .entry(active.event.id)
-            .or_insert_with(|| font.layout(active.event.id));
-        let width = font.width(active.event.id);
-        let hint = matches!(active.event.id, super::Id::GreenTrack | super::Id::WarpFive);
-        let small = if active.event.id == super::Id::GreenTrack {
-            0.5
-        } else {
-            1.
-        };
-        let fit = ((viewport - 24.) / (width.max(1.) * small)).min(1.) * small;
-        let scale = if hint { Vec2::ONE } else { active.scale() };
-        let shear = if hint {
-            0.
-        } else {
-            (((messages.clock.wrapping_mul(2) & 255) as i32 - 127).abs() - 63) as f32 / 64.
-        };
-        let anchor = if active.event.id == super::Id::GreenTrack {
-            -60.
-        } else if active.event.id == super::Id::WarpFive {
-            45.
-        } else {
-            40.
-        };
-        for shadow in [true, false] {
-            if shadow && scale != Vec2::ONE {
-                continue;
-            }
-            triangles.extend(layout.iter().map(|glyph| {
-                std::array::from_fn(|index| {
-                    let p = glyph.points[index];
-                    let local = cell_point(p, glyph.cell, scale, shear);
-                    let xy = Vec2::new(
-                        (glyph.origin.x + local.x) * fit,
-                        anchor - (glyph.origin.y + local.y) * fit,
-                    );
-                    (
-                        (xy + if shadow {
-                            Vec2::new(0.6, -0.6)
-                        } else {
-                            Vec2::ZERO
-                        })
-                        .extend(0.),
-                        if shadow {
-                            Color::LinearRgba(LinearRgba::new(0., 0., 0., 0.75))
-                        } else {
-                            glyph.colors[index]
-                        },
-                    )
-                })
-            }));
-        }
-    }
     for active in &messages.rewards {
+        if !matches!(
+            active.event.id,
+            super::Id::Points2000 | super::Id::Excellent
+        ) {
+            continue;
+        }
         let id = active.event.id;
         let layout = assets.layouts.entry(id).or_insert_with(|| font.layout(id));
         let projected = active.event.origin.and_then(|origin| {

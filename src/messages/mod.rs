@@ -3,11 +3,12 @@
 mod catalog;
 mod font;
 mod game_over;
+pub(crate) mod geometry;
 mod render;
+mod solid;
 
 use bevy::prelude::*;
 pub(crate) use catalog::Id;
-pub(crate) use font::shaded_graphic;
 pub(crate) use render::message_mesh;
 
 #[derive(Clone, Copy, Debug)]
@@ -114,6 +115,7 @@ pub(crate) fn add_systems(app: &mut App) {
         .add_systems(FixedUpdate, advance.after(crate::game::load_level))
         .add_systems(Update, render::draw.after(crate::warp::render::draw));
     game_over::add_systems(app);
+    solid::add_systems(app);
 }
 
 pub(crate) fn running(preview: Option<Res<Preview>>) -> bool {

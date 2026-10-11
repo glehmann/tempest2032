@@ -47,7 +47,14 @@ fn add_ring(
 pub(crate) fn draw_powerups(
     upgrades: Res<Upgrades>,
     mut meshes: ResMut<Assets<Mesh>>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<PowerUp>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<PowerUp>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut pickups: Query<(&mut PowerUp, &mut Mesh3d, &mut Transform)>,
 ) {
     let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() else {

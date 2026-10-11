@@ -20,6 +20,10 @@ pub(crate) struct Glider {
 pub(crate) struct ClawFrames(pub(crate) [Handle<Mesh>; 8]);
 
 pub(crate) fn claw_mesh(frame: usize) -> Mesh {
+    colored_mesh(claw_triangles(frame))
+}
+
+pub(crate) fn claw_triangles(frame: usize) -> Vec<[(Vec3, Color); 3]> {
     // sclaw0 through sclaw7 share the same six faces in the original obj2d.s.
     let vertices = [
         [
@@ -134,7 +138,7 @@ pub(crate) fn claw_mesh(frame: usize) -> Mesh {
         let quad = [a, b, b - Vec3::Z * 0.14, a - Vec3::Z * 0.14].map(|p| (p, color));
         triangles.extend([[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]);
     }
-    colored_mesh(triangles)
+    triangles
 }
 
 pub(crate) fn claw_frame(progress: i32) -> usize {

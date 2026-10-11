@@ -126,7 +126,14 @@ pub(crate) fn animate(
     mut commands: Commands,
     mut game: ResMut<Game>,
     mut player: Single<(&mut Glider, &mut Weapon, &mut Transform, &mut Visibility)>,
-    mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
+    mut cameras: Query<
+        &mut Transform,
+        (
+            With<Camera3d>,
+            Without<Glider>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     actors: Query<
         (Entity, Option<&Bullet>),
         Or<(

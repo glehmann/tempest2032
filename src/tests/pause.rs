@@ -65,14 +65,6 @@ fn keyboard_pause_and_resume_update_visibility_without_text_or_buttons() {
     }
     assert!(app.world().resource::<Time<Virtual>>().is_paused());
     assert_eq!(
-        app.world_mut()
-            .query_filtered::<&Node, With<Overlay>>()
-            .single(app.world())
-            .unwrap()
-            .display,
-        Display::Flex
-    );
-    assert_eq!(
         app.world_mut().query::<&Text>().iter(app.world()).count(),
         0
     );
@@ -83,12 +75,8 @@ fn keyboard_pause_and_resume_update_visibility_without_text_or_buttons() {
     key(&mut app, KeyCode::Pause);
     assert!(!app.world().resource::<Time<Virtual>>().is_paused());
     assert_eq!(
-        app.world_mut()
-            .query_filtered::<&Node, With<Overlay>>()
-            .single(app.world())
-            .unwrap()
-            .display,
-        Display::None
+        app.world_mut().query::<&Node>().iter(app.world()).count(),
+        0
     );
 }
 

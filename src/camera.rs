@@ -15,7 +15,14 @@ pub(crate) struct WebCamera;
 pub(crate) fn follow_glider(
     level: Res<Level>,
     glider: Single<&Transform, With<Glider>>,
-    mut cameras: Query<(&mut Transform, Option<&WebCamera>), (With<Camera3d>, Without<Glider>)>,
+    mut cameras: Query<
+        (&mut Transform, Option<&WebCamera>),
+        (
+            With<Camera3d>,
+            Without<Glider>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
 ) {
     for (mut transform, managed) in &mut cameras {
         if managed.is_some() {
@@ -31,7 +38,13 @@ pub(crate) fn follow_glider(
 pub(crate) fn fit_camera(
     level: Res<Level>,
     window: Single<&Window, With<PrimaryWindow>>,
-    mut cameras: Query<&mut Projection, With<Camera3d>>,
+    mut cameras: Query<
+        &mut Projection,
+        (
+            With<Camera3d>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
 ) {
     for mut projection in &mut cameras {
         if let Projection::Perspective(perspective) = &mut *projection {

@@ -352,7 +352,14 @@ pub(crate) fn advance(
 #[allow(clippy::type_complexity)]
 pub(crate) fn draw_points(
     assets: Res<FuseAssets>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Fuseball>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<Fuseball>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut fuses: Query<(
         &Fuseball,
         &mut Transform,

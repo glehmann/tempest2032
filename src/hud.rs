@@ -1,13 +1,12 @@
-//! Original score digits, claw lives, and warp pyramids drawn as vector meshes.
+//! Beveled 3D score digits, actual claw models, and original warp pyramids.
 
 use crate::game::Game;
-use crate::messages::{message_mesh, shaded_graphic};
+use crate::messages::geometry::{self, Glyphs, Style, Triangle};
 use bevy::camera::visibility::RenderLayers;
 use bevy::diagnostic::{
     Diagnostic, DiagnosticPath, DiagnosticsStore, SystemInformationDiagnosticsPlugin,
 };
 use bevy::prelude::*;
-use bevy::sprite_render::AlphaMode2d;
 use std::collections::VecDeque;
 use std::time::Duration;
 
@@ -16,36 +15,40 @@ const FRAME_WINDOW: Duration = Duration::from_secs(2);
 
 #[derive(Resource)]
 pub(crate) struct HudAssets {
-    digits: [Vec<[(Vec2, Color); 3]>; 10],
-    life: Vec<[(Vec2, Color); 3]>,
+    life: Vec<Triangle>,
     mesh: Handle<Mesh>,
-    previous: Option<(u32, u8, u8, f32, bool)>,
+    previous: Option<(u32, u8, u8, f32)>,
 }
 
 pub(crate) fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let bytes = include_bytes!("../assets/messages/hud.bin");
-    assert_eq!(&bytes[..4], b"T2KH");
-    let mut data = &bytes[4..];
-    let digits = std::array::from_fn(|_| shaded_graphic(&mut data));
-    let life = shaded_graphic(&mut data);
-    assert!(data.is_empty());
-    let mesh = meshes.add(message_mesh(Vec::new()));
+    let life = crate::glider::claw_triangles(4)
+        .into_iter()
+        .map(|t| {
+            t.map(|(p, c)| {
+                let scale = 26. / 1.2;
+                (
+                    Vec3::new((p.x + 0.6) * scale, (p.y + 0.375) * scale, p.z * scale),
+                    c,
+                )
+            })
+        })
+        .collect();
+    let mesh = meshes.add(geometry::mesh(Vec::new()));
     commands.spawn((
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
-            alpha_mode: AlphaMode2d::Blend,
+        Mesh3d(mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            unlit: true,
+            cull_mode: None,
             ..default()
         })),
-        RenderLayers::layer(2),
-        Transform::from_xyz(0., 0., 1.),
+        RenderLayers::layer(3),
         bevy::camera::visibility::NoFrustumCulling,
     ));
     commands.insert_resource(HudAssets {
-        digits,
         life,
         mesh,
         previous: None,
@@ -78,7 +81,7 @@ impl Default for FpsMeter {
 pub(crate) fn update_hud(
     game: Res<Game>,
     upgrades: Res<crate::powerups::Upgrades>,
-    time: Res<Time<Virtual>>,
+    glyphs: Res<Glyphs>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut assets: ResMut<HudAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -87,29 +90,26 @@ pub(crate) fn update_hud(
         .iter()
         .next()
         .map_or(384., |w| 240. * w.width() / w.height().max(1.));
-    let state = (
-        game.score,
-        game.lives,
-        upgrades.warp_tokens(),
-        width,
-        time.is_paused(),
-    );
+    let state = (game.score, game.lives, upgrades.warp_tokens(), width);
     if assets.previous == Some(state) {
         return;
     }
     let mut triangles = Vec::new();
-    let point = |p: Vec2| Vec3::new(p.x - width / 2., 120. - p.y, 0.);
+    let point = |p: Vec2| Vec3::new(p.x - width / 2., 120. - p.y, 20.);
     // ashowscore/setlives use x=48, y=10/30, with 16/32-unit advances.
     let fit = (width / 384.).min(1.);
     let left = 48. * fit;
     for (i, digit) in game.score.to_string().bytes().enumerate() {
         triangles.extend(
-            assets.digits[usize::from(digit - b'0')]
+            glyphs
+                .get(digit as char, Style::Rainbow)
+                .triangles
                 .iter()
                 .map(|triangle| {
                     triangle.map(|(p, color)| {
                         (
-                            point(p * fit + Vec2::new(left + i as f32 * 16. * fit, 10.)),
+                            point(p.truncate() * fit + Vec2::new(left + i as f32 * 16. * fit, 10.))
+                                + Vec3::Z * p.z * fit,
                             color,
                         )
                     })
@@ -120,7 +120,8 @@ pub(crate) fn update_hud(
         triangles.extend(assets.life.iter().map(|triangle| {
             triangle.map(|(p, color)| {
                 (
-                    point(p * fit + Vec2::new(left + f32::from(life) * 32. * fit, 30.)),
+                    point(p.truncate() * fit + Vec2::new(left + f32::from(life) * 32. * fit, 30.))
+                        + Vec3::Z * p.z * fit,
                     color,
                 )
             })
@@ -146,18 +147,7 @@ pub(crate) fn update_hud(
                 .push(face.map(|i| (point(vertices[i] * fit + Vec2::new(center, 7.)), colors[i])));
         }
     }
-    let gold = Color::srgb(1., 0.85, 0.15);
-    if time.is_paused() {
-        triangles.push(
-            [
-                Vec2::new(-10., -14.),
-                Vec2::new(14., 0.),
-                Vec2::new(-10., 14.),
-            ]
-            .map(|p| (p.extend(2.), gold)),
-        );
-    }
-    *meshes.get_mut(&assets.mesh).unwrap() = message_mesh(triangles);
+    *meshes.get_mut(&assets.mesh).unwrap() = geometry::mesh(triangles);
     assets.previous = Some(state);
 }
 

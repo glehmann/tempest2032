@@ -188,7 +188,14 @@ pub(crate) fn draw_stars(
     bonus_stars: Option<Res<BonusStars>>,
     animation: Option<Res<Animation>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<StarField>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<StarField>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut fields: Query<(&Mesh3d, &mut Transform), With<StarField>>,
 ) {
     let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() else {

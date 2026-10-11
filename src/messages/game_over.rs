@@ -61,12 +61,7 @@ impl Feedback {
     }
 
     fn stamp(&mut self, tick: u32) {
-        let scale = [15, 17].map(|speed| {
-            let scale =
-                0x8000 + (crate::sines::sine((tick.wrapping_mul(speed) & 255) as i32) + 128) * 64;
-            // camel.gas rex projects the 16:16 scale at dstz = 96.
-            ((scale / (96 * 4)) << 9) as f32 / 65536.
-        });
+        let scale = frame_scale(tick);
         let origin = Vec2::new(WIDTH as f32, HEIGHT as f32) / 2.
             - Vec2::new(ART_WIDTH as f32 * scale[0], ART_HEIGHT as f32 * scale[1]) / 2.;
         for y in 0..ART_HEIGHT {
@@ -82,6 +77,19 @@ impl Feedback {
             }
         }
     }
+}
+
+pub(super) fn frame_scale(tick: u32) -> [f32; 2] {
+    [15, 17].map(|speed| {
+        let scale =
+            0x8000 + (crate::sines::sine((tick.wrapping_mul(speed) & 255) as i32) + 128) * 64;
+        // camel.gas rex projects the 16:16 scale at dstz = 96.
+        ((scale / (96 * 4)) << 9) as f32 / 65536.
+    })
+}
+
+pub(super) fn foreground_scale(age: u32) -> Vec2 {
+    Vec2::from_array(frame_scale(age / TICKS_PER_FRAME))
 }
 
 #[derive(Component)]

@@ -301,7 +301,7 @@ pub(crate) fn draw(
     assets: Res<BoltAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     player: Single<(&Glider, &Transform)>,
-    cameras: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    cameras: Query<(&Camera, &GlobalTransform), crate::messages::geometry::GameCameras>,
 ) {
     let zapper = &upgrades.zapper;
     let mut triangles = Vec::new();

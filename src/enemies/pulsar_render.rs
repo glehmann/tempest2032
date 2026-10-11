@@ -109,7 +109,14 @@ pub(crate) fn draw(
     pulse: Res<Pulse>,
     assets: Res<PulsarAssets>,
     web: Res<WebAssets>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Pulsar>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<Pulsar>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut pulsars: Query<(
         &Pulsar,
         &mut Transform,

@@ -101,7 +101,14 @@ pub(crate) fn approach_dot_style(
 #[allow(clippy::type_complexity)]
 pub(crate) fn draw_approaching_flippers(
     assets: Res<FlipperAssets>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Flipper>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<Flipper>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut enemies: Query<(
         &Flipper,
         &mut Transform,

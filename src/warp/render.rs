@@ -409,7 +409,14 @@ pub(crate) fn draw(
     assets: Res<WarpAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
-    mut cameras: Query<(&mut Transform, &mut Projection), (With<Camera3d>, Without<WarpNode>)>,
+    mut cameras: Query<
+        (&mut Transform, &mut Projection),
+        (
+            With<Camera3d>,
+            Without<WarpNode>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut nodes: Query<
         (&WarpNode, &mut Transform, &mut Mesh3d, &mut Visibility),

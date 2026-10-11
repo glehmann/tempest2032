@@ -37,7 +37,8 @@ The first build compiles Bevy and takes longer than subsequent builds.
 For an optimized build, use `cargo run --release`.
 Press `P` or the keyboard's `Pause` key to pause
 and resume. Pausing freezes gameplay, animations, timers, and audio, and shows
-a dimmed overlay with a vector play icon. Press `P` or `Pause` again to resume.
+the original-style red-and-gold PAUSED lettering over the frozen scene.
+Press `P` or `Pause` again to resume.
 `R` restarts and resumes the game; `Esc` still quits.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
@@ -735,18 +736,18 @@ and starts a fresh game.
 
 ## HUD
 
-The HUD uses the original score numerals, claw-shaped life icons, and shaded
-warp pyramids. Score and life artwork is traced from the original sprite sheet,
-simplified to remove pixel-step ripples and tessellated into vector meshes
-with the original CRY shading, using the same method as the announcement
-lettering. No bitmap textures or system-font labels are used for these
-indicators. Up to eight life icons and
-three warp pyramids are displayed. A narrow transparent vector fringe softens
-the digits' and claws' borders while retaining their interior shading.
+The HUD uses sharp, beveled 3D score numerals with continuous rainbow colour
+bands, the actual glider mesh for life icons, and the original shaded warp
+pyramids. Digits have front faces, bevels, counters, and shallow extruded sides.
+Their silhouettes and shading are generated as geometry, with normal display
+anti-aliasing and no transparency fringe or low-resolution shading texture.
+Up to eight life icons and three warp pyramids are displayed.
 Level, upgrade, control, and bonus-stage debug labels are removed; upgrades
 still announce themselves when collected.
-The paused overlay uses a vector play symbol. `--fps` enables the optional
-diagnostic text overlay.
+Pause shows red-faced, gold-beveled PAUSED lettering in the large font's
+proportions over the undimmed frozen scene. `--fps` enables the optional
+diagnostic text overlay. The lettering overlay has its own orthographic 3D
+camera, excluded from gameplay camera movement and projection systems.
 
 ## Controls
 
@@ -979,14 +980,15 @@ pickup-eligible kills through released Tanker contents.
 
 ## Animated messages
 
-Gameplay announcements use smoothed vector outlines of the original Joby
-lettering, with its 17-unit character spacing and original local CRY shading,
-including white reflections and dark bevels. They render
-in a native-resolution overlay above the game and warp imagery. The ordinary
+Gameplay announcements use clean, hand-defined block-letter contours inspired
+by the original Joby lettering, with its 17-unit character spacing. Real bevels,
+shallow extrusions, continuous blue-purple colour bands, and fixed normal-based
+studio shading replace the old interpolated sprite shading. They render in a
+native-resolution 3D overlay above the game and warp imagery. The ordinary
 messages hold for the original 100-tick counter, then stretch vertically for
 the 50-tick counter, including the source's inclusive expiry. Oscillating shear
-is applied around each letter's own center. Each smooth glyph is divided into
-fixed source-pixel cells. During expansion, the opaque cells move apart while
+is applied around each letter's own center. During expansion, the 3D glyph's
+surfaces are divided into fixed-size cells. The opaque cells move apart while
 retaining their size, opening real gaps that show the scene through the text.
 The held letters remain joined and retain their reflective shading. The two-line recharge message
 shares one timer and deformation. Spike avoidance and recharge use the longer
@@ -999,22 +1001,23 @@ Death messages are emitted when the collision occurs, independently of the
 small score/lives HUD. A new announcement replaces the active one, including
 restarting an identical message's animation.
 
-EXCELLENT, 2000, 250/500/750, 1UP, and GAME OVER use vector outlines of their
-separate original artwork. Reward graphics approach with perspective echoes;
-the approaching 2000 reward uses one layer of fixed-size cells that separate
+EXCELLENT and 2000 retain their original fixed-size coloured cell rendering and
+approach animation. Their cells separate
 in both directions as it grows, keeping the playfield visible through the gaps.
-Score graphics expand into fragments, and extra-life graphics flash with
+The 250/500/750, 1UP, and GAME OVER foregrounds use beveled 3D geometry based on
+their separate original outlines. Score graphics expand into fragments, and extra-life graphics flash with
 trailing copies. They coexist with ordinary announcements. A lives increase
 triggers a 1UP effect, without changing how lives are awarded. Game over clears
-ordinary messages, dims the scene, animates the original artwork with changing
-X/Y scale and rotating echoes, and shows the final score until restart.
+ordinary messages and keeps the slower 15 Hz pulse and scale-and-rotate CRY
+feedback. Sharp foreground geometry follows the same pulse while the original
+fading trails remain behind it. The score stays visible until restart.
 
 The tunnel instruction lasts 200 ticks at its original lower-screen anchor.
 SPEED BOOST is shown in gate flight, matching its suppression in psychedelic
 rings. WARP 5 LEVELS! follows the source victory timing and late-game display
 conditions. The message catalog also provides previews for wording whose
-mechanics or screens have not yet been implemented, such as EAT ELECTRIC / DEATH!,
-YES! YES! YES!, practice completion, and final-game victory.
+mechanics or screens have not yet been implemented, such as YES! YES! YES!,
+practice completion, and final-game victory.
 
 Preview a message without waiting for its gameplay trigger:
 
@@ -1036,8 +1039,9 @@ exit/death recording. Restart clears messages, independent effects, and timers.
 
 Assets are embedded; `assets/messages/README.md` documents their provenance and
 `tools/message_font.py` regenerates the contours from the original source tree.
-The message renderer caches cell layouts and linear colors, and uses a 2D mesh
-without normal calculations. A manual CPU benchmark is available with
+The message renderer caches glyph volumes, fragment layouts, and linear colours.
+Unchanged frames, including paused or frozen previews, reuse the existing meshes.
+The original approach effects keep their separate 2D renderer. A manual CPU benchmark is available with
 `cargo test --release benchmark_recharge_rendering -- --ignored --nocapture`.
 
 ## Warp zones

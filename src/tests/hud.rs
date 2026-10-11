@@ -14,7 +14,8 @@ use std::time::{Duration, Instant};
 fn vector_app() -> App {
     let mut app = App::new();
     app.init_resource::<Assets<Mesh>>()
-        .init_resource::<Assets<ColorMaterial>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<crate::messages::geometry::Glyphs>()
         .init_resource::<crate::game::Game>()
         .init_resource::<crate::powerups::Upgrades>()
         .init_resource::<Time<Virtual>>()
@@ -55,7 +56,7 @@ fn vector_hud_tracks_lives_and_warp_tokens_without_text_or_new_assets() {
     app.update();
     assert!(hud_vertices(&app) > initial);
     assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 1);
-    assert_eq!(app.world().resource::<Assets<ColorMaterial>>().len(), 1);
+    assert_eq!(app.world().resource::<Assets<StandardMaterial>>().len(), 1);
 }
 
 #[test]
@@ -85,7 +86,9 @@ fn vector_hud_refits_on_resize_and_updates_when_paused() {
             .iter()
             .all(|p| p[0].abs() <= 60. && p[1].abs() <= 120.)
     );
-    assert!(positions.iter().any(|p| p[2] == 2.));
+    assert!(positions.iter().any(|p| p[2] < 20.));
+    assert!(positions.iter().any(|p| p[2] > 20.));
+    let paused_positions = positions.clone();
     app.world_mut().resource_mut::<Time<Virtual>>().unpause();
     app.update();
     let mesh = app
@@ -98,7 +101,7 @@ fn vector_hud_refits_on_resize_and_updates_when_paused() {
     else {
         panic!()
     };
-    assert!(positions.iter().all(|p| p[2] == 0.));
+    assert_eq!(*positions, paused_positions);
 }
 
 fn fps_app() -> App {

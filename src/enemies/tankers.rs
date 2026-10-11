@@ -430,7 +430,14 @@ pub(crate) fn move_tankers(
 #[allow(clippy::type_complexity)]
 pub(crate) fn draw_points(
     assets: Res<TankerAssets>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<Tanker>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<Tanker>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut tankers: Query<(
         &Tanker,
         &mut Transform,

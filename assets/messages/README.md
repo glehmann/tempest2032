@@ -1,15 +1,20 @@
 # Message lettering
 
+The active HUD and ordinary announcement renderer uses hand-defined polygonal
+glyphs in `src/messages/geometry.rs`. Their fronts, bevels, sides, and backs are
+real 3D triangles. Continuous colour bands and fixed normal-based studio shading
+replace the old bitmap-derived highlights. Only normal screen-resolution
+anti-aliasing is applied; there is no edge-feathering or shading texture.
+PAUSED uses red fronts and gold bevels, with the original large `bfont`'s
+27x31 proportions and 29-unit advance. Life icons reuse `claw_triangles(4)`.
+
 `hud.bin` stores the ten original 16x19 score numerals and the 26x17 claw life
 icon from `beasty4.cry`. Source rectangles match `ashowscore` and `setlives`
 in `yak.s`. Its `T2KH` header is followed by eleven records containing width,
 height, contour count, contour points, and CRY shading samples, all big-endian
-u16 values. The HUD uses the same simplified, tessellated, shaded contours as
-the announcement font. Warp pyramids use `makepyr`'s three shaded triangles.
-HUD digits and claws also have a 0.35-source-pixel transparent fringe along
-their outer contours and holes. The fringe uses shaded vector triangles,
-with shared corner offsets and alpha fading to zero. Interior tessellation
-edges stay opaque, so the fade does not introduce seams through the artwork.
+u16 values. It is retained as a reference asset for the original artwork;
+the runtime HUD uses the new 3D geometry. Warp pyramids retain `makepyr`'s
+three shaded triangles.
 
 Regenerate the HUD artwork with:
 
@@ -23,7 +28,7 @@ boundaries and removes redundant contour points. At startup, the renderer
 simplifies the pixel stair-steps with a 0.8-source-pixel line-fit tolerance,
 then rounds retained corners with quadratic curves capped at 0.75 source
 pixels. Long diagonals remain straight instead of following each pixel step.
-The outlines are tessellated into cached vector geometry.
+The outlines are retained for reference and the legacy approach-effect renderer.
 Glyphs retain the original 15×18 proportions and 17-unit advance. Lowercase
 characters use the original uppercase forms.
 
@@ -35,18 +40,19 @@ the same command, using `assets/messages/wordart.bin` as the output.
 The 1UP badge combines the UP graphic and its separately stored numeral,
 with the smaller numeral above the main lettering.
 The EXCELLENT and 2000 records also store their original CRY pixels after the
-contours. Their approach uses one opaque, fixed-size quad per foreground source
-pixel rather than enlarged solid artwork or overlapping echoes.
+contours. Their unchanged approach uses one opaque, fixed-size quad per foreground
+source pixel rather than enlarged solid artwork or overlapping echoes. Other
+word-art outlines now supply the surfaces for extruded foreground meshes, with
+the row colours supplying a continuous face gradient.
 
 The binary starts with `T2KS`, followed by glyph records: ASCII byte, contour
 count (big-endian u16), then point count (u16) and pairs of signed i16 X/Y
 coordinates. Each record then contains the original 15×18 big-endian CRY
-shading samples. The smooth outline is clipped into a fixed 15×18 cell grid
-at startup. Cell vertices sample these colors, preserving the white reflections,
-dark bevels, and colored face at native resolution. Cells share edges while
-held, then move apart during expansion without growing or fading. Layouts and
-linear colors are cached; recursive interior subdivision is not used.
-The reference source tree is not needed at runtime.
+shading samples. The legacy decoder can reconstruct the original sampled
+lettering for reference; ordinary announcements now use the new geometric
+glyphs and procedural shading. Their cached fragment surfaces retain their size
+when they separate during the original stretch animation. The reference source
+tree is not needed at runtime.
 
 `game-over.cry` retains the full 145x68 CRY bitmap used by `gofeed`, from
 `beasty4.cry` at source coordinates 148,21. Its highlights and shading are
@@ -54,7 +60,8 @@ preserved per pixel. Game Over renders this centered bitmap at `rex`'s depth 96,
 pulsing its X/Y scale with phase increments 15 and 17. The original advances
 `gofeed` once per completed GPU frame through `gogame`/`thang`/`db`, rather than
 through the VBlank gameplay timer. The port paces the entire effect at 15 Hz,
-holding each feedback frame for four 60 Hz simulation ticks. Each feedback step
+holding each feedback frame for four 60 Hz simulation ticks. A sharp 3D foreground
+uses the exact same scale calculation. Each feedback step
 scales and rotates the previous 384x240 image with `scar`'s scale 500 and cyclic angle
 from -7 to 8, subtracts eight intensity units, then stamps the bitmap again.
 The feedback is opaque CRY pixels rather than translucent vector copies.

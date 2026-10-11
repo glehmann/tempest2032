@@ -24,7 +24,15 @@ pub(crate) fn animate_capture(
     mut game: ResMut<Game>,
     mut player: Single<&mut Transform, With<Glider>>,
     mut enemies: Query<(&mut Flipper, &mut Transform), Without<Glider>>,
-    mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>, Without<Flipper>)>,
+    mut cameras: Query<
+        &mut Transform,
+        (
+            With<Camera3d>,
+            Without<Glider>,
+            Without<Flipper>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
 ) {
     let Some(mut capture) = game.capture else {
         return;

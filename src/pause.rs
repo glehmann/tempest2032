@@ -5,9 +5,6 @@ use bevy::{
     prelude::*,
 };
 
-#[derive(Component)]
-struct Overlay;
-
 pub(crate) fn running(time: Option<Res<Time<Virtual>>>) -> bool {
     time.is_none_or(|time| !time.is_paused())
 }
@@ -17,7 +14,6 @@ pub(crate) fn add_systems(app: &mut App) {
         RunFixedMainLoop,
         RunFixedMainLoopSystems::FixedMainLoop.run_if(running),
     )
-    .add_systems(Startup, setup)
     .add_systems(
         PreUpdate,
         (input, audio)
@@ -25,25 +21,7 @@ pub(crate) fn add_systems(app: &mut App) {
             .after(bevy::input::InputSystems)
             .before(crate::powerups::queue_jump)
             .before(crate::powerups::superzapper::queue),
-    )
-    .add_systems(Update, draw);
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Overlay,
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(0),
-            top: px(0),
-            width: percent(100),
-            height: percent(100),
-            display: Display::None,
-            ..default()
-        },
-        BackgroundColor(Color::BLACK.with_alpha(0.55)),
-        GlobalZIndex(300),
-    ));
+    );
 }
 
 fn input(
@@ -83,16 +61,6 @@ fn audio(
             } else if !paused && sink.is_paused() {
                 sink.play();
             }
-        }
-    }
-}
-
-fn draw(time: Res<Time<Virtual>>, mut overlays: Query<&mut Node, With<Overlay>>) {
-    let paused = time.is_paused();
-    for mut node in &mut overlays {
-        let display = if paused { Display::Flex } else { Display::None };
-        if node.display != display {
-            node.display = display;
         }
     }
 }

@@ -126,7 +126,14 @@ pub(crate) fn particle_shot_mesh(
 #[allow(clippy::type_complexity)]
 pub(crate) fn draw_particle_shots(
     mut meshes: ResMut<Assets<Mesh>>,
-    cameras: Query<(&Transform, &Projection), (With<Camera3d>, Without<ParticleShot>)>,
+    cameras: Query<
+        (&Transform, &Projection),
+        (
+            With<Camera3d>,
+            Without<ParticleShot>,
+            Without<crate::messages::geometry::OverlayCamera>,
+        ),
+    >,
     mut shots: Query<(&mut ParticleShot, &mut Mesh3d, &Transform)>,
 ) {
     let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() else {

@@ -106,7 +106,7 @@ pub(crate) fn animate(
     level: Res<Level>,
     mut game: ResMut<Game>,
     mut player: Single<&mut Transform, With<Glider>>,
-    mut cameras: Query<&mut Transform, (With<Camera3d>, Without<Glider>)>,
+    mut cameras: Query<&mut Transform, (crate::messages::geometry::GameCameras, Without<Glider>)>,
 ) {
     let Some(mut death) = game.death else {
         return;
