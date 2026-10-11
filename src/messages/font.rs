@@ -233,6 +233,28 @@ impl Font {
     }
 }
 
+pub(super) fn original_contours() -> HashMap<char, Vec<Vec<Vec2>>> {
+    let mut data = &include_bytes!("../../assets/messages/afont.bin")[4..];
+    let mut glyphs = HashMap::new();
+    while !data.is_empty() {
+        let character = data[0] as char;
+        data = &data[1..];
+        let contours = (0..word(&mut data))
+            .map(|_| {
+                let points: Vec<_> = (0..word(&mut data))
+                    .map(|_| {
+                        Vec2::new(word(&mut data) as i16 as f32, word(&mut data) as i16 as f32)
+                    })
+                    .collect();
+                simplify_contour(&points)
+            })
+            .collect();
+        data = &data[15 * 18 * 2..];
+        glyphs.insert(character, contours);
+    }
+    glyphs
+}
+
 // Clip the smooth outline into fixed source-pixel cells, once at startup.
 fn split_cells(triangle: [Vec2; 3], output: &mut Vec<CellTriangle>) {
     let min = triangle

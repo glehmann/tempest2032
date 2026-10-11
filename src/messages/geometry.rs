@@ -1,4 +1,4 @@
-//! Clean block-letter outlines, extruded sides, bevels, and fixed studio shading.
+//! Clean font outlines, rounded announcement contours, bevels, and studio shading.
 
 use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
 use lyon_tessellation::{
@@ -39,8 +39,15 @@ pub(crate) struct Glyphs(HashMap<(char, Style), Glyph>);
 impl Default for Glyphs {
     fn default() -> Self {
         let mut glyphs = HashMap::new();
+        let originals = super::font::original_contours();
         for character in " !(),-.:?0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
             let contours = outline(character);
+            let chrome = originals
+                .get(&character)
+                .unwrap_or(&contours)
+                .iter()
+                .map(|p| rounded(p, 1.25))
+                .collect::<Vec<_>>();
             for style in [Style::Chrome, Style::Rainbow, Style::Gold] {
                 let gold_a = vec![
                     polygon(&[
@@ -60,7 +67,9 @@ impl Default for Glyphs {
                 glyphs.insert(
                     (character, style),
                     extrude(
-                        if style == Style::Gold && character == 'A' {
+                        if style == Style::Chrome {
+                            &chrome
+                        } else if style == Style::Gold && character == 'A' {
                             &gold_a
                         } else {
                             &contours
@@ -739,6 +748,45 @@ fn inset(contour: &[Vec2], amount: f32) -> Vec<Vec2> {
         .collect()
 }
 
+fn rounded(contour: &[Vec2], radius: f32) -> Vec<Vec2> {
+    let mut points = Vec::new();
+    for i in 0..contour.len() {
+        let a = contour[(i + contour.len() - 1) % contour.len()];
+        let p = contour[i];
+        let b = contour[(i + 1) % contour.len()];
+        let incoming = (p - a).normalize_or_zero();
+        let outgoing = (b - p).normalize_or_zero();
+        let turn = incoming.perp_dot(outgoing).atan2(incoming.dot(outgoing));
+        if turn.abs() < 0.01 || turn.abs() > 3.13 {
+            points.push(p);
+            continue;
+        }
+        let tangent = (turn.abs() / 2.).tan();
+        let trim = (radius * tangent)
+            .min(p.distance(a) * 0.45)
+            .min(p.distance(b) * 0.45);
+        let actual_radius = trim / tangent;
+        let start = p - incoming * trim;
+        let end = p + outgoing * trim;
+        let center = start + incoming.perp() * turn.signum() * actual_radius;
+        let first = (start - center).to_angle();
+        // Circular arcs with less than 0.015 logical-pixel chord error at 4K.
+        let step = (2.
+            * (1. - 0.015 / actual_radius.max(0.015))
+                .clamp(-1., 1.)
+                .acos())
+        .max(0.05);
+        let segments = (turn.abs() / step).ceil().max(1.) as usize;
+        points.push(start);
+        for segment in 1..segments {
+            let angle = first + turn * segment as f32 / segments as f32;
+            points.push(center + Vec2::from_angle(angle) * actual_radius);
+        }
+        points.push(end);
+    }
+    points
+}
+
 fn fill(contours: &[Vec<Vec2>]) -> Vec<[Vec2; 3]> {
     let mut path = Path::builder();
     for contour in contours {
@@ -786,6 +834,11 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
         }
     }
     let front: Vec<_> = contours.iter().map(|p| inset(p, 0.55)).collect();
+    let (offset, depth) = if paint.style == Style::Rainbow {
+        (Vec2::new(1.6, 2.4), 3.2)
+    } else {
+        (Vec2::new(0.85, 1.15), 1.5)
+    };
     let mut triangles = Vec::new();
     for mut face in fill(&contours) {
         if (face[1] - face[0]).perp_dot(face[2] - face[0]) < 0. {
@@ -795,7 +848,7 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
             &mut triangles,
             face.map(|p| {
                 (
-                    (p + Vec2::new(0.85, 1.15)).extend(-1.5),
+                    (p + offset).extend(-depth),
                     paint.surface(p.y, -Vec3::Z, false),
                 )
             }),
@@ -811,8 +864,8 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
                     [
                         a.extend(0.),
                         b.extend(0.),
-                        (b + Vec2::new(0.85, 1.15)).extend(-1.5),
-                        (a + Vec2::new(0.85, 1.15)).extend(-1.5),
+                        (b + offset).extend(-depth),
+                        (a + offset).extend(-depth),
                     ],
                     false,
                 ),

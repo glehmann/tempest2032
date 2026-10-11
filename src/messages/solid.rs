@@ -16,7 +16,6 @@ struct Graphics {
     banner: Handle<Mesh>,
     rewards: Handle<Mesh>,
     pause: Handle<Mesh>,
-    game_over: Handle<Mesh>,
     art: HashMap<Id, Glyph>,
     last: Option<FrameKey>,
 }
@@ -94,16 +93,9 @@ fn setup(
     };
     let banner = spawn(opaque.clone());
     let rewards = spawn(blend);
-    let pause = spawn(opaque.clone());
-    let game_over = spawn(opaque);
+    let pause = spawn(opaque);
     let mut art = HashMap::new();
-    for id in [
-        Id::Points250,
-        Id::Points500,
-        Id::Points750,
-        Id::OneUp,
-        Id::GameOver,
-    ] {
+    for id in [Id::Points250, Id::Points500, Id::Points750, Id::OneUp] {
         let (triangles, rows, size) = font.solid_art(id);
         let mut paint = Paint::new(Style::Chrome);
         paint.rows = rows;
@@ -118,7 +110,6 @@ fn setup(
         banner,
         rewards,
         pause,
-        game_over,
         art,
         last: None,
     });
@@ -282,27 +273,10 @@ fn draw(
         }
     }
     let paused = paused_geometry(&glyphs, viewport, time.is_paused());
-    let mut game_over = Vec::new();
-    if let Some(active) = messages.game_over {
-        let scale = super::game_over::foreground_scale(active.age) * (viewport / 384.).min(1.);
-        game_over.extend(graphics.art[&Id::GameOver].triangles.iter().map(|t| {
-            t.map(|(p, c)| {
-                (
-                    Vec3::new(
-                        p.x * scale.x,
-                        -p.y * scale.y,
-                        40. + p.z * scale.min_element(),
-                    ),
-                    c,
-                )
-            })
-        }));
-    }
     for (handle, triangles) in [
         (&graphics.banner, banner),
         (&graphics.rewards, rewards),
         (&graphics.pause, paused),
-        (&graphics.game_over, game_over),
     ] {
         *meshes.get_mut(handle).unwrap() = geometry::mesh(triangles);
     }

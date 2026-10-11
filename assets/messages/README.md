@@ -1,10 +1,14 @@
 # Message lettering
 
-The active HUD and ordinary announcement renderer uses hand-defined polygonal
-glyphs in `src/messages/geometry.rs`. Their fronts, bevels, sides, and backs are
+The HUD uses hand-defined polygonal score glyphs in `src/messages/geometry.rs`.
+Ordinary announcements use the original `afont` contours as shape references,
+with pixel stair-steps simplified and corners reconstructed as circular arcs.
+Their fronts, bevels, sides, and backs are
 real 3D triangles. Continuous colour bands and fixed normal-based studio shading
 replace the old bitmap-derived highlights. Only normal screen-resolution
 anti-aliasing is applied; there is no edge-feathering or shading texture.
+The score's extrusion is 3.2 logical units deep, offset 1.6 units right and
+2.4 units down; other lettering retains the shallower extrusion.
 PAUSED uses red fronts and gold bevels, with the original large `bfont`'s
 27x31 proportions and 29-unit advance. Life icons reuse `claw_triangles(4)`.
 
@@ -41,8 +45,8 @@ The 1UP badge combines the UP graphic and its separately stored numeral,
 with the smaller numeral above the main lettering.
 The EXCELLENT and 2000 records also store their original CRY pixels after the
 contours. Their unchanged approach uses one opaque, fixed-size quad per foreground
-source pixel rather than enlarged solid artwork or overlapping echoes. Other
-word-art outlines now supply the surfaces for extruded foreground meshes, with
+source pixel rather than enlarged solid artwork or overlapping echoes. The
+250/500/750 and 1UP outlines supply the surfaces for extruded foreground meshes, with
 the row colours supplying a continuous face gradient.
 
 The binary starts with `T2KS`, followed by glyph records: ASCII byte, contour
@@ -60,8 +64,8 @@ preserved per pixel. Game Over renders this centered bitmap at `rex`'s depth 96,
 pulsing its X/Y scale with phase increments 15 and 17. The original advances
 `gofeed` once per completed GPU frame through `gogame`/`thang`/`db`, rather than
 through the VBlank gameplay timer. The port paces the entire effect at 15 Hz,
-holding each feedback frame for four 60 Hz simulation ticks. A sharp 3D foreground
-uses the exact same scale calculation. Each feedback step
+holding each feedback frame for four 60 Hz simulation ticks. The previous
+bitmap foreground and feedback are restored without a sharp 3D text overlay. Each feedback step
 scales and rotates the previous 384x240 image with `scar`'s scale 500 and cyclic angle
 from -7 to 8, subtracts eight intensity units, then stamps the bitmap again.
 The feedback is opaque CRY pixels rather than translucent vector copies.

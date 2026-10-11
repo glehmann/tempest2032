@@ -739,7 +739,8 @@ and starts a fresh game.
 The HUD uses sharp, beveled 3D score numerals with continuous rainbow colour
 bands, the actual glider mesh for life icons, and the original shaded warp
 pyramids. Digits have front faces, bevels, counters, and shallow extruded sides.
-Their silhouettes and shading are generated as geometry, with normal display
+The score's deeper bodies have a larger lower-right extrusion matching the
+original's more substantial 3D appearance. Their silhouettes and shading are generated as geometry, with normal display
 anti-aliasing and no transparency fringe or low-resolution shading texture.
 Up to eight life icons and three warp pyramids are displayed.
 Level, upgrade, control, and bonus-stage debug labels are removed; upgrades
@@ -980,8 +981,9 @@ pickup-eligible kills through released Tanker contents.
 
 ## Animated messages
 
-Gameplay announcements use clean, hand-defined block-letter contours inspired
-by the original Joby lettering, with its 17-unit character spacing. Real bevels,
+Gameplay announcements use the original Joby font's outline proportions,
+reconstructed with clean circular corner curves and rounded letter bowls,
+with its 17-unit character spacing. Real bevels,
 shallow extrusions, continuous blue-purple colour bands, and fixed normal-based
 studio shading replace the old interpolated sprite shading. They render in a
 native-resolution 3D overlay above the game and warp imagery. The ordinary
@@ -1004,13 +1006,13 @@ restarting an identical message's animation.
 EXCELLENT and 2000 retain their original fixed-size coloured cell rendering and
 approach animation. Their cells separate
 in both directions as it grows, keeping the playfield visible through the gaps.
-The 250/500/750, 1UP, and GAME OVER foregrounds use beveled 3D geometry based on
+The 250/500/750 and 1UP graphics use beveled 3D geometry based on
 their separate original outlines. Score graphics expand into fragments, and extra-life graphics flash with
 trailing copies. They coexist with ordinary announcements. A lives increase
 triggers a 1UP effect, without changing how lives are awarded. Game over clears
 ordinary messages and keeps the slower 15 Hz pulse and scale-and-rotate CRY
-feedback. Sharp foreground geometry follows the same pulse while the original
-fading trails remain behind it. The score stays visible until restart.
+feedback. Its lettering and fading trails use the previous bitmap rendering;
+there is no separate sharp 3D foreground. The score stays visible until restart.
 
 The tunnel instruction lasts 200 ticks at its original lower-screen anchor.
 SPEED BOOST is shown in gate flight, matching its suppression in psychedelic

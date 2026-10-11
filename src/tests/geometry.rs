@@ -2,6 +2,45 @@ use super::*;
 use clap::ValueEnum;
 
 #[test]
+fn score_bodies_have_more_depth_and_visible_extrusion_than_announcements() {
+    let contours = outline('0');
+    let score = extrude(&contours, &Paint::new(Style::Rainbow));
+    let message = extrude(&contours, &Paint::new(Style::Chrome));
+    let bounds = |glyph: &Glyph| {
+        glyph.triangles.iter().flatten().map(|(p, _)| *p).fold(
+            (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)),
+            |(lo, hi), p| (lo.min(p), hi.max(p)),
+        )
+    };
+    let (score_lo, score_hi) = bounds(&score);
+    let (message_lo, message_hi) = bounds(&message);
+    assert!(score_lo.z < message_lo.z * 2.);
+    assert!(score_hi.x > message_hi.x + 0.5);
+    assert!(score_hi.y > message_hi.y + 1.);
+    assert_eq!(score_hi.z, message_hi.z);
+}
+
+#[test]
+fn rounded_contours_follow_circular_arcs_with_crisp_opaque_geometry() {
+    let square = rect(0., 0., 15., 18.);
+    let curve = rounded(&square, 1.25);
+    assert!(curve.len() > square.len() * 3);
+    let center = Vec2::splat(1.25);
+    let corner: Vec<_> = curve
+        .iter()
+        .filter(|p| p.x <= 1.25 && p.y <= 1.25)
+        .collect();
+    assert!(corner.len() > 3);
+    assert!(
+        corner
+            .iter()
+            .all(|p| (p.distance(center) - 1.25).abs() < 1e-5)
+    );
+    let original = super::super::font::original_contours();
+    assert!(rounded(&original[&'O'][0], 1.25).len() > original[&'O'][0].len());
+}
+
+#[test]
 fn all_catalog_letters_have_opaque_finite_beveled_geometry_with_real_depth() {
     let glyphs = Glyphs::default();
     for id in crate::messages::Id::value_variants() {

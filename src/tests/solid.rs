@@ -99,7 +99,7 @@ fn sharp_banner_has_geometry_and_disappears_when_replaced_without_growing_asset_
             .count_vertices(),
         0
     );
-    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 4);
+    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 3);
     assert_eq!(app.world().resource::<Assets<StandardMaterial>>().len(), 2);
 }
 
@@ -125,42 +125,27 @@ fn accepted_approach_effects_are_not_duplicated_in_the_new_renderer() {
 }
 
 #[test]
-fn game_over_foreground_keeps_the_approved_fifteen_hz_pulse_and_clears_on_restart() {
-    use bevy::mesh::VertexAttributeValues;
+fn game_over_uses_the_previous_bitmap_feedback_without_a_sharp_3d_foreground() {
     let mut app = app();
-    let mut first = Vec::new();
-    for age in 0..=4 {
+    for age in [0, 4, 120] {
         app.world_mut().resource_mut::<Messages>().game_over = Some(super::super::Active {
             event: Id::GameOver.into(),
             age,
         });
         app.update();
-        let handle = &app.world().resource::<Graphics>().game_over;
-        let mesh = app.world().resource::<Assets<Mesh>>().get(handle).unwrap();
-        let Some(VertexAttributeValues::Float32x3(points)) =
-            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            panic!()
-        };
-        if age == 0 {
-            first = points.clone();
-        } else if age < 4 {
-            assert_eq!(*points, first);
-        } else {
-            assert_ne!(*points, first);
+        assert!(
+            !app.world()
+                .resource::<Graphics>()
+                .art
+                .contains_key(&Id::GameOver)
+        );
+        for (_, mesh) in app.world().resource::<Assets<Mesh>>().iter() {
+            assert_eq!(mesh.count_vertices(), 0);
         }
     }
     app.world_mut().resource_mut::<Messages>().game_over = None;
     app.update();
-    let handle = &app.world().resource::<Graphics>().game_over;
-    assert_eq!(
-        app.world()
-            .resource::<Assets<Mesh>>()
-            .get(handle)
-            .unwrap()
-            .count_vertices(),
-        0
-    );
+    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 3);
 }
 
 #[test]
