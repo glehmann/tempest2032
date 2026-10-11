@@ -403,11 +403,12 @@ fn shortcut_writes_are_locked_and_path_quoting_is_unambiguous() {
     assert!(quoted(Path::new("bad\"name/t2k")).is_err());
     assert!(quoted(Path::new("bad\nname/t2k")).is_err());
     for name in ["steam", "STEAM.EXE", "steam_osx"] {
-        assert!(steam_process(name.as_ref()));
+        assert!(steam_name(name.as_ref()));
     }
     for name in ["steamwebhelper", "steam_helper", "t2k"] {
-        assert!(!steam_process(name.as_ref()));
+        assert!(!steam_name(name.as_ref()));
     }
+    assert!(!is_thread(sysinfo::get_current_pid().unwrap()));
 }
 
 #[cfg(unix)]

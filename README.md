@@ -72,7 +72,7 @@ their native window backends.
 
 ## Steam installation
 
-Close Steam completely, then run the executable you want to install:
+Run the executable you want to install:
 
 ```sh
 t2k --steam-install
@@ -81,8 +81,10 @@ t2k --steam-install
 For a local optimized build, use `cargo run --release -- --steam-install`.
 The command copies the executable into a stable per-user directory, adds T2K
 as a non-Steam game for the most recently used Steam account, prints the paths
-and shortcut ID, and exits without opening the game. Start Steam afterward to
-load the shortcut. The initial launch option is `--fullscreen`.
+and shortcut ID, and exits without opening the game. If Steam is still running,
+the command warns and continues; T2K appears in your library after the next
+Steam start, and Steam can drop the shortcut again if it keeps overwriting the
+file in the meantime. The initial launch option is `--fullscreen`.
 
 Native Steam is detected on Linux, Steam Deck, Windows, and macOS. Flatpak and
 Snap Steam are also detected on Linux. Installation locations are:

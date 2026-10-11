@@ -66,7 +66,7 @@ pub(crate) fn run(directory: Option<&Path>, user: Option<u32>) -> Result<()> {
     };
     let root = choose_root(roots, user)?;
     let user = choose_user(&root, user)?;
-    ensure_steam_closed()?;
+    warn_if_steam_running();
     let data =
         dirs::data_local_dir().ok_or("Could not locate the user's application-data directory")?;
     let destination = install_directory(platform, &data, &root);
@@ -258,33 +258,76 @@ fn choose_user(root: &Path, user: Option<u32>) -> Result<u32> {
         accounts.keys().map(u32::to_string).collect::<Vec<_>>().join(", ")).into())
 }
 
-fn steam_process(name: &std::ffi::OsStr) -> bool {
+fn steam_name(name: &std::ffi::OsStr) -> bool {
     matches!(
         name.to_string_lossy().to_ascii_lowercase().as_str(),
         "steam" | "steam.exe" | "steam_osx"
     )
 }
 
-fn ensure_steam_closed() -> Result<()> {
+fn steam_process(process: &sysinfo::Process) -> bool {
+    let exe = process.exe().and_then(|exe| exe.file_name());
+    let launched = process
+        .cmd()
+        .first()
+        .and_then(|cmd| Path::new(cmd).file_name());
+    steam_name(process.name()) || exe.is_some_and(steam_name) || launched.is_some_and(steam_name)
+}
+
+/// sysinfo lists every thread as its own process on Linux, and Steam names
+/// dozens of them after its own binary.
+#[cfg(target_os = "linux")]
+fn is_thread(pid: sysinfo::Pid) -> bool {
+    fs::read_to_string(format!("/proc/{pid}/status"))
+        .ok()
+        .and_then(|status| {
+            status
+                .lines()
+                .find_map(|line| line.strip_prefix("Tgid:"))
+                .map(|group| group.trim() != pid.to_string())
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn is_thread(_pid: sysinfo::Pid) -> bool {
+    false
+}
+fn warn_if_steam_running() {
     use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
     let system = System::new_with_specifics(
-        RefreshKind::nothing()
-            .with_processes(ProcessRefreshKind::nothing().with_user(UpdateKind::Always)),
+        RefreshKind::nothing().with_processes(
+            ProcessRefreshKind::nothing()
+                .with_user(UpdateKind::Always)
+                .with_exe(UpdateKind::Always)
+                .with_cmd(UpdateKind::Always),
+        ),
     );
     let me = sysinfo::get_current_pid()
         .ok()
         .and_then(|pid| system.process(pid))
         .and_then(|p| p.user_id());
-    if system
+    let mut running: Vec<String> = system
         .processes()
         .values()
-        .any(|p| steam_process(p.name()) && me.is_none_or(|u| p.user_id() == Some(u)))
-    {
-        return Err("Exit Steam completely before running --steam-install; Steam caches and rewrites its shortcut file".into());
+        .filter(|p| {
+            !is_thread(p.pid()) && steam_process(p) && me.is_none_or(|u| p.user_id() == Some(u))
+        })
+        .map(|p| {
+            let exe = p
+                .exe()
+                .map_or_else(String::new, |exe| format!(" ({})", exe.display()));
+            format!("pid {} {}{}", p.pid(), p.name().to_string_lossy(), exe)
+        })
+        .collect();
+    running.sort();
+    if !running.is_empty() {
+        eprintln!(
+            "Warning: Steam is still running ({}). T2K shows up in your library after you restart Steam; until then Steam may drop the shortcut again.",
+            running.join(", ")
+        );
     }
-    Ok(())
 }
-
 #[derive(Debug)]
 struct Installed {
     binary: PathBuf,
