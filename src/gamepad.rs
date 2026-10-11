@@ -25,10 +25,11 @@ pub(crate) fn add_systems(app: &mut App) {
 
 fn button_key(button: GamepadButton) -> Option<KeyCode> {
     Some(match button {
-        GamepadButton::South | GamepadButton::RightTrigger => KeyCode::Enter,
+        GamepadButton::South => KeyCode::Enter,
         GamepadButton::East => KeyCode::KeyJ,
-        GamepadButton::LeftTrigger2 => KeyCode::ShiftLeft,
-        GamepadButton::West | GamepadButton::RightTrigger2 => KeyCode::KeyZ,
+        GamepadButton::LeftTrigger | GamepadButton::LeftTrigger2 => KeyCode::KeyJ,
+        GamepadButton::West => KeyCode::KeyZ,
+        GamepadButton::RightTrigger | GamepadButton::RightTrigger2 => KeyCode::KeyZ,
         GamepadButton::Start => KeyCode::KeyP,
         GamepadButton::Select => KeyCode::KeyR,
         GamepadButton::DPadLeft => KeyCode::ArrowLeft,

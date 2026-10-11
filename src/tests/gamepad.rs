@@ -12,8 +12,9 @@ fn every_action_has_a_controller_binding() {
         (GamepadButton::DPadRight, KeyCode::ArrowRight),
         (GamepadButton::DPadUp, KeyCode::ArrowUp),
         (GamepadButton::DPadDown, KeyCode::ArrowDown),
-        (GamepadButton::RightTrigger, KeyCode::Enter),
-        (GamepadButton::LeftTrigger2, KeyCode::ShiftLeft),
+        (GamepadButton::LeftTrigger, KeyCode::KeyJ),
+        (GamepadButton::RightTrigger, KeyCode::KeyZ),
+        (GamepadButton::LeftTrigger2, KeyCode::KeyJ),
         (GamepadButton::RightTrigger2, KeyCode::KeyZ),
     ] {
         assert_eq!(button_key(button), Some(key), "{button:?}");

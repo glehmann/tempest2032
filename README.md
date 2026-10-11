@@ -775,9 +775,9 @@ their Xbox position, so a PlayStation pad behaves the same way:
 | Controller | Action |
 | --- | --- |
 | D-pad or left stick | Movement; up and down also fly the warp bonus stage |
-| A or right trigger | Fire, hold for repeat fire |
-| B or left bumper | Jump, after collecting the jump upgrade |
-| X or right bumper | Superzapper |
+| A | Fire, hold for repeat fire |
+| B, left trigger, or left bumper | Jump, after collecting the jump upgrade |
+| X, right trigger, or right bumper | Superzapper |
 | Start | Pause or resume |
 | Select | Restart level one |
 
