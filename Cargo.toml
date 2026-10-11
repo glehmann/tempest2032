@@ -20,7 +20,7 @@ xmrsplayer = { version = "0.15", default-features = false, features = ["std"] }
 bevy = { version = "0.18", default-features = false, features = [
     "std", "async_executor", "multi_threaded", "bevy_asset", "bevy_log",
     "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render",
-    "default_font", "bevy_sprite_render", "bevy_audio", "x11", "wayland", "png", "sysinfo_plugin",
+    "default_font", "bevy_sprite_render", "bevy_audio", "bevy_gilrs", "x11", "wayland", "png", "sysinfo_plugin",
 ] }
 
 [profile.dev]

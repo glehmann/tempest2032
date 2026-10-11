@@ -24,7 +24,7 @@ pub(crate) fn add_systems(app: &mut App) {
     );
 }
 
-fn input(
+pub(crate) fn input(
     keys: Res<ButtonInput<KeyCode>>,
     mut time: ResMut<Time<Virtual>>,
     mut upgrades: Option<ResMut<crate::powerups::Upgrades>>,

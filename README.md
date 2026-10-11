@@ -765,6 +765,18 @@ camera, excluded from gameplay camera movement and projection systems.
 | R | Restart level one |
 | Escape | Quit |
 
+Controllers work alongside the keyboard through `gilrs`. Buttons are read by
+their Xbox position, so a PlayStation pad behaves the same way:
+
+| Controller | Action |
+| --- | --- |
+| D-pad or left stick | Movement; up and down also fly the warp bonus stage |
+| A or right trigger | Fire, hold for repeat fire |
+| B or left bumper | Jump, after collecting the jump upgrade |
+| X or right bumper | Superzapper |
+| Start | Pause or resume |
+| Select | Restart level one |
+
 Hold a movement key to accelerate around the rim. The 60 Hz simulation uses
 the original 16:16 movement values, acceleration `0x400` per tick and maximum
 velocity `0x6000`. That reaches 22.5 lanes per second after 24 ticks.

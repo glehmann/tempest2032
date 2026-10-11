@@ -14,6 +14,7 @@ mod enemies;
 mod explosion;
 mod frame_pacing;
 mod game;
+mod gamepad;
 mod glider;
 mod hud;
 mod level;
