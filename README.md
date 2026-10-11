@@ -999,6 +999,12 @@ pickup-eligible kills through released Tanker contents.
 
 ## Animated messages
 
+Typography candidates can be compared without changing the game using
+`cargo run --example lettering_preview`. Add `-- --watch` to reload editable
+SVG front outlines from `tools/lettering-preview.toml` without recompiling.
+See [the lettering preview lab](tools/lettering-preview.md) for comparison
+sheets, individual PNGs, and runtime editing instructions.
+
 Gameplay announcements use the original Joby font's outline proportions,
 reconstructed with clean circular corner curves and rounded letter bowls,
 with its 17-unit character spacing. Real bevels,
