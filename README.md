@@ -976,7 +976,7 @@ reward sequence unchanged.
 | 2 | Surprise: normally 2,000 points; a 9-in-256 chance of 3,000 points and a level skip |
 | 3 | Jump enabled: J or Shift lifts the claw off the rim, avoiding enemies and shots until landing |
 | 4 | Another surprise bonus |
-| 5 | AI droid: a rotating, colour-cycling wireframe cube that seeks the closest enemy, crosses one lane in 16 ticks, fires every six ticks, and adds eight bullet slots |
+| 5 | AI droid: a rotating, colour-cycling wireframe cube that seeks the closest enemy, crosses one lane in 16 ticks, fires every six ticks using the player's current shot visuals, and adds eight bullet slots |
 | 6 | Superzap plus a warp token |
 | 7 onward | Surprise bonuses |
 

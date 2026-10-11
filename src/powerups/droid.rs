@@ -1,8 +1,8 @@
 //! The AI droid is a tumbling companion cube that follows nearby enemies
-//! and fires additional shots from the web rim.
+//! and fires additional shots from the web rim, drawn with the player's own
+//! weapon so its fire can never be mistaken for an enemy shot.
 
 use crate::cry;
-use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
 use crate::enemies::fuseballs;
@@ -19,6 +19,7 @@ use crate::powerups::PowerAssets;
 use crate::powerups::Upgrades;
 use crate::weapons::Bullet;
 use crate::weapons::MAX_BULLETS;
+use crate::weapons::ParticleShot;
 use crate::weapons::ShotAssets;
 use crate::weapons::ShotSlot;
 use crate::web::LANE_UNIT;
@@ -97,7 +98,6 @@ pub(crate) fn move_droid(
     mut commands: Commands,
     game: Res<Game>,
     upgrades: Res<Upgrades>,
-    assets: Res<FlipperAssets>,
     shots: Res<ShotAssets>,
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
@@ -178,13 +178,16 @@ pub(crate) fn move_droid(
                 .glider_transform(lane as i32 * LANE_UNIT)
                 .translation;
             position.z = transform.translation.z;
-            commands.spawn((
+            let mut shot = commands.spawn((
                 Bullet { lane },
                 RenderLayers::layer(1),
-                Mesh3d(assets.shot.clone()),
+                Mesh3d(shots.mesh.clone()),
                 MeshMaterial3d(shots.material.clone()),
                 Transform::from_translation(position),
             ));
+            if upgrades.laser {
+                shot.insert(ParticleShot::default());
+            }
             droid.cooldown = 6;
         }
     }

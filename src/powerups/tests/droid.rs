@@ -13,21 +13,30 @@ use crate::{
         PowerAssets, Upgrades,
         droid::{Droid, move_droid},
     },
-    weapons::{Bullet, ShotAssets},
+    weapons::{self, Bullet, ShotAssets},
     web::LANE_UNIT,
 };
 
 #[test]
 fn droid_seeks_the_closest_enemy_and_fires_every_six_ticks() {
     let mut app = App::new();
-    app.init_resource::<Game>()
-        .init_resource::<Level>()
-        .init_resource::<Upgrades>()
-        .init_resource::<FlipperAssets>()
-        .init_resource::<ShotAssets>()
-        .init_resource::<PowerAssets>()
-        .init_resource::<Assets<StandardMaterial>>()
-        .add_systems(FixedUpdate, move_droid);
+    let mut meshes = Assets::<Mesh>::default();
+    let player_shot = meshes.add(weapons::shot_mesh());
+    let enemy_shot = meshes.add(crate::enemies::shots::enemy_shot_mesh());
+    app.insert_resource(FlipperAssets {
+        shot: enemy_shot.clone(),
+        ..default()
+    })
+    .insert_resource(ShotAssets {
+        mesh: player_shot.clone(),
+        ..default()
+    })
+    .init_resource::<Game>()
+    .init_resource::<Level>()
+    .init_resource::<Upgrades>()
+    .init_resource::<PowerAssets>()
+    .init_resource::<Assets<StandardMaterial>>()
+    .add_systems(FixedUpdate, move_droid);
     app.world_mut().spawn(Flipper {
         lane: 3,
         depth: 80 * LANE_UNIT,
@@ -61,4 +70,8 @@ fn droid_seeks_the_closest_enemy_and_fires_every_six_ticks() {
         app.world_mut().query::<&Bullet>().iter(app.world()).count(),
         3
     );
+    for bullet in app.world_mut().query::<&Mesh3d>().iter(app.world()) {
+        assert_eq!(bullet.0, player_shot);
+        assert_ne!(bullet.0, enemy_shot);
+    }
 }
