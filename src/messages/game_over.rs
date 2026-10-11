@@ -14,8 +14,8 @@ const ART_WIDTH: usize = 145;
 const ART_HEIGHT: usize = 68;
 const ART: &[u8] = include_bytes!("../../assets/messages/game-over.cry");
 // gofeed advances per completed GPU frame, not per gameplay/VBlank tick.
-// Pace the full feedback operation at 30 Hz within the 60 Hz simulation.
-const TICKS_PER_FRAME: u32 = 2;
+// Pace the full feedback operation at 15 Hz within the 60 Hz simulation.
+const TICKS_PER_FRAME: u32 = 4;
 
 #[derive(Resource)]
 struct Feedback {
@@ -197,7 +197,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn feedback_runs_at_thirty_hz_and_holds_on_intermediate_ticks() {
+    fn feedback_runs_at_fifteen_hz_and_holds_on_intermediate_ticks() {
         let mut app = App::new();
         app.init_resource::<Messages>()
             .init_resource::<Feedback>()
@@ -210,13 +210,13 @@ mod tests {
             });
             app.world_mut().run_schedule(FixedUpdate);
             let feedback = app.world().resource::<Feedback>();
-            assert_eq!(feedback.age, Some(tick / 2));
-            if tick % 2 == 1 {
+            assert_eq!(feedback.age, Some(tick / 4));
+            if tick % 4 != 0 {
                 assert_eq!(feedback.pixels, before);
             }
         }
         let mut reference = Feedback::default();
-        reference.update(30);
+        reference.update(15);
         assert_eq!(app.world().resource::<Feedback>().pixels, reference.pixels);
     }
 
