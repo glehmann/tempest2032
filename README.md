@@ -86,6 +86,20 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 graphical desktop and a Vulkan-capable graphics driver. Windows and macOS use
 their native window backends.
 
+## Continuous integration
+
+GitHub Actions builds all Cargo targets and runs the tests on Windows x86_64,
+macOS arm64, Linux x86_64, and Linux arm64 using native runners and stable Rust.
+Checks run on pushes, pull requests, and manual workflow dispatches.
+
+The separate zizmor workflow audits GitHub Actions security on pushes, pull
+requests, manual dispatches, and daily at 04:17 UTC. To run the same
+check locally, install uv and run `make zizmor`. The target uses `uvx zizmor .`
+with a fresh, isolated environment to pick up the latest zizmor release each time.
+Set `GH_TOKEN` to enable its online audits; local checks work without a token.
+The workflows use read-only repository permissions and pinned action commits,
+and do not persist checkout credentials.
+
 ## Steam installation
 
 Run the executable you want to install:

@@ -1,0 +1,63 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+          - platform: macOS arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+          - platform: Linux x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - platform: Linux arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      CARGO_TERM_COLOR: always
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential pkg-config libasound2-dev libudev-dev \
+            libx11-dev libxi-dev libxrandr-dev libxcursor-dev \
+            libxkbcommon-dev libwayland-dev
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --target "$BUILD_TARGET"
+      - name: Build all targets
+        run: cargo +stable build --locked --all-targets --target "$BUILD_TARGET"
+      - name: Run tests
+        run: cargo +stable test --locked --all-targets --target "$BUILD_TARGET"
