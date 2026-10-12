@@ -35,6 +35,13 @@ cargo run
 
 The first build compiles Bevy and takes longer than subsequent builds.
 For an optimized build, use `cargo run --release`.
+To build the standalone executable, use `cargo build --release`; it is written
+to `target/release/t2k` on Linux and macOS, or `target/release/t2k.exe` on Windows.
+Release builds strip symbols, use thin link-time optimization with one codegen
+unit, and abort on panic. These settings reduce executable size while retaining
+speed-focused optimization, at the cost of longer builds and less crash
+diagnostic information. Development builds retain their normal diagnostics.
+
 Press `P` or the keyboard's `Pause` key to pause
 and resume. Pausing freezes gameplay, animations, timers, and audio, and shows
 the original-style red-and-gold PAUSED lettering over the frozen scene.
