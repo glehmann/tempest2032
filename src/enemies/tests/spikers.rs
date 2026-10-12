@@ -233,9 +233,9 @@ fn spikes_do_not_hold_the_wave_open_but_can_kill_the_claw_during_exit() {
     assert!(app.world().resource::<Game>().status == Status::Exiting);
     ticks(&mut app, 36);
     assert!(app.world().resource::<Game>().status == Status::Spiked);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     ticks(&mut app, 100);
-    assert_eq!(app.world().resource::<Game>().lives, 2);
+    assert_eq!(app.world().resource::<Game>().lives, 3);
     assert!(app.world().resource::<Game>().status == Status::Entering);
 }
 

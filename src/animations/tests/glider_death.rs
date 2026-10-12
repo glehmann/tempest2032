@@ -41,7 +41,7 @@ fn enemy_shot_reaching_the_player_lane_costs_a_life() {
     });
     crate::test_support::ticks(&mut app, 1);
     assert!(app.world().resource::<Game>().status == Status::ShotHit);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     assert!(
         app.world_mut()
             .query::<&EnemyShot>()
@@ -50,7 +50,7 @@ fn enemy_shot_reaching_the_player_lane_costs_a_life() {
             .is_none()
     );
     crate::test_support::ticks(&mut app, 163);
-    assert_eq!(app.world().resource::<Game>().lives, 2);
+    assert_eq!(app.world().resource::<Game>().lives, 3);
     assert!(app.world().resource::<Game>().status == Status::Entering);
 }
 
@@ -273,7 +273,7 @@ fn restart_cancels_the_explosion_and_restores_the_camera() {
     app.world_mut().run_schedule(Update);
     assert!(app.world().resource::<Game>().death.is_none());
     assert!(app.world().resource::<Game>().status == Status::Entering);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     assert!(
         app.world_mut()
             .query_filtered::<&Visibility, With<ShotBurst>>()

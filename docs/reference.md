@@ -805,6 +805,7 @@ original's more substantial 3D appearance. Their silhouettes and shading are gen
 anti-aliasing and no transparency fringe or low-resolution shading texture.
 Up to eight spare-life icons and three warp pyramids are displayed. The active
 life is excluded, so the last playable life has no life icon in the HUD.
+New runs start with three spare lives plus the active life, for four lives total.
 Level, upgrade, control, and bonus-stage debug labels are removed; upgrades
 still announce themselves when collected.
 Pause shows red-faced, gold-beveled PAUSED lettering in the large font's

@@ -58,7 +58,7 @@ fn active_fire_covers_the_normal_shot_delay_but_releasing_fire_allows_a_grab() {
                 },
             );
             ticks(&mut app, 1);
-            assert_eq!(app.world().resource::<Game>().lives, 3);
+            assert_eq!(app.world().resource::<Game>().lives, 4);
             assert!(
                 app.world().get_entity(flipper).is_ok(),
                 "the latest shot is already beyond the rim collision range"
@@ -69,7 +69,7 @@ fn active_fire_covers_the_normal_shot_delay_but_releasing_fire_allows_a_grab() {
                     .release(KeyCode::Enter);
             }
             ticks(&mut app, if laser { 1 } else { 2 });
-            assert_eq!(app.world().resource::<Game>().lives, 3);
+            assert_eq!(app.world().resource::<Game>().lives, 4);
             assert!(
                 app.world().resource::<Game>().status
                     == if release {
@@ -146,7 +146,7 @@ fn holding_fire_without_moving_cannot_clear_the_first_wave() {
             .press(KeyCode::Enter);
         for _ in 0..15_000 {
             ticks(&mut app, 1);
-            if app.world().resource::<Game>().lives < 3 {
+            if app.world().resource::<Game>().lives < 4 {
                 break;
             }
             assert!(
@@ -155,7 +155,7 @@ fn holding_fire_without_moving_cannot_clear_the_first_wave() {
             );
         }
         assert!(
-            app.world().resource::<Game>().lives < 3,
+            app.world().resource::<Game>().lives < 4,
             "stationary held fire survived the entire wave, laser={laser}"
         );
     }
@@ -191,7 +191,7 @@ fn firing_destroys_an_incoming_flipper_before_it_can_grab_the_player() {
             },
         );
         ticks(&mut app, 1);
-        assert_eq!(app.world().resource::<Game>().lives, 3);
+        assert_eq!(app.world().resource::<Game>().lives, 4);
         assert_eq!(app.world().resource::<Game>().score, 150);
     }
 }

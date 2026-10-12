@@ -68,7 +68,7 @@ impl Default for Game {
     fn default() -> Self {
         Self {
             score: 0,
-            lives: 3,
+            lives: 4,
             status: Status::Playing,
             // _nw1's counter runs from 24 through zero before becoming negative.
             remaining: 25,

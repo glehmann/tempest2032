@@ -94,7 +94,7 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
             app.world().resource::<Game>().score,
             app.world().resource::<Game>().lives
         ),
-        (0, 3)
+        (0, 4)
     );
 }
 
@@ -112,14 +112,14 @@ fn jumping_avoids_rim_contact_but_landing_restores_the_collision() {
         pause: 0,
     });
     app.world_mut().run_schedule(FixedUpdate);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     app.world_mut()
         .resource_mut::<powerups::Upgrades>()
         .jump_height = 0;
     app.world_mut().run_schedule(FixedUpdate);
     assert!(app.world().resource::<Game>().status == Status::Captured);
     finish_capture(&mut app);
-    assert_eq!(app.world().resource::<Game>().lives, 2);
+    assert_eq!(app.world().resource::<Game>().lives, 3);
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn capture_preserves_both_poses_then_retreats_the_camera_before_losing_a_life() 
     );
     ticks(&mut app, 1);
     assert_eq!(app.world().get::<Flipper>(captor).unwrap().depth, REAR);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     for camera in cameras {
         assert_eq!(*app.world().get::<Transform>(camera).unwrap(), camera_start);
     }
@@ -213,11 +213,11 @@ fn capture_preserves_both_poses_then_retreats_the_camera_before_losing_a_life() 
         );
     }
     ticks(&mut app, 48);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     ticks(&mut app, 1);
     let game = app.world().resource::<Game>();
     assert!(game.status == Status::Entering);
-    assert_eq!(game.lives, 2);
+    assert_eq!(game.lives, 3);
     assert_eq!(game.invulnerable, 120);
     assert!(game.capture.is_none());
     assert!(app.world().get_entity(captor).is_err());
@@ -251,13 +251,13 @@ fn restarting_during_capture_restores_the_camera_and_cancels_the_animation() {
     ticks(&mut app, 1);
     assert!(app.world().resource::<Game>().status == Status::Entering);
     assert!(app.world().resource::<Game>().capture.is_none());
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     assert_eq!(
         app.world().get::<Transform>(camera).unwrap().translation,
         camera_start
     );
     ticks(&mut app, 150);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
 }
 
 #[test]
@@ -267,19 +267,26 @@ fn rim_contact_costs_a_life_resets_the_wave_and_grants_a_grace_period() {
     app.world_mut().resource_mut::<Game>().score = 300;
     enemy(&mut app, 7, 0, Motion::Pause(4));
     ticks(&mut app, 1);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     finish_capture(&mut app);
     let game = app.world().resource::<Game>();
-    assert_eq!(game.lives, 2);
+    assert_eq!(game.lives, 3);
     assert_eq!(game.score, 300);
     assert_eq!(game.invulnerable, 120);
     ticks(&mut app, 256);
     enemy(&mut app, 7, 0, Motion::Pause(4));
     ticks(&mut app, 120);
+    assert_eq!(app.world().resource::<Game>().lives, 3);
+    ticks(&mut app, 1);
+    finish_capture(&mut app);
     assert_eq!(app.world().resource::<Game>().lives, 2);
+    ticks(&mut app, 256);
+    app.world_mut().resource_mut::<Game>().invulnerable = 0;
+    enemy(&mut app, 7, 0, Motion::Pause(4));
     ticks(&mut app, 1);
     finish_capture(&mut app);
     assert_eq!(app.world().resource::<Game>().lives, 1);
+    assert!(app.world().resource::<Game>().status == Status::Entering);
     ticks(&mut app, 256);
     app.world_mut().resource_mut::<Game>().invulnerable = 0;
     enemy(&mut app, 7, 0, Motion::Pause(4));
@@ -336,7 +343,7 @@ fn restart_clears_enemies_shots_score_and_game_over() {
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Game>().score, 0);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     assert!(!app.world().resource::<powerups::Upgrades>().laser);
     assert_eq!(
         app.world_mut()
