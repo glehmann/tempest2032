@@ -116,7 +116,7 @@ pub(crate) fn update_hud(
                 }),
         );
     }
-    for life in 0..game.lives.min(8) {
+    for life in 0..game.lives.saturating_sub(1).min(8) {
         triangles.extend(assets.life.iter().map(|triangle| {
             triangle.map(|(p, color)| {
                 (

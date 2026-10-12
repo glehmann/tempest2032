@@ -2,7 +2,7 @@
 
 use super::{
     Id, Messages,
-    geometry::{self, ADVANCE, Glyph, Glyphs, OverlayCamera, Paint, Style, Triangle},
+    geometry::{self, ADVANCE, Glyphs, OverlayCamera, Paint, Style, Triangle},
 };
 use bevy::{
     camera::{ScalingMode, visibility::RenderLayers},
@@ -16,7 +16,7 @@ struct Graphics {
     banner: Handle<Mesh>,
     rewards: Handle<Mesh>,
     pause: Handle<Mesh>,
-    art: HashMap<Id, Glyph>,
+    art: HashMap<Id, Vec<Triangle>>,
     last: Option<FrameKey>,
 }
 
@@ -95,17 +95,15 @@ fn setup(
     let rewards = spawn(blend);
     let pause = spawn(opaque);
     let mut art = HashMap::new();
-    for id in [Id::Points250, Id::Points500, Id::Points750, Id::OneUp] {
-        let (triangles, rows, size) = font.solid_art(id);
-        let mut paint = Paint::new(Style::Chrome);
-        paint.rows = rows;
-        paint.top = -size.y / 2.;
-        paint.height = size.y;
-        art.insert(
-            id,
-            geometry::extrude(&geometry::contours_from_triangles(&triangles), &paint),
-        );
-    }
+    let (triangles, rows, size) = font.solid_art(Id::OneUp);
+    let mut paint = Paint::new(Style::Chrome);
+    paint.rows = rows;
+    paint.top = -size.y / 2.;
+    paint.height = size.y;
+    art.insert(
+        Id::OneUp,
+        geometry::extrude(&geometry::contours_from_triangles(&triangles), &paint).triangles,
+    );
     commands.insert_resource(Graphics {
         banner,
         rewards,
@@ -257,7 +255,7 @@ fn draw(
             };
             let flash =
                 crate::cry::color((active.age as u8).wrapping_mul(16).wrapping_add(30), 255);
-            for triangle in &glyph.triangles {
+            for triangle in glyph {
                 let centroid = triangle.iter().map(|(p, _)| p.truncate()).sum::<Vec2>() / 3.;
                 let expansion = if score {
                     (age - 16.).max(0.) * 0.035

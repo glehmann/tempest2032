@@ -143,7 +143,13 @@ fn sharp_banner_has_geometry_and_disappears_when_replaced_without_growing_asset_
 #[test]
 fn accepted_approach_effects_are_not_duplicated_in_the_new_renderer() {
     let mut app = app();
-    for id in [Id::Points2000, Id::Excellent] {
+    for id in [
+        Id::Points2000,
+        Id::Excellent,
+        Id::Points250,
+        Id::Points500,
+        Id::Points750,
+    ] {
         app.world_mut().resource_mut::<Messages>().rewards = vec![super::super::Active {
             event: id.into(),
             age: 30,

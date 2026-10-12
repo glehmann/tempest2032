@@ -49,9 +49,17 @@ fn vector_hud_tracks_lives_and_warp_tokens_without_text_or_new_assets() {
         .seed_warp_tokens(3);
     app.update();
     assert_eq!(hud_vertices(&app), initial + 27);
+    app.world_mut().resource_mut::<crate::game::Game>().lives = 1;
+    app.update();
+    let last_life = hud_vertices(&app);
+    let life_vertices = app.world().resource::<super::HudAssets>().life.len() * 3;
+    assert_eq!(initial + 27 - last_life, 2 * life_vertices);
+    app.world_mut().resource_mut::<crate::game::Game>().lives = 2;
+    app.update();
+    assert_eq!(hud_vertices(&app), last_life + life_vertices);
     app.world_mut().resource_mut::<crate::game::Game>().lives = 0;
     app.update();
-    assert!(hud_vertices(&app) < initial);
+    assert_eq!(hud_vertices(&app), last_life);
     app.world_mut().resource_mut::<crate::game::Game>().score = 1234567890;
     app.update();
     assert!(hud_vertices(&app) > initial);

@@ -155,6 +155,21 @@ impl Font {
         )
     }
     pub(super) fn layout(&self, id: super::Id) -> Vec<GlyphTriangle> {
+        if matches!(
+            id,
+            super::Id::Points250 | super::Id::Points500 | super::Id::Points750
+        ) {
+            return self
+                .triangles(id.text())
+                .into_iter()
+                .map(|glyph| GlyphTriangle {
+                    points: glyph.points.map(|p| p + glyph.origin),
+                    cell: glyph.cell + glyph.origin,
+                    origin: Vec2::ZERO,
+                    colors: glyph.colors,
+                })
+                .collect();
+        }
         self.1.get(&id).map_or_else(
             || self.triangles(id.text()),
             |art| {

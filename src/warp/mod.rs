@@ -254,14 +254,7 @@ impl Session {
             500 => crate::messages::Id::Points500,
             _ => crate::messages::Id::Points250,
         };
-        self.announcements.push(crate::messages::Event {
-            id,
-            origin: Some(Vec3::new(
-                f32::from(x) * SCALE,
-                -f32::from(y) * SCALE,
-                -2. * SCALE,
-            )),
-        });
+        self.announcements.push(id.into());
         Some(score)
     }
     fn step_flight(&mut self, horizontal: i32, vertical: i32) -> u32 {

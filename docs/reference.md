@@ -799,7 +799,8 @@ pyramids. Digits have front faces, bevels, counters, and shallow extruded sides.
 The score's deeper bodies have a larger lower-right extrusion matching the
 original's more substantial 3D appearance. Their silhouettes and shading are generated as geometry, with normal display
 anti-aliasing and no transparency fringe or low-resolution shading texture.
-Up to eight life icons and three warp pyramids are displayed.
+Up to eight spare-life icons and three warp pyramids are displayed. The active
+life is excluded, so the last playable life has no life icon in the HUD.
 Level, upgrade, control, and bonus-stage debug labels are removed; upgrades
 still announce themselves when collected.
 Pause shows red-faced, gold-beveled PAUSED lettering in the large font's
@@ -1147,6 +1148,11 @@ crosshair, stars, and a scrolling Mode-7-style surface using the original
 `beasty6.cry` texture. The surface lies at zero height, appearing overhead
 when flying below it and beneath the player when flying above it. Course
 order and difficulty progress independently of normal webs.
+Gate-score popups use readable numeral lettering split into fixed-size cells,
+matching the square breakup effect of 2000 and EXCELLENT.
+They stay centered on screen while steering, rather than projecting from a
+near-camera world position. The extracted reward-sheet contours are unsuitable
+for these three-digit labels.
 
 The tunnel uses left/right or A/D to steer around its circular green track.
 Its eight original 64-part courses feed a 64-segment buffer, with track

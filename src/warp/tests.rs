@@ -557,6 +557,11 @@ fn warp_announcements_follow_original_triggers_without_repeated_frame_messages()
             .iter()
             .any(|event| event.id == Id::SpeedBoost)
     );
+    assert!(
+        gate.announcements
+            .iter()
+            .any(|event| { event.id == Id::Points750 && event.origin.is_none() })
+    );
     let mut rings = Session::new(ZoneKind::Rings, 0, Some(1), 0);
     aim(&mut rings, 5, 0, 0);
     rings.pass(5);

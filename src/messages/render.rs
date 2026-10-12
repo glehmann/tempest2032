@@ -75,11 +75,14 @@ mod tests {
         for (id, width, height) in [
             (super::super::Id::Points2000, 197, 65),
             (super::super::Id::Excellent, 178, 42),
+            (super::super::Id::Points250, 51, 18),
+            (super::super::Id::Points500, 51, 18),
+            (super::super::Id::Points750, 51, 18),
         ] {
             let layout = font.layout(id);
             assert!(!layout.is_empty(), "{id:?} lost its source pixels");
             assert!(
-                layout.len() <= width * height * 2,
+                layout.len() <= width * height * 8,
                 "{id:?} cell layout grew to {} triangles",
                 layout.len()
             );
@@ -153,7 +156,11 @@ pub(super) fn draw(
     for active in &messages.rewards {
         if !matches!(
             active.event.id,
-            super::Id::Points2000 | super::Id::Excellent
+            super::Id::Points2000
+                | super::Id::Excellent
+                | super::Id::Points250
+                | super::Id::Points500
+                | super::Id::Points750
         ) {
             continue;
         }
@@ -175,57 +182,29 @@ pub(super) fn draw(
             Vec2::ZERO
         };
         let age = active.age as f32;
-        let flash = Color::LinearRgba(
-            crate::cry::color((active.age as u8).wrapping_mul(16).wrapping_add(30), 255)
-                .to_linear(),
-        );
         let score = matches!(
             id,
             super::Id::Points250 | super::Id::Points500 | super::Id::Points750
         );
-        let cells = matches!(id, super::Id::Points2000 | super::Id::Excellent);
-        let copies = if score || cells {
-            1
+        let scale = if score {
+            (2. + age) * 0.16
         } else {
-            (1 + active.age / 8).min(20)
+            (age / 16.) * 128. / ((210. - age).max(1.) + 80.)
         };
-        for copy in (0..copies).rev() {
-            let scale = if score {
-                (2. + age) * 0.16
-            } else {
-                let depth = (210. - age - copy as f32 * age / 4.).max(1.);
-                (age / 16.) * 128. / (depth + 80.)
-            };
-            let alpha = if score {
-                (1. - (age - 50.).max(0.) / 30.).max(0.)
-            } else {
-                1. / (1. + copy as f32 * 0.6)
-            };
-            for glyph in layout.iter() {
-                let centroid = glyph.points.iter().copied().sum::<Vec2>() / 3. + glyph.origin;
-                let expansion = if score {
-                    (age - 16.).max(0.) * 0.035
-                } else {
-                    0.
-                };
-                triangles.push(std::array::from_fn(|index| {
-                    let local = if cells {
-                        glyph.origin
-                            + cell_point(glyph.points[index], glyph.cell, Vec2::splat(scale), 0.)
-                    } else {
-                        (glyph.origin + glyph.points[index]) * scale + centroid * expansion
-                    };
-                    let color = if id == super::Id::OneUp {
-                        flash
-                    } else {
-                        glyph.colors[index]
-                    };
-                    (
-                        (center + Vec2::new(local.x, -local.y)).extend(0.),
-                        color.with_alpha(alpha),
-                    )
-                }));
-            }
+        let alpha = if score {
+            (1. - (age - 50.).max(0.) / 30.).max(0.)
+        } else {
+            1.
+        };
+        for glyph in layout.iter() {
+            triangles.push(std::array::from_fn(|index| {
+                let local = glyph.origin
+                    + cell_point(glyph.points[index], glyph.cell, Vec2::splat(scale), 0.);
+                (
+                    (center + Vec2::new(local.x, -local.y)).extend(0.),
+                    glyph.colors[index].with_alpha(alpha),
+                )
+            }));
         }
     }
     let visible = !triangles.is_empty();
