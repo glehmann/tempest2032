@@ -430,11 +430,23 @@ fn install_artwork(config: &Path, app_id: u32, directory: &Path) -> Result<()> {
         ),
     ] {
         let stem = format!("{app_id}{suffix}");
+        let png = grid.join(format!("{stem}.png"));
+        if suffix == "_hero"
+            && png.exists()
+            && fs::read(&png)? == include_bytes!("../assets/steam/gameplay.png")
+        {
+            let mut temporary = NamedTempFile::new_in(&grid)?;
+            temporary.write_all(bytes)?;
+            temporary.as_file().sync_all()?;
+            temporary
+                .persist(&png)
+                .map_err(|e| format!("Could not update Steam artwork {}: {e}", png.display()))?;
+        }
         if !["png", "jpg", "jpeg", "webp"]
             .iter()
             .any(|extension| grid.join(format!("{stem}.{extension}")).exists())
         {
-            write_missing_artwork(&grid.join(format!("{stem}.png")), bytes)?;
+            write_missing_artwork(&png, bytes)?;
         }
     }
     Ok(())

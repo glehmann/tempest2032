@@ -143,8 +143,12 @@ a hero background, and a transparent logo. Images are embedded in the executable
 and installed into the selected account's `userdata/<account>/config/grid/` directory using the
 shortcut ID. Existing custom artwork and nonempty shortcut icons are preserved;
 re-running the installer fills missing artwork and adds an icon to older shortcuts.
+It also replaces the old bundled hero with the reframed version when its bytes
+match the original gameplay image.
 The hero background is a wide level 9 gameplay screenshot with the sine-wave blue
 web, gold claw, enemies, and explosion rings, without HUD or announcement overlays.
+The screenshot fits within a centered 440-pixel-high area of the 1920×620 hero,
+leaving room for Big Picture's vertical crop and bottom-left logo.
 Running it from the installed copy also works and skips copying onto itself.
 Unix executable permissions are preserved.
 

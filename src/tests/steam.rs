@@ -326,6 +326,49 @@ fn installation_embeds_artwork_for_every_library_view() {
 }
 
 #[test]
+fn reinstall_reframes_the_old_bundled_hero_and_preserves_a_custom_hero() {
+    let fixture = Fixture::new(&[42]);
+    let directory = fixture.destination();
+    let installed = install(
+        &fixture.root,
+        42,
+        &fixture.source,
+        &directory,
+        Platform::Linux,
+    )
+    .unwrap();
+    let hero = fixture
+        .shortcuts(42)
+        .parent()
+        .unwrap()
+        .join("grid")
+        .join(format!("{}_hero.png", installed.app_id));
+    fs::write(&hero, include_bytes!("../../assets/steam/gameplay.png")).unwrap();
+    install(
+        &fixture.root,
+        42,
+        &fixture.source,
+        &directory,
+        Platform::Linux,
+    )
+    .unwrap();
+    assert_eq!(
+        fs::read(&hero).unwrap(),
+        include_bytes!("../../assets/steam/hero.png")
+    );
+    fs::write(&hero, b"custom hero").unwrap();
+    install(
+        &fixture.root,
+        42,
+        &fixture.source,
+        &directory,
+        Platform::Linux,
+    )
+    .unwrap();
+    assert_eq!(fs::read(hero).unwrap(), b"custom hero");
+}
+
+#[test]
 fn reinstall_adds_missing_artwork_to_legacy_shortcuts_and_preserves_custom_images() {
     let fixture = Fixture::new(&[42]);
     let directory = fixture.destination();

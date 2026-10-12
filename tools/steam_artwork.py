@@ -68,6 +68,11 @@ if __name__ == "__main__":
     artwork("portrait.png", 600, 900, [(spectrum, 70, 90, 460, 460)],
             caption=(300, 680, 64, "middle"))
     with Image.open(gameplay) as screenshot:
-        ImageOps.fit(screenshot.convert("RGB"), (1920, 620),
-                     method=Image.Resampling.LANCZOS).save(OUTPUT / "hero.png", optimize=True)
+        # Big Picture crops the hero vertically and overlays the logo at bottom left.
+        scene = ImageOps.contain(screenshot.convert("RGB"), (1680, 440),
+                                 method=Image.Resampling.LANCZOS)
+        hero = Image.new("RGB", (1920, 620))
+        hero.paste(scene, ((hero.width - scene.width) // 2,
+                           (hero.height - scene.height) // 2))
+        hero.save(OUTPUT / "hero.png", optimize=True)
     print("hero.png: 1920x620 gameplay screenshot")
