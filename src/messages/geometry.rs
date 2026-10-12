@@ -39,15 +39,13 @@ pub(crate) struct Glyphs(HashMap<(char, Style), Glyph>);
 impl Default for Glyphs {
     fn default() -> Self {
         let mut glyphs = HashMap::new();
-        let originals = super::font::original_contours();
+        let announcements = super::lettering::contours();
         for character in " !(),-.:?0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
             let contours = outline(character);
-            let chrome = originals
+            let chrome = announcements
                 .get(&character)
-                .unwrap_or(&contours)
-                .iter()
-                .map(|p| rounded(p, 1.25))
-                .collect::<Vec<_>>();
+                .cloned()
+                .unwrap_or_else(|| contours.iter().map(|p| rounded(p, 1.25)).collect());
             for style in [Style::Chrome, Style::Rainbow, Style::Gold] {
                 let gold_a = vec![
                     polygon(&[

@@ -233,6 +233,7 @@ impl Font {
     }
 }
 
+#[cfg(test)]
 pub(super) fn original_contours() -> HashMap<char, Vec<Vec<Vec2>>> {
     let mut data = &include_bytes!("../../assets/messages/afont.bin")[4..];
     let mut glyphs = HashMap::new();

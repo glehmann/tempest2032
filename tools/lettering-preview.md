@@ -25,12 +25,15 @@ advance, palette, bevel, depth, lighting, and pose transforms.
 | C | More rounded bowls and terminals | Stronger medium |
 | D | Same shapes as C | Light |
 
+Candidate C is now used for game announcements. The approved outlines and matching
+alphabet are embedded from `assets/messages/rounded.toml`. The `current` row
+shows that game font. Editing this lab's TOML continues to affect only the lab.
+
 A has nominal three-unit strokes. C expands the original rounded outlines by
 0.15 units, increasing nominal stroke width to approximately 3.3 units before
 cap-height normalization. The light candidates move
 outer boundaries inward and hole boundaries outward by 0.25 units, reducing
 stroke width by approximately 0.5 units. Cap height is normalized afterward.
-Both candidate families are thinner than the current sprite-derived outlines.
 
 ## Individual PNGs
 

@@ -15,6 +15,7 @@ tempfile = "3"
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
 lyon_tessellation = "1"
+svgtypes = "0.16"
 xmrs = { version = "0.15", default-features = false, features = ["std", "import_mod"] }
 xmrsplayer = { version = "0.15", default-features = false, features = ["std"] }
 bevy = { version = "0.18", default-features = false, features = [
@@ -22,9 +23,6 @@ bevy = { version = "0.18", default-features = false, features = [
     "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_ui_render",
     "default_font", "bevy_sprite_render", "bevy_audio", "bevy_gilrs", "x11", "wayland", "png", "sysinfo_plugin",
 ] }
-
-[dev-dependencies]
-svgtypes = "0.16"
 
 [profile.dev]
 opt-level = 1

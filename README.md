@@ -1005,9 +1005,11 @@ SVG front outlines from `tools/lettering-preview.toml` without recompiling.
 See [the lettering preview lab](tools/lettering-preview.md) for comparison
 sheets, individual PNGs, and runtime editing instructions.
 
-Gameplay announcements use the original Joby font's outline proportions,
-reconstructed with clean circular corner curves and rounded letter bowls,
-with its 17-unit character spacing. Real bevels,
+Gameplay announcements use the approved candidate C lettering: rounded bowls
+and terminals, slightly stronger medium strokes, and 17-unit character spacing.
+Its SVG fronts are embedded from `assets/messages/rounded.toml`, including
+matching letters and numerals for the full message catalog. The game and preview
+lab share curve flattening and stroke-weight adjustment. Real bevels,
 shallow extrusions, continuous blue-purple colour bands, and fixed normal-based
 studio shading replace the old interpolated sprite shading. They render in a
 native-resolution 3D overlay above the game and warp imagery. The ordinary

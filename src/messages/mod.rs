@@ -4,6 +4,7 @@ mod catalog;
 mod font;
 mod game_over;
 pub(crate) mod geometry;
+mod lettering;
 mod render;
 mod solid;
 

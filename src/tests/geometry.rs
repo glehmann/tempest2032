@@ -43,8 +43,13 @@ fn rounded_contours_follow_circular_arcs_with_crisp_opaque_geometry() {
 #[test]
 fn all_catalog_letters_have_opaque_finite_beveled_geometry_with_real_depth() {
     let glyphs = Glyphs::default();
+    let announcements = super::super::lettering::contours();
     for id in crate::messages::Id::value_variants() {
         for c in id.text().chars().filter(|c| !c.is_whitespace()) {
+            assert!(
+                announcements.contains_key(&c),
+                "missing rounded announcement glyph {c}"
+            );
             assert!(glyphs.0.contains_key(&(c, Style::Chrome)), "missing {c}");
             for style in [Style::Chrome, Style::Rainbow, Style::Gold] {
                 let glyph = glyphs.get(c, style);

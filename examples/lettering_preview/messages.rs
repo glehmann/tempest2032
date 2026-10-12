@@ -8,6 +8,8 @@ pub(crate) use catalog::Id;
 mod font;
 #[path = "../../src/messages/geometry.rs"]
 pub(crate) mod geometry;
+#[path = "../../src/messages/lettering.rs"]
+pub(crate) mod lettering;
 
 use bevy::prelude::*;
 
