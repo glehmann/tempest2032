@@ -120,10 +120,13 @@ artifact with a three-day retention period. It does not publish GitHub Releases.
   `packaging/windows/installer.iss`. Installation is per-user, with a Start menu
   entry, an optional desktop shortcut, upgrades in place, and an uninstaller.
   Release executables use the Windows GUI subsystem and embed the application icon.
+  The C runtime is linked statically. CI silently installs the package into a
+  temporary folder, checks its executable, and runs its uninstaller.
 - macOS creates a versioned `.app` with an icon and bundle metadata, applies an
   ad-hoc signature, and places it beside an Applications symlink in a compressed
   DMG. No installer or administrator access is needed. Publisher signing and
   notarization are not configured.
+  CI verifies the app signature and DMG checksum before uploading.
 - Linux archives contain the executable, icon, and short usage instructions.
   They are built on Ubuntu 24.04 and require glibc 2.39 or newer. Flatpak is the
   alternative for distributions with older system libraries.
@@ -153,7 +156,8 @@ host-filesystem or network access is requested. Steam installation is not expose
 inside the sandbox.
 
 Each job uploads a `.flatpak` bundle and `flathub-submission.tar.gz`, containing
-the pinned source manifest and `cargo-sources.json`. For Flathub submission,
+the pinned source manifest and `cargo-sources.json`. CI installs the built bundle
+and checks that its executable starts inside the sandbox. For Flathub submission,
 extract these files into the proposed Flathub application repository and follow
 [Flathub's submission process](https://docs.flathub.org/docs/for-app-authors/submission/).
 Use a commit available in the upstream repository, rather than a pull-request

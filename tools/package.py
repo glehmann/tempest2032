@@ -37,6 +37,17 @@ def native(platform, target, binary, output):
                 f"/DIconPath={ROOT / 'packaging/windows/icon.ico'}",
                 f"/DOutputDir={output}", str(ROOT / "packaging/windows/installer.iss"),
             ], check=True)
+            installer = output / f"tempest2032-{VERSION}-windows-x86_64-setup.exe"
+            installed = stage / "installed"
+            subprocess.run([
+                str(installer), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
+                f"/DIR={installed}", "/GROUP=Tempest 2032 package check", "/TASKS=",
+            ], check=True, timeout=120)
+            if (installed / "tempest2032.exe").read_bytes() != binary.read_bytes():
+                raise RuntimeError("Installer did not preserve the standalone executable")
+            subprocess.run([
+                str(installed / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
+            ], check=True, timeout=120)
         elif platform == "macos":
             contents = stage / "Tempest 2032.app" / "Contents"
             copy_binary(binary, contents / "MacOS/tempest2032")
@@ -57,10 +68,14 @@ def native(platform, target, binary, output):
                     "NSHighResolutionCapable": True,
                 }, file)
             subprocess.run(["codesign", "--force", "--sign", "-", str(contents.parent)], check=True)
+            subprocess.run(["codesign", "--verify", "--strict", str(contents.parent)], check=True)
             (stage / "Applications").symlink_to("/Applications")
             subprocess.run([
                 "hdiutil", "create", "-volname", "Tempest 2032", "-srcfolder", str(stage),
                 "-format", "UDZO", str(output / f"tempest2032-{VERSION}-macos-arm64.dmg"),
+            ], check=True)
+            subprocess.run([
+                "hdiutil", "verify", str(output / f"tempest2032-{VERSION}-macos-arm64.dmg"),
             ], check=True)
         else:
             name = f"tempest2032-{VERSION}-linux-{target.split('-')[0]}"

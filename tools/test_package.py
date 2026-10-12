@@ -29,7 +29,7 @@ class Packages(unittest.TestCase):
 
     def test_mac_bundle_and_applications_link_are_inside_dmg_source(self):
         def command(args, **kwargs):
-            if args[0] != "hdiutil":
+            if args[:2] != ["hdiutil", "create"]:
                 return
             stage = Path(args[args.index("-srcfolder") + 1])
             contents = stage / "Tempest 2032.app/Contents"
@@ -43,7 +43,8 @@ class Packages(unittest.TestCase):
 
         with patch("package.subprocess.run", side_effect=command) as run:
             package.native("macos", "aarch64-apple-darwin", self.binary, self.output)
-        self.assertEqual([call.args[0][0] for call in run.call_args_list], ["codesign", "hdiutil"])
+        self.assertEqual([call.args[0][0] for call in run.call_args_list],
+                         ["codesign", "codesign", "hdiutil", "hdiutil"])
 
     def test_flatpak_dependencies_have_checksums_and_source_is_pinned(self):
         revision = "a" * 40
@@ -59,6 +60,21 @@ class Packages(unittest.TestCase):
         self.assertTrue((self.output / "source/assets/steam/icon.png").is_file())
         with tarfile.open(self.output / "flathub-submission.tar.gz") as archive:
             self.assertEqual(set(archive.getnames()), {f"{package.APP_ID}.json", "cargo-sources.json"})
+
+    def test_windows_installer_is_checked_and_uninstalled(self):
+        def command(args, **kwargs):
+            if "/VERYSILENT" not in args or args[0].endswith("unins000.exe"):
+                return
+            installed = Path(next(arg[5:] for arg in args if arg.startswith("/DIR=")))
+            installed.mkdir()
+            (installed / "tempest2032.exe").write_bytes(self.binary.read_bytes())
+            (installed / "unins000.exe").touch()
+
+        with patch("package.shutil.which", return_value="ISCC"), \
+                patch("package.subprocess.run", side_effect=command) as run:
+            package.native("windows", "x86_64-pc-windows-msvc", self.binary, self.output)
+        self.assertEqual(len(run.call_args_list), 3)
+        self.assertTrue(run.call_args_list[-1].args[0][0].endswith("unins000.exe"))
 
     def test_flatpak_rejects_unpinned_revisions(self):
         with self.assertRaises(ValueError):

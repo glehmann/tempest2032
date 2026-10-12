@@ -50,6 +50,7 @@ jobs:
       PACKAGE_PLATFORM: ${{ matrix.platform }}
       EXECUTABLE: ${{ matrix.executable }}
       CARGO_TERM_COLOR: always
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -75,9 +76,12 @@ jobs:
           key: packages-${{ matrix.target }}
           cmd-format: rustup run stable {0}
           cache-bin: false
-          save-if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+          save-if: ${{ github.event_name == 'push' }}
       - name: Build standalone application
         run: cargo +stable build --locked --release --target "$BUILD_TARGET"
+      - name: Check standalone application startup
+        if: runner.os != 'Windows'
+        run: '"target/$BUILD_TARGET/release/$EXECUTABLE" --version'
       - name: Verify package layouts
         if: runner.os == 'Linux'
         run: python3 -m unittest discover -s tools -p test_package.py
@@ -139,6 +143,10 @@ jobs:
             --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
             target/flatpak-repo "target/flatpak-package/tempest2032-linux-$FLATPAK_ARCH.flatpak" \
             io.github.glehmann.Tempest2032
+      - name: Check Flatpak installation and startup
+        run: |
+          flatpak --user install --noninteractive "target/flatpak-package/tempest2032-linux-$FLATPAK_ARCH.flatpak"
+          dbus-run-session -- flatpak run io.github.glehmann.Tempest2032 --version
       - name: Upload Flatpak and Flathub submission files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
