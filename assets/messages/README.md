@@ -46,6 +46,8 @@ with the smaller numeral above the main lettering.
 The EXCELLENT and 2000 records also store their original CRY pixels after the
 contours. Their unchanged approach uses one opaque, fixed-size quad per foreground
 source pixel rather than enlarged solid artwork or overlapping echoes. The
+only transparent source value is zero; dark CRY shading also produces squares,
+so brightness changes inside a letter never cut holes in its strokes. The
 250/500/750 and 1UP outlines supply the surfaces for extruded foreground meshes, with
 the row colours supplying a continuous face gradient.
 

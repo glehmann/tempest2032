@@ -163,7 +163,7 @@ impl Font {
                         .pixels
                         .iter()
                         .enumerate()
-                        .filter(|(_, pixel)| **pixel & 255 > 80)
+                        .filter(|(_, pixel)| **pixel != 0)
                         .flat_map(|(index, pixel)| {
                             let origin = Vec2::new(
                                 (index % art.size.x as usize) as f32,
@@ -419,6 +419,43 @@ fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
 mod tests {
     use super::*;
     use clap::ValueEnum;
+    #[test]
+    fn reward_cells_cover_every_nontransparent_source_pixel_including_dark_shading() {
+        let font = Font::default();
+        for id in [super::super::Id::Points2000, super::super::Id::Excellent] {
+            let art = &font.1[&id];
+            let layout = font.layout(id);
+            let mut coverage = vec![0.; art.pixels.len()];
+            for glyph in layout {
+                let cell = glyph.cell + art.size / 2.;
+                let index = cell.y as usize * art.size.x as usize + cell.x as usize;
+                assert_ne!(art.pixels[index], 0, "{id:?} filled a transparent square");
+                coverage[index] += (glyph.points[1] - glyph.points[0])
+                    .perp_dot(glyph.points[2] - glyph.points[0])
+                    .abs()
+                    / 2.;
+                let pixel = art.pixels[index];
+                assert!(glyph.colors.iter().all(|color| *color
+                    == Color::LinearRgba(
+                        crate::cry::color((pixel >> 8) as u8, pixel as u8).to_linear()
+                    )));
+            }
+            for (index, pixel) in art.pixels.iter().enumerate() {
+                assert_eq!(
+                    coverage[index],
+                    f32::from(*pixel != 0),
+                    "{id:?} has incomplete or duplicate coverage at ({}, {}), pixel {pixel:#06x}",
+                    index % art.size.x as usize,
+                    index / art.size.x as usize
+                );
+            }
+            assert!(
+                art.pixels
+                    .iter()
+                    .any(|pixel| *pixel != 0 && pixel & 255 <= 80)
+            );
+        }
+    }
     #[test]
     fn pixel_staircase_becomes_a_straight_diagonal_without_erasing_corners() {
         let mut outline = vec![Vec2::ZERO, Vec2::new(12., 0.)];
