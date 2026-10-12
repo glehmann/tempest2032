@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">Tempest 2032: Spectrum portal</title>
+  <desc id="desc">Square octagonal portal with a white geometric T and magenta, violet, cyan, green and yellow spectrum rails.</desc>
+  <defs>
+    <linearGradient id="spectrum" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="264" y2="264">
+      <stop stop-color="#ff55d8"/><stop offset=".28" stop-color="#a978ff"/><stop offset=".55" stop-color="#4ae5ff"/><stop offset=".78" stop-color="#9aff8a"/><stop offset="1" stop-color="#ffe66a"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(28 28)">
+    <path d="m80 0-80 80v104l80 80h104l80-80V80L184 0Z" fill="none" stroke="url(#spectrum)" stroke-width="12" stroke-linejoin="round"/>
+    <path d="m97 41-56 56v70l56 56h70l56-56V97l-56-56Z" fill="none" stroke="url(#spectrum)" stroke-width="4" opacity=".65"/>
+    <path d="M80 0 97 41M0 80 41 97M0 184 41 167M80 264 97 223M184 264 167 223M264 184 223 167M264 80 223 97M184 0 167 41" fill="none" stroke="url(#spectrum)" stroke-width="4" opacity=".65"/>
+    <path d="M66 76h132v32h-49v100h-34V108H66Z" fill="#ff55d8" transform="translate(-4 4)"/>
+    <path d="M66 76h132v32h-49v100h-34V108H66Z" fill="#4ae5ff" transform="translate(4 -4)"/>
+    <path d="M66 76h132v32h-49v100h-34V108H66Z" fill="#f8f4ff"/>
+    <path d="m115 208 17 19 17-19Z" fill="#ffe66a"/>
+  </g>
+</svg>

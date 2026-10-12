@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Tempest 2032 favicon</title>
+  <desc id="desc">White T inside a rainbow octagonal portal on a dark square.</desc>
+  <defs>
+    <linearGradient id="spectrum" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ff55d8"/><stop offset=".28" stop-color="#a978ff"/><stop offset=".55" stop-color="#4ae5ff"/><stop offset=".78" stop-color="#9aff8a"/><stop offset="1" stop-color="#ffe66a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#070b1d"/>
+  <path d="M22 7 7 22v20l15 15h20l15-15V22L42 7Z" fill="none" stroke="url(#spectrum)" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M18 20h28v8H36v18h-8V28H18Z" fill="#f8f4ff"/>
+  <path d="m28 46 4 5 4-5Z" fill="#ffe66a"/>
+</svg>
