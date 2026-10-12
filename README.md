@@ -1,6 +1,8 @@
-# T2K
+# Tempest 2032
 
 A small Tempest 2000-inspired desktop prototype written in Rust and Bevy 0.18.
+The name is a nod to Tempest 2000's 1994 release, six years before the year in
+its title. Tempest 2032 follows the same convention for 2026.
 The first level uses the original game's irregular 16-sided `web5` outline
 and straight extrusion. Blue lane surfaces fade into the tunnel, and yellow
 edges mark the glider's current lane. The solid gold glider uses the original
@@ -36,7 +38,8 @@ cargo run
 The first build compiles Bevy and takes longer than subsequent builds.
 For an optimized build, use `cargo run --release`.
 To build the standalone executable, use `cargo build --release`; it is written
-to `target/release/t2k` on Linux and macOS, or `target/release/t2k.exe` on Windows.
+to `target/release/tempest2032` on Linux and macOS, or
+`target/release/tempest2032.exe` on Windows.
 Release builds strip symbols, use thin link-time optimization with one codegen
 unit, and abort on panic. These settings reduce executable size while retaining
 speed-focused optimization, at the cost of longer builds and less crash
@@ -88,14 +91,14 @@ their native window backends.
 Run the executable you want to install:
 
 ```sh
-t2k --steam-install
+tempest2032 --steam-install
 ```
 
 For a local optimized build, use `cargo run --release -- --steam-install`.
-The command copies the executable into a stable per-user directory, adds T2K
+The command copies the executable into a stable per-user directory, adds Tempest 2032
 as a non-Steam game for the most recently used Steam account, prints the paths
 and shortcut ID, and exits without opening the game. If Steam is still running,
-the command warns and continues; T2K appears in your library after the next
+the command warns and continues; Tempest 2032 appears in your library after the next
 Steam start, and Steam can drop the shortcut again if it keeps overwriting the
 file in the meantime. The initial launch option is `--fullscreen`.
 
@@ -104,10 +107,10 @@ Snap Steam are also detected on Linux. Installation locations are:
 
 | Platform | Executable location |
 | --- | --- |
-| Linux / Steam Deck | `$XDG_DATA_HOME/t2k/t2k`, normally `~/.local/share/t2k/t2k` |
-| Windows | `%LOCALAPPDATA%\T2K\t2k.exe` |
-| macOS | `~/Library/Application Support/T2K/t2k` |
-| Flatpak / Snap Steam | `t2k/t2k` inside that Steam installation's data directory |
+| Linux / Steam Deck | `$XDG_DATA_HOME/tempest2032/tempest2032`, normally `~/.local/share/tempest2032/tempest2032` |
+| Windows | `%LOCALAPPDATA%\Tempest 2032\tempest2032.exe` |
+| macOS | `~/Library/Application Support/Tempest 2032/tempest2032` |
+| Flatpak / Snap Steam | `tempest2032/tempest2032` inside that Steam installation's data directory |
 
 All game assets and levels are embedded, so the installed executable runs
 independently of the source tree or downloaded copy. Re-running the command
@@ -119,7 +122,7 @@ Unix executable permissions are preserved.
 If detection is ambiguous or Steam is installed in a custom location, use:
 
 ```sh
-t2k --steam-install --steam-dir "/path/to/Steam" --steam-user 12345678
+tempest2032 --steam-install --steam-dir "/path/to/Steam" --steam-user 12345678
 ```
 
 `--steam-user` is the numeric account ID from the `userdata/` directory,
@@ -132,8 +135,8 @@ is unreadable, the command exits with an explanatory error.
 
 Existing shortcuts and unrecognized binary VDF fields are preserved. Before a
 changed shortcut file is replaced, its exact contents are saved beside it as
-`shortcuts.vdf.t2k-backup`, with numbered suffixes if needed. File replacements
-are atomic, and a `shortcuts.vdf.t2k.lock` file prevents concurrent T2K installers.
+`shortcuts.vdf.tempest2032-backup`, with numbered suffixes if needed. File replacements
+are atomic, and a `shortcuts.vdf.tempest2032.lock` file prevents concurrent Tempest 2032 installers.
 This is local non-Steam-game registration; it does not publish a Steam store app.
 
 ## Sound effects
@@ -155,7 +158,7 @@ Voices keep their driver rate regardless of this setting.
 To regenerate `assets/sounds.bin` from the original source tree:
 
 ```sh
-python3 tools/sounds.py /path/to/tempest2k assets/sounds.bin
+python3 tools/sounds.py /path/to/tempest2000 assets/sounds.bin
 ```
 
 The same tool accepts the original 2 MiB cartridge as input:
@@ -207,7 +210,7 @@ external tracker player.
 Regenerate the embedded modules from the original source tree or cartridge:
 
 ```sh
-python3 tools/music.py /path/to/tempest2k assets/music
+python3 tools/music.py /path/to/tempest2000 assets/music
 python3 tools/music.py "/path/to/Tempest 2000.j64" assets/music
 ```
 
@@ -258,10 +261,10 @@ newly added levels. You can copy just the executable to another PC; the
   budget. Flippers repeat every 96 ticks and Tankers every 261 ticks, retaining
   level five's climbing speeds. Spikers repeat every 801 ticks.
 - `levels/07.toml`: Tempest 2000's fourteen-lane lemon-shaped `web18`, with a
-  31-spawn budget, `0xA600` Flippers, and `0xF000` Spikers. The T2K mode adds
+  31-spawn budget, `0xA600` Flippers, and `0xF000` Spikers. The Tempest 2000 mode adds
   16 to the web-table index, so this is `web18`, not classic mode's `web12`.
   Flippers repeat every 91 ticks, Tankers every 251, and Spikers every 751.
-- `levels/08.toml`: the same T2K lemon and 31-spawn budget, with Tankers every
+- `levels/08.toml`: the same Tempest 2000 lemon and 31-spawn budget, with Tankers every
   241 ticks and Spikers every 651 ticks. Its Tanker-child mutation threshold
   rises to 28 out of 256.
 - `levels/09.toml`: the open fourteen-lane sine-wave `web13`, with a 31-spawn
@@ -283,16 +286,16 @@ newly added levels. You can copy just the executable to another PC; the
   Kills award the original random 250, 500, or 750 points without a pickup drop.
 - `levels/12.toml`: the closed cross `web10`, including the original inward
   corner orientations. Flippers repeat every 81 ticks and Fuseballs every 701.
-- `levels/13.toml`: T2K's open giraffe-neck `web20`, with thirteen lanes and
+- `levels/13.toml`: Tempest 2000's open giraffe-neck `web20`, with thirteen lanes and
   `0xAC00` Flippers. This mode-specific selection differs from classic `web15`.
   Fuseballs climb at `0x8800` and repeat every 601 ticks.
 - `levels/14.toml`: the open distorted-W `web6`, with fifteen lanes and
   Flippers every 76 ticks. The local flat sections retain their source angles.
 - `levels/15.toml`: open `web16`, with `0xAE00` Flippers and `0x13000` Spikers.
   Fuseballs climb at `0x9000` and repeat every 501 ticks.
-- `levels/16.toml`: T2K's compact eight-lane `web21`, with a 41-spawn budget,
+- `levels/16.toml`: Tempest 2000's compact eight-lane `web21`, with a 41-spawn budget,
   Flippers every 71 ticks, and the original 60-in-256 fast-child threshold.
-- `levels/17.toml`: the eighteen-lane big oval `web24`, starting T2K's second
+- `levels/17.toml`: the eighteen-lane big oval `web24`, starting Tempest 2000's second
   web set with red surfaces and cyan Flippers. The 25-spawn wave includes
   Pulsars every 601 ticks, Spikers every 751, Beasties every 1,001, and
   Fuseballs every 901. There are no Flipper Tankers, and three enemy shots
@@ -379,10 +382,10 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/38.toml`: open fifteen-lane U-shaped `web3`, with 36 shared spawns.
   Flippers repeat every 96 ticks and Flipper Tankers every 261, while Pulsar
   Tankers retain their 451-tick interval.
-- `levels/39.toml`: fourteen-lane T2K lemon `web18`, with `0xB600` Flippers,
+- `levels/39.toml`: fourteen-lane Tempest 2000 lemon `web18`, with `0xB600` Flippers,
   `0xF000` Spikers, and `0xB800` Fuseballs. Pulsar Tankers repeat every 401
   ticks and Flipper Tankers every 251.
-- `levels/40.toml`: the same T2K lemon, with Pulsar Tankers every 351 ticks,
+- `levels/40.toml`: the same Tempest 2000 lemon, with Pulsar Tankers every 351 ticks,
   Flipper Tankers every 241, and Spikers every 651. The Flipper Tanker
   mutation threshold rises to 156 out of 256.
 - `levels/41.toml`: open fourteen-lane sine-wave `web13`, with 41 shared
@@ -398,7 +401,7 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/44.toml`: sixteen-lane cross `web10`. Direct Pulsars and Pulsar
   Tankers both repeat every 501 ticks; Fuseball Tankers remain on their
   301-tick interval, and Flippers repeat every 81 ticks.
-- `levels/45.toml`: open thirteen-lane T2K giraffe-neck `web20`, with
+- `levels/45.toml`: open thirteen-lane Tempest 2000 giraffe-neck `web20`, with
   `0xBC00` Flippers and `0xB800` Tankers. Pulsar phases drop to four ticks;
   Pulsar Tankers repeat every 301 ticks and direct Pulsars every 1,001.
 - `levels/46.toml`: open fifteen-lane distorted-W `web6`, with Flippers every
@@ -489,10 +492,10 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/70.toml`: open fifteen-lane U-shaped `web3`, with primary Pulsar
   Tankers every 71 ticks instead of Super Flippers. Fuseballs return every
   301 ticks, while Mirrors and Alien Droids retain their previous intervals.
-- `levels/71.toml`: fourteen-lane T2K lemon `web18`, replacing Fuseballs with
+- `levels/71.toml`: fourteen-lane Tempest 2000 lemon `web18`, replacing Fuseballs with
   Beasties every 501 ticks. Primary Pulsar Tankers remain on their 71-tick
   interval, alongside Mirrors and faster `0x16C00` Alien Droids.
-- `levels/72.toml`: the same T2K lemon, restoring Super Flippers every 21
+- `levels/72.toml`: the same Tempest 2000 lemon, restoring Super Flippers every 21
   ticks and adding Spikers every 501. The 61-spawn wave retains Mirrors and
   Alien Droids, while Pulsar Tankers and Beasties are absent.
 - `levels/73.toml`: open fourteen-lane sine-wave `web13`, adding Fuseballs
@@ -710,7 +713,7 @@ once the level counter reaches 99, and level selection caps its maximum at 99,
 so the tail only guards against running off the table.
 
 Difficulty is not ramped on any repeat in Tempest 2000. `rsetw` clears `d2`
-and skips the whole ramp when `t2k` is set, so the only mechanism that adds
+and skips the whole ramp in Tempest 2000 mode, so the only mechanism that adds
 difficulty to a repeated level belongs to classic Tempest: it wraps at level 48
 through the sixteen-entry `tradmax` table and adds `(level - 48) >> 7` to every
 enemy climb speed, which takes roughly 129 levels to reach one depth unit.

@@ -5,7 +5,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(version, about = "Tempest 2000-inspired desktop prototype")]
+#[command(version, about = "Tempest 2032, a Tempest 2000-inspired desktop game")]
 #[command(group(ArgGroup::new("recording").args(["record_motion", "record_exit", "record_shot_hit"])))]
 #[command(group(ArgGroup::new("game_options").multiple(true).args([
     "level", "levels", "fullscreen", "fps", "volume", "music_volume", "effects_pitch",
@@ -13,7 +13,7 @@ use std::path::PathBuf;
     "message_size", "screenshot", "record_motion", "record_exit", "record_shot_hit", "seconds",
 ])))]
 pub(crate) struct Cli {
-    /// Copy this executable and add T2K to Steam as a non-Steam game, then exit
+    /// Copy this executable and add Tempest 2032 to Steam as a non-Steam game, then exit
     #[arg(long, conflicts_with = "game_options")]
     pub(crate) steam_install: bool,
 

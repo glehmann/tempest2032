@@ -27,7 +27,7 @@ impl Fixture {
     }
 
     fn destination(&self) -> PathBuf {
-        self.temp.path().join("Installed T2K Édition")
+        self.temp.path().join("Installed Tempest 2032 Édition")
     }
 
     fn login(&self, accounts: &[(u32, bool, u64)]) {
@@ -87,22 +87,25 @@ fn platform_locations_and_executable_names_cover_native_and_sandboxed_steam() {
     let native = Path::new("native/Steam");
     assert_eq!(
         install_directory(Platform::Linux, data, native),
-        data.join("t2k")
+        data.join("tempest2032")
     );
     for platform in [Platform::Windows, Platform::MacOs] {
-        assert_eq!(install_directory(platform, data, native), data.join("T2K"));
+        assert_eq!(
+            install_directory(platform, data, native),
+            data.join("Tempest 2032")
+        );
     }
     let flatpak = Path::new("home/.var/app/com.valvesoftware.Steam/.local/share/Steam");
     let snap = Path::new("home/snap/steam/common/.local/share/Steam");
     for root in [flatpak, snap] {
         assert_eq!(
             install_directory(Platform::Linux, data, root),
-            root.join("t2k")
+            root.join("tempest2032")
         );
     }
-    assert_eq!(Platform::Windows.binary_name(), "t2k.exe");
-    assert_eq!(Platform::MacOs.binary_name(), "t2k");
-    assert_eq!(Platform::Linux.binary_name(), "t2k");
+    assert_eq!(Platform::Windows.binary_name(), "tempest2032.exe");
+    assert_eq!(Platform::MacOs.binary_name(), "tempest2032");
+    assert_eq!(Platform::Linux.binary_name(), "tempest2032");
     let crossover = Path::new(
         "Library/Application Support/CrossOver/Bottles/Steam/drive_c/Program Files/Steam",
     );
@@ -110,11 +113,15 @@ fn platform_locations_and_executable_names_cover_native_and_sandboxed_steam() {
     assert!(!compatible_root(Platform::MacOs, crossover));
     assert!(compatible_root(Platform::Windows, crossover));
     assert!(same_exe(
-        r#""C:\Users\Ada\T2K\t2k.exe""#,
-        "c:/users/ada/t2k/T2K.EXE",
+        r#""C:\Users\Ada\Tempest 2032\tempest2032.exe""#,
+        "c:/users/ada/tempest 2032/TEMPEST2032.EXE",
         Platform::Windows
     ));
-    assert!(!same_exe("/Game/t2k", "/game/t2k", Platform::Linux));
+    assert!(!same_exe(
+        "/Game/tempest2032",
+        "/game/tempest2032",
+        Platform::Linux
+    ));
 }
 
 #[test]
@@ -240,23 +247,24 @@ fn install_copies_the_binary_and_preserves_all_existing_shortcut_fields() {
                 .fields[0]
         );
         assert_eq!(shortcuts.fields.len(), 2);
-        let t2k = shortcuts.get("8").unwrap().as_object().unwrap();
+        let game = shortcuts.get("8").unwrap().as_object().unwrap();
         assert_eq!(
-            t2k.get("Exe").unwrap().as_str().unwrap(),
+            game.get("Exe").unwrap().as_str().unwrap(),
             quoted(&installed.binary).unwrap()
         );
         assert_eq!(
-            t2k.get("StartDir").unwrap().as_str().unwrap(),
+            game.get("StartDir").unwrap().as_str().unwrap(),
             quoted(&fixture.destination()).unwrap()
         );
         assert_eq!(
-            t2k.get("LaunchOptions").unwrap().as_str(),
+            game.get("LaunchOptions").unwrap().as_str(),
             Some("--fullscreen")
         );
-        assert_eq!(t2k.get("appid").unwrap().as_u32(), Some(installed.app_id));
+        assert_eq!(game.get("appid").unwrap().as_u32(), Some(installed.app_id));
+        assert_eq!(game.get("AppName").unwrap().as_str(), Some("Tempest 2032"));
         assert_ne!(installed.app_id & 0x8000_0000, 0);
         for flag in ["AllowOverlay", "AllowDesktopConfig"] {
-            assert_eq!(t2k.get(flag).unwrap().as_u32(), Some(1));
+            assert_eq!(game.get(flag).unwrap().as_u32(), Some(1));
         }
     }
 }
@@ -275,7 +283,7 @@ fn reinstall_updates_the_binary_without_duplicates_or_losing_custom_settings() {
     .unwrap();
     assert!(first.backup.is_none());
     let mut document = Object::parse(&fs::read(fixture.shortcuts(42)).unwrap()).unwrap();
-    let t2k = document
+    let game = document
         .get_mut("shortcuts")
         .unwrap()
         .as_object_mut()
@@ -286,12 +294,12 @@ fn reinstall_updates_the_binary_without_duplicates_or_losing_custom_settings() {
         .unwrap();
     for (key, value) in [
         ("LaunchOptions", "--volume 0.2 --level 2"),
-        ("AppName", "My T2K"),
+        ("AppName", "My Tempest 2032"),
         ("icon", "custom icon.png"),
         ("StartDir", "custom levels directory"),
         ("FutureSetting", "preserve me"),
     ] {
-        t2k.set(Field::string(key, value));
+        game.set(Field::string(key, value));
     }
     let custom = document.bytes();
     fs::write(fixture.shortcuts(42), &custom).unwrap();
@@ -377,7 +385,7 @@ fn shortcut_writes_are_locked_and_path_quoting_is_unambiguous() {
     let fixture = Fixture::new(&[42]);
     let path = fixture
         .shortcuts(42)
-        .with_file_name("shortcuts.vdf.t2k.lock");
+        .with_file_name("shortcuts.vdf.tempest2032.lock");
     let lock = OpenOptions::new()
         .read(true)
         .write(true)
@@ -397,15 +405,15 @@ fn shortcut_writes_are_locked_and_path_quoting_is_unambiguous() {
     );
     assert!(!fixture.destination().exists());
     assert_eq!(
-        quoted(Path::new("folder with spaces/Édition/t2k")).unwrap(),
-        "\"folder with spaces/Édition/t2k\""
+        quoted(Path::new("folder with spaces/Édition/tempest2032")).unwrap(),
+        "\"folder with spaces/Édition/tempest2032\""
     );
-    assert!(quoted(Path::new("bad\"name/t2k")).is_err());
-    assert!(quoted(Path::new("bad\nname/t2k")).is_err());
+    assert!(quoted(Path::new("bad\"name/tempest2032")).is_err());
+    assert!(quoted(Path::new("bad\nname/tempest2032")).is_err());
     for name in ["steam", "STEAM.EXE", "steam_osx"] {
         assert!(steam_name(name.as_ref()));
     }
-    for name in ["steamwebhelper", "steam_helper", "t2k"] {
+    for name in ["steamwebhelper", "steam_helper", "tempest2032"] {
         assert!(!steam_name(name.as_ref()));
     }
     assert!(!is_thread(sysinfo::get_current_pid().unwrap()));

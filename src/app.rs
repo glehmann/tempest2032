@@ -144,7 +144,7 @@ pub(crate) fn run(args: cli::Cli) {
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: format!("T2K | Level {starting_level}"),
+                title: format!("Tempest 2032 | Level {starting_level}"),
                 resolution: args.message_size.map_or_else(
                     || (1100, 850).into(),
                     |size| {

@@ -268,7 +268,7 @@ pub(crate) fn sync_web(
         material.base_color = Color::srgb(r, g, b);
     }
     for mut window in &mut windows {
-        window.title = format!("T2K | Level {}", level.number);
+        window.title = format!("Tempest 2032 | Level {}", level.number);
     }
 }
 

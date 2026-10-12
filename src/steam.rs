@@ -36,9 +36,9 @@ impl Platform {
 
     fn binary_name(self) -> &'static str {
         if self == Self::Windows {
-            "t2k.exe"
+            "tempest2032.exe"
         } else {
-            "t2k"
+            "tempest2032"
         }
     }
 }
@@ -49,7 +49,7 @@ pub(crate) fn run(directory: Option<&Path>, user: Option<u32>) -> Result<()> {
         Some(path) => {
             let root = steam_root(path)?;
             if !compatible_root(platform, &root) {
-                return Err("This Steam directory belongs to a Windows client; register it with the Windows build of T2K".into());
+                return Err("This Steam directory belongs to a Windows client; register it with the Windows build of Tempest 2032".into());
             }
             vec![root]
         }
@@ -72,13 +72,13 @@ pub(crate) fn run(directory: Option<&Path>, user: Option<u32>) -> Result<()> {
     let destination = install_directory(platform, &data, &root);
     let executable = std::env::current_exe()?;
     let installed = install(&root, user, &executable, &destination, platform)?;
-    println!("Installed T2K: {}", installed.binary.display());
+    println!("Installed Tempest 2032: {}", installed.binary.display());
     println!("Steam account: {user} ({})", root.display());
     println!("Shortcut ID: {}", installed.app_id);
     if let Some(backup) = installed.backup {
         println!("Shortcut backup: {}", backup.display());
     }
-    println!("Start Steam to find T2K in your library.");
+    println!("Start Steam to find Tempest 2032 in your library.");
     Ok(())
 }
 
@@ -89,12 +89,12 @@ fn install_directory(platform: Platform, data: &Path, steam: &Path) -> PathBuf {
             .windows(2)
             .any(|c| c[0] == "snap" && c[1] == "steam");
     if platform == Platform::Linux && sandboxed {
-        steam.join("t2k")
+        steam.join("tempest2032")
     } else {
         data.join(if platform == Platform::Linux {
-            "t2k"
+            "tempest2032"
         } else {
-            "T2K"
+            "Tempest 2032"
         })
     }
 }
@@ -323,7 +323,7 @@ fn warn_if_steam_running() {
     running.sort();
     if !running.is_empty() {
         eprintln!(
-            "Warning: Steam is still running ({}). T2K shows up in your library after you restart Steam; until then Steam may drop the shortcut again.",
+            "Warning: Steam is still running ({}). Tempest 2032 shows up in your library after you restart Steam; until then Steam may drop the shortcut again.",
             running.join(", ")
         );
     }
@@ -353,7 +353,7 @@ fn install(
         .write(true)
         .create(true)
         .truncate(false)
-        .open(config.join("shortcuts.vdf.t2k.lock"))?;
+        .open(config.join("shortcuts.vdf.tempest2032.lock"))?;
     lock.try_lock()
         .map_err(|e| format!("Another Steam installer may be running: {e}"))?;
     let path = config.join("shortcuts.vdf");
@@ -369,11 +369,11 @@ fn install(
     if fs::canonicalize(&binary).ok().as_ref() != Some(&source) {
         let temporary = NamedTempFile::new_in(directory)?;
         fs::copy(&source, temporary.path())
-            .map_err(|e| format!("Could not copy T2K to {}: {e}", binary.display()))?;
+            .map_err(|e| format!("Could not copy Tempest 2032 to {}: {e}", binary.display()))?;
         temporary.as_file().sync_all()?;
         temporary.persist(&binary).map_err(|e| {
             format!(
-                "Could not replace {}: {e}. Close any running T2K instance",
+                "Could not replace {}: {e}. Close any running Tempest 2032 instance",
                 binary.display()
             )
         })?;
@@ -412,7 +412,7 @@ fn backup_shortcuts(path: &Path, bytes: &[u8]) -> Result<PathBuf> {
         } else {
             format!(".{number}")
         };
-        let backup = path.with_file_name(format!("shortcuts.vdf.t2k-backup{suffix}"));
+        let backup = path.with_file_name(format!("shortcuts.vdf.tempest2032-backup{suffix}"));
         match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -459,7 +459,7 @@ fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Resu
             .parent()
             .ok_or("Installed executable has no parent directory")?,
     )?;
-    let id = crc32fast::hash(format!("{exe}T2K").as_bytes()) | 0x8000_0000;
+    let id = crc32fast::hash(format!("{exe}Tempest 2032").as_bytes()) | 0x8000_0000;
     let mut document = if let Some(old) = old {
         Object::parse(old)?
     } else {
@@ -486,7 +486,7 @@ fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Resu
         })
         .collect();
     if matches.len() > 1 {
-        return Err("Multiple existing T2K shortcuts match this installation; remove duplicates in Steam first".into());
+        return Err("Multiple existing Tempest 2032 shortcuts match this installation; remove duplicates in Steam first".into());
     }
     let app_id = if let Some(&index) = matches.first() {
         let object = shortcuts.fields[index].as_object_mut().unwrap();
@@ -495,12 +495,12 @@ fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Resu
             object.set(Field::string("StartDir", &start));
         }
         if object.get("AppName").is_none() {
-            object.set(Field::string("AppName", "T2K"));
+            object.set(Field::string("AppName", "Tempest 2032"));
         }
         match object.get("appid") {
             Some(field) => field
                 .as_u32()
-                .ok_or("Existing T2K shortcut has an invalid appid")?,
+                .ok_or("Existing Tempest 2032 shortcut has an invalid appid")?,
             None => {
                 object.set(Field::integer("appid", id));
                 id
@@ -510,7 +510,7 @@ fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Resu
         let mut object = Object::new();
         object.set(Field::integer("appid", id));
         for (key, value) in [
-            ("AppName", "T2K"),
+            ("AppName", "Tempest 2032"),
             ("Exe", exe.as_str()),
             ("StartDir", start.as_str()),
             ("icon", ""),

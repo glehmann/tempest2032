@@ -49,7 +49,7 @@ def main():
     source, output = map(Path, sys.argv[1:])
     if output.name == "hud.bin":
         pixels = (source / "images/beasty4.cry").read_bytes()
-        binary = bytearray(b"T2KH")
+        binary = bytearray(b"T32H")
         # yak.s ashowscore/setlives use these regions, not the announcement font.
         for ox, oy, width, height in [
             *[(148 + digit * 16, 89, 16, 19) for digit in range(10)],
@@ -80,7 +80,7 @@ def main():
         print(f"{output}: original 145x68 Game Over CRY bitmap")
         return
     if output.name == "wordart.bin":
-        binary = bytearray(b"T2KC")
+        binary = bytearray(b"T32C")
         for key, image, ox, oy, width, height in [
             (0,"beasty3.cry",137,110,178,42),
             (1,"beasty7.cry",4,84,197,65),
@@ -117,7 +117,7 @@ def main():
     height, width = values[0] >> 16, values[0] & 65535
     assert (width, height) == (15, 18)
     pixels = (source / "images/beasty4.cry").read_bytes()
-    binary = bytearray(b"T2KS")
+    binary = bytearray(b"T32S")
     total = 0
     for character in " !(),-.:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
         offset = values[ord(character) - 32 + 1]

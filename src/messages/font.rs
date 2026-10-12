@@ -64,7 +64,7 @@ impl Default for Font {
     fn default() -> Self {
         assert_eq!(
             &include_bytes!("../../assets/messages/afont.bin")[..4],
-            b"T2KS"
+            b"T32S"
         );
         let mut data = &include_bytes!("../../assets/messages/afont.bin")[4..];
         let mut glyphs = HashMap::new();
@@ -83,7 +83,7 @@ impl Default for Font {
         }
         assert_eq!(
             &include_bytes!("../../assets/messages/wordart.bin")[..4],
-            b"T2KC"
+            b"T32C"
         );
         let mut data = &include_bytes!("../../assets/messages/wordart.bin")[4..];
         let mut art = HashMap::new();

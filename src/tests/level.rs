@@ -217,7 +217,7 @@ fn original_level_six_has_an_open_u_and_the_thirty_one_spawn_budget() {
 }
 
 #[test]
-fn original_level_seven_selects_the_t2k_lemon_and_its_speed_group() {
+fn original_level_seven_selects_the_tempest_2000_lemon_and_its_speed_group() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/07.toml")),
         "level7",
@@ -332,7 +332,7 @@ fn original_level_twelve_has_the_cross_and_faster_fuseball_generator() {
 }
 
 #[test]
-fn original_level_thirteen_selects_the_t2k_giraffe_and_next_speed_group() {
+fn original_level_thirteen_selects_the_tempest_2000_giraffe_and_next_speed_group() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/13.toml")),
         "level13",
@@ -377,7 +377,7 @@ fn original_level_fifteen_uses_web16_and_the_last_early_speed_group() {
 }
 
 #[test]
-fn original_level_sixteen_selects_the_compact_t2k_web_and_forty_one_spawns() {
+fn original_level_sixteen_selects_the_compact_tempest_2000_web_and_forty_one_spawns() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/16.toml")),
         "level16",

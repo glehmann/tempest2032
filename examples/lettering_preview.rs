@@ -42,7 +42,7 @@ enum Background {
 }
 
 #[derive(Parser, Resource)]
-#[command(about = "Compare editable vector lettering using T2K's actual 3D materials")]
+#[command(about = "Compare editable vector lettering using Tempest 2032's actual 3D materials")]
 struct Options {
     #[arg(long, default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/tools/lettering-preview.toml"))]
     config: PathBuf,
@@ -168,7 +168,7 @@ fn run() -> Result<()> {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "T2K lettering comparison".into(),
+                        title: "Tempest 2032 lettering comparison".into(),
                         resolution: bevy::window::WindowResolution::new(960, 540),
                         ..default()
                     }),

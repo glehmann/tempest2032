@@ -442,7 +442,7 @@ pub(crate) fn draw(
     let Some(session) = session else { return };
     for mut window in &mut windows {
         window.title = format!(
-            "T2K | {} | Course {}",
+            "Tempest 2032 | {} | Course {}",
             session.kind.label(),
             session.course + 1
         );

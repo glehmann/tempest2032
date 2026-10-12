@@ -14,7 +14,7 @@ def extract(source):
         table = rom[0x1AC800:0x1ACD00]
     else:
         table = (source / "src/incbin/sound_samples_table.bin").read_bytes()
-    output = bytearray(b"T2KS" + struct.pack("<I", 30))
+    output = bytearray(b"T32S" + struct.pack("<I", 30))
     for index in range(30):
         name = table[index * 40:index * 40 + 20].decode("ascii").strip()
         period, start, length, repeat, repeat_length = struct.unpack_from(

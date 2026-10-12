@@ -14,7 +14,7 @@ PAUSED uses red fronts and gold bevels, with the original large `bfont`'s
 
 `hud.bin` stores the ten original 16x19 score numerals and the 26x17 claw life
 icon from `beasty4.cry`. Source rectangles match `ashowscore` and `setlives`
-in `yak.s`. Its `T2KH` header is followed by eleven records containing width,
+in `yak.s`. Its `T32H` header is followed by eleven records containing width,
 height, contour count, contour points, and CRY shading samples, all big-endian
 u16 values. It is retained as a reference asset for the original artwork;
 the runtime HUD uses the new 3D geometry. Warp pyramids retain `makepyr`'s
@@ -23,7 +23,7 @@ three shaded triangles.
 Regenerate the HUD artwork with:
 
 ```sh
-python3 tools/message_font.py /path/to/tempest2k/src assets/messages/hud.bin
+python3 tools/message_font.py /path/to/tempest2000/src assets/messages/hud.bin
 ```
 
 `afont.bin` contains scalable outlines derived from Joby's `afont` letters in
@@ -38,7 +38,7 @@ characters use the original uppercase forms.
 
 `wordart.bin` contains outlines of the original EXCELLENT, 2000, GAME OVER,
 1UP, 250, 500, and 750 artwork. Source rectangles follow `any_pixex`,
-`draw_oneup`, `gofeed`, and `px_bons` in `yak.s`. Its `T2KC` records include
+`draw_oneup`, `gofeed`, and `px_bons` in `yak.s`. Its `T32C` records include
 the artwork's width, height, and one CRY shading color per row before the contour count. Generate it with
 the same command, using `assets/messages/wordart.bin` as the output.
 The 1UP badge combines the UP graphic and its separately stored numeral,
@@ -49,7 +49,7 @@ source pixel rather than enlarged solid artwork or overlapping echoes. The
 250/500/750 and 1UP outlines supply the surfaces for extruded foreground meshes, with
 the row colours supplying a continuous face gradient.
 
-The binary starts with `T2KS`, followed by glyph records: ASCII byte, contour
+The binary starts with `T32S`, followed by glyph records: ASCII byte, contour
 count (big-endian u16), then point count (u16) and pairs of signed i16 X/Y
 coordinates. Each record then contains the original 15×18 big-endian CRY
 shading samples. The legacy decoder can reconstruct the original sampled
@@ -73,11 +73,11 @@ The feedback is opaque CRY pixels rather than translucent vector copies.
 Regenerate the Game Over bitmap with:
 
 ```sh
-python3 tools/message_font.py /path/to/tempest2k/src assets/messages/game-over.cry
+python3 tools/message_font.py /path/to/tempest2000/src assets/messages/game-over.cry
 ```
 
 Regenerate with:
 
 ```sh
-python tools/message_font.py /path/to/tempest2k/src assets/messages/afont.bin
+python tools/message_font.py /path/to/tempest2000/src assets/messages/afont.bin
 ```

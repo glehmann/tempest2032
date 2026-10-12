@@ -181,7 +181,7 @@ impl Decodable for Sample {
 
 fn samples() -> [Sample; 30] {
     let bytes = include_bytes!("../assets/sounds.bin");
-    assert_eq!(&bytes[..8], b"T2KS\x1e\0\0\0");
+    assert_eq!(&bytes[..8], b"T32S\x1e\0\0\0");
     let mut offset = 8;
     std::array::from_fn(|_| {
         let period = u16::from_le_bytes(bytes[offset..offset + 2].try_into().unwrap());
