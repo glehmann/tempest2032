@@ -11,7 +11,6 @@ use crate::game::Game;
 use crate::game::Status;
 use crate::game::load_level;
 use crate::game::playing;
-use crate::game::restart_game;
 use crate::glider::ACCELERATION;
 use crate::glider::Glider;
 use crate::glider::move_glider;
@@ -67,7 +66,7 @@ fn app() -> App {
         )
             .chain(),
     )
-    .add_systems(Update, (load_level.after(restart_game), draw).chain());
+    .add_systems(Update, (load_level, draw).chain());
     app.world_mut().spawn((
         Glider {
             progress: START_PROGRESS,
@@ -206,11 +205,8 @@ fn four_wire_claws_contract_while_controls_and_the_wave_resume() {
 #[test]
 fn restart_rewinds_the_approach_and_hides_the_claw() {
     let mut app = app();
-    app.add_systems(Update, restart_game.before(draw));
     ticks(&mut app, 300);
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyR);
+    app.world_mut().resource_mut::<Game>().load = Some(crate::level::LoadReason::Restart);
     app.world_mut().run_schedule(Update);
     assert!(app.world().resource::<Game>().status == Status::Entering);
     assert_eq!(app.world().resource::<Game>().entry, Some(0));

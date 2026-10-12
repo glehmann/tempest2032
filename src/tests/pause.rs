@@ -15,6 +15,7 @@ fn app() -> App {
             16_666_667,
         )))
         .init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::game::Game>()
         .init_resource::<crate::powerups::Upgrades>()
         .init_resource::<Ticks>()
         .add_systems(FixedUpdate, |mut ticks: ResMut<Ticks>| ticks.0 += 1);
@@ -56,7 +57,7 @@ fn pause_stops_fixed_updates_and_resumes_without_catching_up() {
 }
 
 #[test]
-fn keyboard_pause_and_resume_update_visibility_without_text_or_buttons() {
+fn pause_defaults_to_resume_and_confirm_resumes() {
     let mut app = app();
     key(&mut app, KeyCode::KeyP);
     assert!(app.world().resource::<Time<Virtual>>().is_paused());
@@ -72,7 +73,8 @@ fn keyboard_pause_and_resume_update_visibility_without_text_or_buttons() {
         app.world_mut().query::<&Button>().iter(app.world()).count(),
         0
     );
-    key(&mut app, KeyCode::Pause);
+    assert_eq!(app.world().resource::<Menu>().selected, 0);
+    key(&mut app, KeyCode::Enter);
     assert!(!app.world().resource::<Time<Virtual>>().is_paused());
     assert_eq!(
         app.world_mut().query::<&Node>().iter(app.world()).count(),
@@ -102,7 +104,127 @@ fn restart_resumes_and_discarded_jump_inputs_do_not_reappear() {
             .zapper
             .queued
     );
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<Menu>().selected, 1);
+    let ticks = app.world().resource::<Ticks>().0;
+    key(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<Ticks>().0, ticks);
+    assert!(!app.world().resource::<Time<Virtual>>().is_paused());
+    assert!(matches!(
+        app.world().resource::<crate::game::Game>().load,
+        Some(crate::level::LoadReason::Restart)
+    ));
+}
+
+#[test]
+fn menu_wraps_exits_and_resets_on_reopening() {
+    let mut app = app();
+    key(&mut app, KeyCode::KeyP);
+    key(&mut app, KeyCode::ArrowUp);
+    assert_eq!(app.world().resource::<Menu>().selected, 2);
+    key(&mut app, KeyCode::KeyP);
+    key(&mut app, KeyCode::KeyP);
+    assert_eq!(app.world().resource::<Menu>().selected, 0);
+    key(&mut app, KeyCode::ArrowDown);
+    key(&mut app, KeyCode::ArrowDown);
+    key(&mut app, KeyCode::Space);
+    assert!(
+        app.world()
+            .resource::<Messages<AppExit>>()
+            .iter_current_update_messages()
+            .any(|exit| matches!(exit, AppExit::Success))
+    );
+}
+
+#[test]
+fn restart_key_no_longer_restarts_or_resumes() {
+    let mut app = app();
     key(&mut app, KeyCode::KeyR);
+    assert!(app.world().resource::<crate::game::Game>().load.is_none());
+    key(&mut app, KeyCode::KeyP);
+    key(&mut app, KeyCode::KeyR);
+    assert!(app.world().resource::<Time<Virtual>>().is_paused());
+    assert!(app.world().resource::<crate::game::Game>().load.is_none());
+}
+
+#[test]
+fn game_over_accepts_any_fresh_key_including_pause_and_escape() {
+    for button in [
+        KeyCode::KeyQ,
+        KeyCode::Enter,
+        KeyCode::KeyP,
+        KeyCode::Escape,
+    ] {
+        let mut app = app();
+        app.world_mut().resource_mut::<crate::game::Game>().status = crate::game::Status::GameOver;
+        key(&mut app, button);
+        assert!(matches!(
+            app.world().resource::<crate::game::Game>().load,
+            Some(crate::level::LoadReason::Restart)
+        ));
+        assert!(!app.world().resource::<Time<Virtual>>().is_paused());
+        assert!(
+            app.world()
+                .resource::<ButtonInput<KeyCode>>()
+                .get_just_pressed()
+                .next()
+                .is_none()
+        );
+    }
+}
+
+#[test]
+fn held_buttons_do_not_dismiss_game_over_but_unmapped_controller_buttons_do() {
+    let mut app = app();
+    key(&mut app, KeyCode::Space);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Space);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .clear();
+    app.world_mut().resource_mut::<crate::game::Game>().status = crate::game::Status::GameOver;
+    app.update();
+    assert!(app.world().resource::<crate::game::Game>().load.is_none());
+    let mut pad = Gamepad::default();
+    pad.digital_mut()
+        .press(bevy::input::gamepad::GamepadButton::North);
+    app.world_mut().spawn(pad);
+    app.update();
+    assert!(matches!(
+        app.world().resource::<crate::game::Game>().load,
+        Some(crate::level::LoadReason::Restart)
+    ));
+}
+
+#[test]
+fn controller_can_pause_choose_restart_and_confirm() {
+    use bevy::input::gamepad::GamepadButton;
+    let mut app = app();
+    crate::gamepad::add_systems(&mut app);
+    let pad = app.world_mut().spawn(Gamepad::default()).id();
+    for button in [
+        GamepadButton::Start,
+        GamepadButton::DPadDown,
+        GamepadButton::South,
+    ] {
+        app.world_mut()
+            .get_mut::<Gamepad>(pad)
+            .unwrap()
+            .digital_mut()
+            .press(button);
+        app.update();
+        app.world_mut()
+            .get_mut::<Gamepad>(pad)
+            .unwrap()
+            .digital_mut()
+            .reset(button);
+        app.update();
+    }
+    assert!(matches!(
+        app.world().resource::<crate::game::Game>().load,
+        Some(crate::level::LoadReason::Restart)
+    ));
     assert!(!app.world().resource::<Time<Virtual>>().is_paused());
 }
 

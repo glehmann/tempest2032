@@ -302,12 +302,6 @@ pub(crate) fn check_game(
     }
 }
 
-pub(crate) fn restart_game(keys: Res<ButtonInput<KeyCode>>, mut game: ResMut<Game>) {
-    if keys.just_pressed(KeyCode::KeyR) {
-        game.load = Some(LoadReason::Restart);
-    }
-}
-
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn load_level(
     mut commands: Commands,

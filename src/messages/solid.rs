@@ -29,6 +29,7 @@ struct FrameKey {
     game_over: Option<u32>,
     viewport: f32,
     paused: bool,
+    pause_choice: usize,
     views: Vec<(Mat4, Option<Vec2>)>,
 }
 
@@ -115,12 +116,14 @@ fn setup(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw(
     messages: Res<Messages>,
     glyphs: Res<Glyphs>,
     mut graphics: ResMut<Graphics>,
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time<Virtual>>,
+    menu: Res<crate::pause::Menu>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform), geometry::GameCameras>,
 ) {
@@ -140,6 +143,7 @@ fn draw(
         game_over: messages.game_over.map(|a| a.age),
         viewport,
         paused: time.is_paused(),
+        pause_choice: menu.selected,
         views: cameras
             .iter()
             .map(|(c, p)| (p.to_matrix(), c.logical_viewport_size()))
@@ -272,7 +276,50 @@ fn draw(
             }
         }
     }
-    let paused = paused_geometry(&glyphs, viewport, time.is_paused());
+    let mut paused = paused_geometry(&glyphs, viewport, time.is_paused());
+    if time.is_paused() {
+        let fit = ((viewport - 24.) / 174.).clamp(0.01, 1.);
+        for (row, text) in crate::pause::CHOICES.iter().enumerate() {
+            let selected = row == menu.selected;
+            let scale = 0.65 * fit;
+            let left = -(text.len() as f32 * ADVANCE - 2.) * scale / 2.;
+            for (index, character) in text.chars().enumerate() {
+                paused.extend(
+                    glyphs
+                        .get(
+                            character,
+                            if selected { Style::Gold } else { Style::Chrome },
+                        )
+                        .triangles
+                        .iter()
+                        .map(|triangle| {
+                            triangle.map(|(p, color)| {
+                                (
+                                    Vec3::new(
+                                        left + (index as f32 * ADVANCE + p.x) * scale,
+                                        5. - row as f32 * 25. - p.y * scale,
+                                        60. + p.z * scale,
+                                    ),
+                                    color,
+                                )
+                            })
+                        }),
+                );
+            }
+            if selected {
+                let color = crate::cry::color(0x8f, 255);
+                for side in [-1., 1.] {
+                    let x = side * (text.len() as f32 * ADVANCE * scale / 2. + 10. * fit);
+                    let y = 5. - row as f32 * 25. - 9. * scale;
+                    paused.push([
+                        (Vec3::new(x - side * 4. * fit, y, 61.), color),
+                        (Vec3::new(x + side * 2. * fit, y + 4. * fit, 61.), color),
+                        (Vec3::new(x + side * 2. * fit, y - 4. * fit, 61.), color),
+                    ]);
+                }
+            }
+        }
+    }
     for (handle, triangles) in [
         (&graphics.banner, banner),
         (&graphics.rewards, rewards),

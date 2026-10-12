@@ -7,7 +7,6 @@ fn every_action_has_a_controller_binding() {
         (GamepadButton::East, KeyCode::KeyJ),
         (GamepadButton::West, KeyCode::KeyZ),
         (GamepadButton::Start, KeyCode::KeyP),
-        (GamepadButton::Select, KeyCode::KeyR),
         (GamepadButton::DPadLeft, KeyCode::ArrowLeft),
         (GamepadButton::DPadRight, KeyCode::ArrowRight),
         (GamepadButton::DPadUp, KeyCode::ArrowUp),
@@ -21,6 +20,7 @@ fn every_action_has_a_controller_binding() {
     }
     for button in [
         GamepadButton::North,
+        GamepadButton::Select,
         GamepadButton::Mode,
         GamepadButton::LeftThumb,
     ] {

@@ -13,7 +13,6 @@ use crate::game::Status;
 use crate::game::check_game;
 use crate::game::controlling;
 use crate::game::load_level;
-use crate::game::restart_game;
 use crate::glider::Glider;
 use crate::glider::move_glider;
 use crate::level::Level;
@@ -119,10 +118,7 @@ fn app() -> App {
         )
             .chain(),
     )
-    .add_systems(
-        Update,
-        (load_level.after(restart_game), entry::draw, draw).chain(),
-    );
+    .add_systems(Update, (load_level, entry::draw, draw).chain());
     app.world_mut().spawn((
         Glider {
             progress: START_PROGRESS,
@@ -315,12 +311,9 @@ fn all_configured_levels_advance_through_the_exit_and_wrap_to_one() {
 #[test]
 fn restart_cancels_the_flight_and_restores_normal_stars() {
     let mut app = app();
-    app.add_systems(Update, restart_game.before(entry::draw).before(draw));
     ticks(&mut app, 200);
     assert!(app.world().resource::<Game>().exit.is_some());
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyR);
+    app.world_mut().resource_mut::<Game>().load = Some(crate::level::LoadReason::Restart);
     app.world_mut().run_schedule(Update);
     assert!(app.world().resource::<Game>().exit.is_none());
     assert!(app.world().resource::<Game>().status == Status::Entering);

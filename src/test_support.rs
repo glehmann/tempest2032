@@ -15,7 +15,6 @@ use crate::game::Game;
 use crate::game::Status;
 use crate::game::check_game;
 use crate::game::load_level;
-use crate::game::restart_game;
 use crate::glider::Glider;
 use crate::glider::move_glider;
 use crate::level::Level;
@@ -119,10 +118,7 @@ pub(crate) fn app() -> App {
                 .chain()
                 .before(check_game),
         )
-        .add_systems(
-            FixedUpdate,
-            load_level.after(check_game).after(restart_game),
-        );
+        .add_systems(FixedUpdate, load_level.after(check_game));
     app.world_mut().spawn((
         Glider {
             progress: START_PROGRESS,

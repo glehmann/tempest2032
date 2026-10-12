@@ -6,6 +6,7 @@ fn app() -> App {
         .init_resource::<super::super::font::Font>()
         .init_resource::<Messages>()
         .init_resource::<Time<Virtual>>()
+        .init_resource::<crate::pause::Menu>()
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
         .add_systems(Startup, setup)
@@ -67,6 +68,35 @@ fn paused_word_is_gold_and_red_geometry_and_has_no_mouse_controls_or_dimmed_pane
             .count_vertices(),
         0
     );
+}
+
+#[test]
+fn pause_selection_redraws_even_while_the_message_clock_is_frozen() {
+    let mut app = app();
+    app.world_mut().resource_mut::<Time<Virtual>>().pause();
+    app.update();
+    let handle = app.world().resource::<Graphics>().pause.clone();
+    let before = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&handle)
+        .unwrap()
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .unwrap()
+        .clone();
+    app.world_mut()
+        .resource_mut::<crate::pause::Menu>()
+        .selected = 1;
+    app.update();
+    let after = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&handle)
+        .unwrap()
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .unwrap();
+    assert_ne!(&before, after);
+    assert_eq!(app.world().resource::<Messages>().clock, 0);
 }
 
 #[test]

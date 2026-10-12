@@ -31,7 +31,6 @@ fn button_key(button: GamepadButton) -> Option<KeyCode> {
         GamepadButton::West => KeyCode::KeyZ,
         GamepadButton::RightTrigger | GamepadButton::RightTrigger2 => KeyCode::KeyZ,
         GamepadButton::Start => KeyCode::KeyP,
-        GamepadButton::Select => KeyCode::KeyR,
         GamepadButton::DPadLeft => KeyCode::ArrowLeft,
         GamepadButton::DPadRight => KeyCode::ArrowRight,
         GamepadButton::DPadUp => KeyCode::ArrowUp,

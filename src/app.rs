@@ -28,7 +28,7 @@ use crate::{
     },
     explosion,
     frame_pacing::warn_late_frames,
-    game::{Game, Status, check_game, controlling, load_level, restart_game},
+    game::{Game, Status, check_game, controlling, load_level},
     glider::{animate_glider, move_glider},
     hud::{FpsMeter, spawn_fps_label, update_fps, update_hud},
     level::{Level, Levels},
@@ -359,7 +359,6 @@ fn add_systems(app: &mut App) {
             (
                 fit_camera.run_if(normal_scene),
                 quit_on_escape,
-                restart_game,
                 load_level,
                 update_hud,
             )
@@ -387,7 +386,6 @@ fn add_systems(app: &mut App) {
             Update,
             powerups::superzapper::draw
                 .after(fit_camera)
-                .after(restart_game)
                 .after(load_level),
         )
         .add_systems(
@@ -398,10 +396,10 @@ fn add_systems(app: &mut App) {
             Update,
             (
                 powerups::draw_powerups.after(fit_camera),
-                entry::draw.after(restart_game),
-                exit::draw.after(restart_game),
-                shot_death::draw.after(restart_game),
-                spikers::draw.after(restart_game),
+                entry::draw.after(load_level),
+                exit::draw.after(load_level),
+                shot_death::draw.after(load_level),
+                spikers::draw.after(load_level),
             ),
         );
 }

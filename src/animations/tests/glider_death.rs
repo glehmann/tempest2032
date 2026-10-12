@@ -12,7 +12,6 @@ use crate::game::Status;
 use crate::game::check_game;
 use crate::game::controlling;
 use crate::game::load_level;
-use crate::game::restart_game;
 use crate::glider::Glider;
 use crate::glider::move_glider;
 use crate::level::Level;
@@ -93,10 +92,7 @@ fn app(lives: u8) -> App {
         )
             .chain(),
     )
-    .add_systems(
-        Update,
-        (load_level.after(restart_game), entry::draw, draw).chain(),
-    );
+    .add_systems(Update, (load_level, entry::draw, draw).chain());
     app.world_mut().spawn((
         Glider {
             progress: START_PROGRESS,
@@ -272,11 +268,8 @@ fn the_last_life_is_lost_only_after_the_full_animation() {
 #[test]
 fn restart_cancels_the_explosion_and_restores_the_camera() {
     let mut app = app(3);
-    app.add_systems(Update, restart_game.before(entry::draw).before(draw));
     ticks(&mut app, 80);
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyR);
+    app.world_mut().resource_mut::<Game>().load = Some(crate::level::LoadReason::Restart);
     app.world_mut().run_schedule(Update);
     assert!(app.world().resource::<Game>().death.is_none());
     assert!(app.world().resource::<Game>().status == Status::Entering);

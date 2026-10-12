@@ -76,11 +76,7 @@ pub(crate) fn queue(
     mut upgrades: ResMut<Upgrades>,
 ) {
     let zapper = &mut upgrades.zapper;
-    if game.status == Status::Playing
-        && !keys.just_pressed(KeyCode::KeyR)
-        && zapper.uses > 0
-        && !zapper.active
-    {
+    if game.status == Status::Playing && zapper.uses > 0 && !zapper.active {
         zapper.queued |= keys.just_pressed(KeyCode::KeyZ);
     }
 }

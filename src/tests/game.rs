@@ -8,7 +8,6 @@ use crate::game::Game;
 use crate::game::Status;
 use crate::game::check_game;
 use crate::game::playing;
-use crate::game::restart_game;
 use crate::glider::Glider;
 use crate::glider::move_glider;
 use crate::level::Level;
@@ -235,7 +234,7 @@ fn capture_preserves_both_poses_then_retreats_the_camera_before_losing_a_life() 
 #[test]
 fn restarting_during_capture_restores_the_camera_and_cancels_the_animation() {
     let mut app = app();
-    app.add_systems(FixedUpdate, (check_game, restart_game).chain());
+    app.add_systems(FixedUpdate, check_game);
     let camera_start = camera_position(glider_transform(START_PROGRESS).translation);
     let camera = app
         .world_mut()
@@ -248,9 +247,7 @@ fn restarting_during_capture_restores_the_camera_and_cancels_the_animation() {
     ticks(&mut app, 82);
     assert!(app.world().resource::<Game>().status == Status::Captured);
     assert!(app.world().get::<Transform>(camera).unwrap().translation.z > camera_start.z);
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyR);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
     ticks(&mut app, 1);
     assert!(app.world().resource::<Game>().status == Status::Entering);
     assert!(app.world().resource::<Game>().capture.is_none());
@@ -259,9 +256,6 @@ fn restarting_during_capture_restores_the_camera_and_cancels_the_animation() {
         app.world().get::<Transform>(camera).unwrap().translation,
         camera_start
     );
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .release(KeyCode::KeyR);
     ticks(&mut app, 150);
     assert_eq!(app.world().resource::<Game>().lives, 3);
 }
@@ -326,7 +320,6 @@ fn completion_requires_no_remaining_spawns_and_no_live_enemies() {
 #[test]
 fn restart_clears_enemies_shots_score_and_game_over() {
     let mut app = app();
-    app.add_systems(FixedUpdate, restart_game);
     app.world_mut().resource_mut::<Game>().status = Status::GameOver;
     app.world_mut().resource_mut::<Game>().score = 150;
     enemy(&mut app, 3, REAR, Motion::Climb);
@@ -340,9 +333,7 @@ fn restart_clears_enemies_shots_score_and_game_over() {
     );
     app.world_mut().flush();
     app.world_mut().spawn(Bullet { lane: 2 });
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyR);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Game>().score, 0);
     assert_eq!(app.world().resource::<Game>().lives, 3);

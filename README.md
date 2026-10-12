@@ -45,8 +45,14 @@ diagnostic information. Development builds retain their normal diagnostics.
 Press `P` or the keyboard's `Pause` key to pause
 and resume. Pausing freezes gameplay, animations, timers, and audio, and shows
 the original-style red-and-gold PAUSED lettering over the frozen scene.
+The pause menu offers Resume, Restart, and Exit, with Resume selected each time
+it opens. Use up/down arrows or W/S to choose, then Enter or Space to confirm.
+Restart returns to level one with a fresh score and lives.
 Press `P` or `Pause` again to resume.
-`R` restarts and resumes the game; `Esc` still quits.
+`Esc` resumes while paused and quits during gameplay.
+On the game-over panel, press any key, controller button, or mouse button to
+start again at level one. Buttons already held when game over appears do not
+dismiss it.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
@@ -773,8 +779,8 @@ camera, excluded from gameplay camera movement and projection systems.
 | J or Shift | Jump, after collecting the jump upgrade |
 | Z | Superzapper |
 | P or Pause | Pause or resume |
-| R | Restart level one |
-| Escape | Quit |
+| Up/down arrows or W/S, then Enter or Space | Select and confirm a pause-menu option |
+| Escape | Resume while paused; quit during gameplay |
 
 Controllers work alongside the keyboard through `gilrs`. Buttons are read by
 their Xbox position, so a PlayStation pad behaves the same way:
@@ -786,7 +792,7 @@ their Xbox position, so a PlayStation pad behaves the same way:
 | B, left trigger, or left bumper | Jump, after collecting the jump upgrade |
 | X, right trigger, or right bumper | Superzapper |
 | Start | Pause or resume |
-| Select | Restart level one |
+| D-pad up/down or left stick up/down, then A | Select and confirm a pause-menu option |
 
 Hold a movement key to accelerate around the rim. The 60 Hz simulation uses
 the original 16:16 movement values, acceleration `0x400` per tick and maximum
