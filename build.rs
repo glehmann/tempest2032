@@ -1,6 +1,16 @@
 use std::{env, fs, path::PathBuf};
 
 fn main() {
+    #[cfg(windows)]
+    {
+        println!("cargo:rerun-if-changed=packaging/windows/icon.ico");
+        winresource::WindowsResource::new()
+            .set_icon("packaging/windows/icon.ico")
+            .set("ProductName", "Tempest 2032")
+            .set("FileDescription", "Tempest 2032")
+            .compile()
+            .expect("could not embed Windows application resources");
+    }
     let directory = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("levels");
     println!("cargo:rerun-if-changed={}", directory.display());
     let mut paths: Vec<_> = fs::read_dir(&directory)

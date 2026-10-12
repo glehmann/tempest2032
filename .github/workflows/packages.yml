@@ -1,0 +1,150 @@
+name: Application packages
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Package ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            platform: windows
+            executable: tempest2032.exe
+          - name: macos-arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            platform: macos
+            executable: tempest2032
+          - name: linux-x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            executable: tempest2032
+          - name: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            platform: linux
+            executable: tempest2032
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      PACKAGE_PLATFORM: ${{ matrix.platform }}
+      EXECUTABLE: ${{ matrix.executable }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential pkg-config libasound2-dev libudev-dev \
+            libx11-dev libxi-dev libxrandr-dev libxcursor-dev \
+            libxkbcommon-dev libwayland-dev
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --target "$BUILD_TARGET"
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: packages-${{ matrix.target }}
+          cmd-format: rustup run stable {0}
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+      - name: Build standalone application
+        run: cargo +stable build --locked --release --target "$BUILD_TARGET"
+      - name: Verify package layouts
+        if: runner.os == 'Linux'
+        run: python3 -m unittest discover -s tools -p test_package.py
+      - name: Package application
+        run: |
+          python tools/package.py "$PACKAGE_PLATFORM" --target "$BUILD_TARGET" \
+            --binary "target/$BUILD_TARGET/release/$EXECUTABLE" --output target/packages
+      - name: Upload application package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tempest2032-${{ matrix.name }}
+          path: |
+            target/packages/*.exe
+            target/packages/*.dmg
+            target/packages/*.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+
+  flatpak:
+    name: Package Flatpak ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    defaults:
+      run:
+        shell: bash
+    env:
+      FLATPAK_ARCH: ${{ matrix.arch }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Flatpak build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y flatpak flatpak-builder
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install --noninteractive flathub \
+            "org.freedesktop.Platform/$FLATPAK_ARCH/25.08" \
+            "org.freedesktop.Sdk/$FLATPAK_ARCH/25.08" \
+            "org.freedesktop.Sdk.Extension.rust-stable/$FLATPAK_ARCH/25.08"
+      - name: Prepare offline dependencies and Flathub manifest
+        run: python3 tools/package.py flatpak --revision "$GITHUB_SHA" --output target/flatpak-package
+      - name: Build Flatpak application
+        run: |
+          flatpak-builder --user --force-clean --repo=target/flatpak-repo \
+            target/flatpak-build target/flatpak-package/local.json
+          flatpak build-bundle --arch="$FLATPAK_ARCH" \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+            target/flatpak-repo "target/flatpak-package/tempest2032-linux-$FLATPAK_ARCH.flatpak" \
+            io.github.glehmann.Tempest2032
+      - name: Upload Flatpak and Flathub submission files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tempest2032-flatpak-${{ matrix.arch }}
+          path: |
+            target/flatpak-package/*.flatpak
+            target/flatpak-package/flathub-submission.tar.gz
+          if-no-files-found: error
+          retention-days: 3

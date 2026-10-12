@@ -1,5 +1,7 @@
 //! Parse the command line, install a Steam shortcut, or start the Bevy game.
 
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use clap::Parser;
 
 #[cfg(unix)]

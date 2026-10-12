@@ -107,6 +107,72 @@ Set `GH_TOKEN` to enable its online audits; local checks work without a token.
 The workflows use read-only repository permissions and pinned action commits,
 and do not persist checkout credentials.
 
+## Application packages
+
+`.github/workflows/packages.yml` runs on pushes, pull requests, and manual
+dispatches. It builds optimized packages on native runners for Windows x86_64,
+macOS arm64, and Linux x86_64/arm64. Each job uploads its packages as an Actions
+artifact with a three-day retention period. It does not publish GitHub Releases.
+
+`tools/package.py` packages the standalone binary:
+
+- Windows uses the runner's Inno Setup 6 installation and
+  `packaging/windows/installer.iss`. Installation is per-user, with a Start menu
+  entry, an optional desktop shortcut, upgrades in place, and an uninstaller.
+  Release executables use the Windows GUI subsystem and embed the application icon.
+- macOS creates a versioned `.app` with an icon and bundle metadata, applies an
+  ad-hoc signature, and places it beside an Applications symlink in a compressed
+  DMG. No installer or administrator access is needed. Publisher signing and
+  notarization are not configured.
+- Linux archives contain the executable, icon, and short usage instructions.
+  They are built on Ubuntu 24.04 and require glibc 2.39 or newer. Flatpak is the
+  alternative for distributions with older system libraries.
+
+The icon files are committed so builds need no image-conversion dependencies.
+Regenerate them with `uv run tools/package_icons.py`.
+
+For example, after a native release build on Linux:
+
+```sh
+python3 tools/package.py linux --target x86_64-unknown-linux-gnu \
+  --binary target/release/tempest2032 --output target/packages
+```
+
+### Flatpak and Flathub
+
+The Flatpak jobs build `io.github.glehmann.Tempest2032` for x86_64 and aarch64
+inside the Freedesktop 25.08 SDK using its Rust extension. Build commands run
+offline. `tools/package.py flatpak` generates crate download sources and checksums
+from `Cargo.lock`, plus a source manifest pinned to the workflow's commit. The
+current generator supports crates.io dependencies and rejects other sources.
+The local CI manifest builds the checked-out tree, including pull-request changes.
+
+The sandbox allows display, audio, GPU, and controller access. Device access uses
+`--device=all` for compatibility with the Flatpak version on Ubuntu 24.04; no
+host-filesystem or network access is requested. Steam installation is not exposed
+inside the sandbox.
+
+Each job uploads a `.flatpak` bundle and `flathub-submission.tar.gz`, containing
+the pinned source manifest and `cargo-sources.json`. For Flathub submission,
+extract these files into the proposed Flathub application repository and follow
+[Flathub's submission process](https://docs.flathub.org/docs/for-app-authors/submission/).
+Use a commit available in the upstream repository, rather than a pull-request
+merge commit. Flathub publication is separate from building bundles in Actions.
+The metadata uses `LicenseRef-proprietary` because the repository has no
+application license declaration; update it if an application license is added.
+Update the AppStream release metadata when changing the Cargo package version.
+
+To build a bundle locally, install Flatpak, flatpak-builder, and the matching
+Freedesktop runtime, SDK, and Rust extension, then run:
+
+```sh
+python3 tools/package.py flatpak --revision FULL_COMMIT_ID --output target/flatpak-package
+flatpak-builder --user --force-clean --repo=target/flatpak-repo \
+  target/flatpak-build target/flatpak-package/local.json
+flatpak build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+  target/flatpak-repo target/tempest2032.flatpak io.github.glehmann.Tempest2032
+```
+
 ## Steam installation
 
 Run the executable you want to install:

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.glehmann.Tempest2032</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Tempest 2032</name>
+  <summary>An arcade tube shooter with graphics for modern hardware</summary>
+  <developer id="io.github.glehmann">
+    <name>glehmann</name>
+  </developer>
+  <description>
+    <p>Tempest 2032 is a Tempest 2000 clone with graphics for modern hardware.
+    Fight through 100 webs, collect weapon and movement upgrades, and fly
+    through three kinds of warp-zone bonus stages.</p>
+    <p>Play with a keyboard or controller. All levels, sound effects, and music
+    are included, so you can start playing immediately.</p>
+  </description>
+  <launchable type="desktop-id">io.github.glehmann.Tempest2032.desktop</launchable>
+  <url type="homepage">https://github.com/glehmann/tempest2032</url>
+  <url type="bugtracker">https://github.com/glehmann/tempest2032/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Level 9 with the sine-wave web, enemies, and explosion rings</caption>
+      <image>https://raw.githubusercontent.com/glehmann/tempest2032/main/assets/steam/gameplay.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-10-12"/>
+  </releases>
+</component>

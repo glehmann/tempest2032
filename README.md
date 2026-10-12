@@ -10,8 +10,33 @@ high-resolution displays.
 
 ## Install and play
 
-Install [Rust](https://rustup.rs/) 1.89 or newer, download the source, and run
-from the project directory:
+Download a package from a successful [Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
+run. Expand **Artifacts** at the bottom of the run page; downloads require a GitHub
+account and remain available for three days. Extract the downloaded artifact ZIP,
+then:
+
+- **Windows:** run the setup `.exe`. It installs for your account and adds a Start
+  menu shortcut. No administrator access is required.
+- **macOS, Apple Silicon:** open the `.dmg`, drag **Tempest 2032** into
+  **Applications**, and open it from there.
+- **Linux, x86_64 or arm64:** extract the `.tar.gz`, copy its folder anywhere,
+  and run `tempest2032`. The tarball needs glibc 2.39 or newer and system audio,
+  display, and graphics libraries.
+- **Linux Flatpak:** open the `.flatpak` bundle in your software center, or run
+  `flatpak install --user ./tempest2032-linux-x86_64.flatpak`, using the arm64
+  bundle on arm64 machines. Launch **Tempest 2032** from your applications menu.
+
+The macOS app and Windows installer are not publisher-signed yet. On macOS,
+use **Open Anyway** in System Settings → Privacy & Security if Gatekeeper blocks
+the downloaded app.
+
+All game assets and levels are included. Linux needs a graphical desktop and a
+Vulkan-capable graphics driver. Flathub submission files are built alongside the
+Flatpak bundles; the app is not yet published on Flathub.
+
+### Build from source
+
+Install [Rust](https://rustup.rs/) 1.89 or newer and run from the source directory:
 
 ```sh
 cargo run --release
@@ -33,8 +58,6 @@ sudo apt install build-essential pkg-config libasound2-dev libudev-dev \
   libx11-dev libxi-dev libxrandr-dev libxcursor-dev \
   libxkbcommon-dev libwayland-dev
 ```
-
-Linux also needs a graphical desktop and a Vulkan-capable graphics driver.
 
 ### Add to Steam
 

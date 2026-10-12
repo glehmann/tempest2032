@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Tempest 2032
+Comment=An arcade tube shooter with graphics for modern hardware
+Exec=tempest2032
+Icon=io.github.glehmann.Tempest2032
+Terminal=false
+Categories=Game;ArcadeGame;
+Keywords=arcade;shooter;tempest;
