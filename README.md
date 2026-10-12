@@ -91,6 +91,9 @@ their native window backends.
 GitHub Actions builds all Cargo targets and runs the tests on Windows x86_64,
 macOS arm64, Linux x86_64, and Linux arm64 using native runners and stable Rust.
 Checks run on pushes, pull requests, and manual workflow dispatches.
+Cargo downloads and compiled dependencies are cached separately for each target,
+Rust version, and build configuration. Default-branch pushes populate the caches;
+pull requests reuse them. Dependency changes reuse compatible cached artifacts.
 
 The separate zizmor workflow audits GitHub Actions security on pushes, pull
 requests, manual dispatches, and daily at 04:17 UTC. To run the same
