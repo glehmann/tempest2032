@@ -262,11 +262,130 @@ fn install_copies_the_binary_and_preserves_all_existing_shortcut_fields() {
         );
         assert_eq!(game.get("appid").unwrap().as_u32(), Some(installed.app_id));
         assert_eq!(game.get("AppName").unwrap().as_str(), Some("Tempest 2032"));
+        assert_eq!(
+            game.get("icon").unwrap().as_str(),
+            fixture.destination().join("icon.png").to_str()
+        );
         assert_ne!(installed.app_id & 0x8000_0000, 0);
         for flag in ["AllowOverlay", "AllowDesktopConfig"] {
             assert_eq!(game.get(flag).unwrap().as_u32(), Some(1));
         }
     }
+}
+
+#[test]
+fn installation_embeds_artwork_for_every_library_view() {
+    let fixture = Fixture::new(&[42]);
+    let installed = install(
+        &fixture.root,
+        42,
+        &fixture.source,
+        &fixture.destination(),
+        Platform::Linux,
+    )
+    .unwrap();
+    let grid = fixture.shortcuts(42).parent().unwrap().join("grid");
+    for (suffix, expected, dimensions) in [
+        (
+            "",
+            include_bytes!("../../assets/steam/landscape.png").as_slice(),
+            (920, 430),
+        ),
+        (
+            "p",
+            include_bytes!("../../assets/steam/portrait.png").as_slice(),
+            (600, 900),
+        ),
+        (
+            "_hero",
+            include_bytes!("../../assets/steam/hero.png").as_slice(),
+            (1920, 620),
+        ),
+        (
+            "_logo",
+            include_bytes!("../../assets/steam/logo.png").as_slice(),
+            (320, 320),
+        ),
+    ] {
+        let bytes = fs::read(grid.join(format!("{}{suffix}.png", installed.app_id))).unwrap();
+        assert_eq!(bytes, expected);
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+        assert_eq!(
+            u32::from_be_bytes(bytes[16..20].try_into().unwrap()),
+            dimensions.0
+        );
+        assert_eq!(
+            u32::from_be_bytes(bytes[20..24].try_into().unwrap()),
+            dimensions.1
+        );
+    }
+    assert_eq!(
+        fs::read(fixture.destination().join("icon.png")).unwrap(),
+        include_bytes!("../../assets/steam/icon.png")
+    );
+}
+
+#[test]
+fn reinstall_adds_missing_artwork_to_legacy_shortcuts_and_preserves_custom_images() {
+    let fixture = Fixture::new(&[42]);
+    let directory = fixture.destination();
+    let (bytes, _) = shortcut_bytes(None, &directory.join("tempest2032"), Platform::Linux).unwrap();
+    let mut document = Object::parse(&bytes).unwrap();
+    let game = document
+        .get_mut("shortcuts")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .get_mut("0")
+        .unwrap()
+        .as_object_mut()
+        .unwrap();
+    let app_id = 0x8123_4567;
+    game.set(Field::integer("appid", app_id));
+    game.set(Field::string("icon", ""));
+    fs::write(fixture.shortcuts(42), document.bytes()).unwrap();
+    let grid = fixture.shortcuts(42).parent().unwrap().join("grid");
+    fs::create_dir_all(&grid).unwrap();
+    let custom = grid.join(format!("{app_id}p.jpg"));
+    fs::write(&custom, b"custom portrait").unwrap();
+    let installed = install(
+        &fixture.root,
+        42,
+        &fixture.source,
+        &directory,
+        Platform::Linux,
+    )
+    .unwrap();
+    assert_eq!(installed.app_id, app_id);
+    assert_eq!(fs::read(&custom).unwrap(), b"custom portrait");
+    assert!(!grid.join(format!("{app_id}p.png")).exists());
+    assert!(grid.join(format!("{app_id}_logo.png")).exists());
+    let document = Object::parse(&fs::read(fixture.shortcuts(42)).unwrap()).unwrap();
+    let game = document
+        .get("shortcuts")
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .get("0")
+        .unwrap()
+        .as_object()
+        .unwrap();
+    assert_eq!(
+        game.get("icon").unwrap().as_str(),
+        directory.join("icon.png").to_str()
+    );
+    let custom_logo = grid.join(format!("{app_id}_logo.png"));
+    fs::write(&custom_logo, b"custom logo").unwrap();
+    let reinstalled = install(
+        &fixture.root,
+        42,
+        &fixture.source,
+        &directory,
+        Platform::Linux,
+    )
+    .unwrap();
+    assert!(reinstalled.backup.is_none());
+    assert_eq!(fs::read(custom_logo).unwrap(), b"custom logo");
 }
 
 #[test]

@@ -378,6 +378,7 @@ fn install(
             )
         })?;
     }
+    install_artwork(&config, app_id, directory)?;
     let backup = if old.as_deref() == Some(bytes.as_slice()) {
         None
     } else {
@@ -403,6 +404,54 @@ fn install(
         app_id,
         backup,
     })
+}
+
+fn install_artwork(config: &Path, app_id: u32, directory: &Path) -> Result<()> {
+    let grid = config.join("grid");
+    fs::create_dir_all(&grid)?;
+    let icon = directory.join("icon.png");
+    write_missing_artwork(&icon, include_bytes!("../assets/steam/icon.png"))?;
+    for (suffix, bytes) in [
+        (
+            "",
+            include_bytes!("../assets/steam/landscape.png").as_slice(),
+        ),
+        (
+            "p",
+            include_bytes!("../assets/steam/portrait.png").as_slice(),
+        ),
+        (
+            "_hero",
+            include_bytes!("../assets/steam/hero.png").as_slice(),
+        ),
+        (
+            "_logo",
+            include_bytes!("../assets/steam/logo.png").as_slice(),
+        ),
+    ] {
+        let stem = format!("{app_id}{suffix}");
+        if !["png", "jpg", "jpeg", "webp"]
+            .iter()
+            .any(|extension| grid.join(format!("{stem}.{extension}")).exists())
+        {
+            write_missing_artwork(&grid.join(format!("{stem}.png")), bytes)?;
+        }
+    }
+    Ok(())
+}
+
+fn write_missing_artwork(path: &Path, bytes: &[u8]) -> Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    let mut temporary = NamedTempFile::new_in(path.parent().unwrap())?;
+    temporary.write_all(bytes)?;
+    temporary.as_file().sync_all()?;
+    match temporary.persist_noclobber(path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.error.kind() == ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(format!("Could not install Steam artwork {}: {e}", path.display()).into()),
+    }
 }
 
 fn backup_shortcuts(path: &Path, bytes: &[u8]) -> Result<PathBuf> {
@@ -454,6 +503,10 @@ fn same_exe(existing: &str, expected: &str, platform: Platform) -> bool {
 
 fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Result<(Vec<u8>, u32)> {
     let exe = quoted(binary)?;
+    let icon = binary.with_file_name("icon.png");
+    let icon = icon
+        .to_str()
+        .ok_or("Steam icon paths must be valid Unicode")?;
     let start = quoted(
         binary
             .parent()
@@ -497,6 +550,12 @@ fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Resu
         if object.get("AppName").is_none() {
             object.set(Field::string("AppName", "Tempest 2032"));
         }
+        if object
+            .get("icon")
+            .is_none_or(|field| field.as_str() == Some(""))
+        {
+            object.set(Field::string("icon", icon));
+        }
         match object.get("appid") {
             Some(field) => field
                 .as_u32()
@@ -513,7 +572,7 @@ fn shortcut_bytes(old: Option<&[u8]>, binary: &Path, platform: Platform) -> Resu
             ("AppName", "Tempest 2032"),
             ("Exe", exe.as_str()),
             ("StartDir", start.as_str()),
-            ("icon", ""),
+            ("icon", icon),
             ("ShortcutPath", ""),
             ("LaunchOptions", "--fullscreen"),
             ("DevkitGameID", ""),

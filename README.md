@@ -116,8 +116,23 @@ All game assets and levels are embedded, so the installed executable runs
 independently of the source tree or downloaded copy. Re-running the command
 updates that installed copy while retaining its Steam shortcut ID, custom name,
 launch options, working directory, icon, tags, and other existing settings.
+The installer also adds the simplified favicon as the shortcut icon and the
+square spectrum portal as Steam library artwork: landscape and portrait covers,
+a hero background, and a transparent logo. Images are embedded in the executable
+and installed into the selected account's `userdata/<account>/config/grid/` directory using the
+shortcut ID. Existing custom artwork and nonempty shortcut icons are preserved;
+re-running the installer fills missing artwork and adds an icon to older shortcuts.
+The hero background is a wide level 9 gameplay screenshot with the sine-wave blue
+web, gold claw, enemies, and explosion rings, without HUD or announcement overlays.
 Running it from the installed copy also works and skips copying onto itself.
 Unix executable permissions are preserved.
+
+To regenerate the embedded PNG artwork from the SVGs in `logos/`, run
+`uv run tools/steam_artwork.py`. This needs Python, Cairo, and fonts for the
+cover captions; `uv` installs the script's Python dependencies. Normal builds and
+installation use the bundled PNGs and need no image conversion tools.
+The hero is generated from `assets/steam/gameplay.png`; to replace that source,
+run `uv run tools/steam_artwork.py --hero-source /path/to/screenshot.png`.
 
 If detection is ambiguous or Steam is installed in a custom location, use:
 
