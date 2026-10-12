@@ -100,17 +100,20 @@ fn level_25_introduces_fuseball_tankers_on_the_curved_l() {
     assert_eq!(tankers.climb_speed, 0x9000);
     assert_eq!(level.pulsars.unwrap().phase_ticks, 7);
     assert_eq!(level.powerups.kill_interval, 8);
+}
+
+#[test]
+fn fuseball_tankers_require_child_settings_with_either_line_ending() {
     let source = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/25.toml"));
-    let invalid = source.replace(
-        "[fuseballs]\nfirst_spawn_ticks = 351\nspawn_interval_ticks = 701\nclimb_speed = 0.6875\n",
-        "",
-    );
-    assert!(
-        Level::parse(&invalid, "invalid")
+    let mut definition: toml::Table = toml::from_str(source).unwrap();
+    assert!(definition.remove("fuseballs").is_some());
+    let invalid = toml::to_string(&definition).unwrap();
+    for invalid in [invalid.clone(), invalid.replace('\n', "\r\n")] {
+        let error = Level::parse(&invalid, "invalid")
             .err()
-            .unwrap()
-            .contains("released children")
-    );
+            .expect("Fuseball Tankers without child settings must fail validation");
+        assert!(error.contains("released children"), "{error}");
+    }
 }
 
 #[test]
