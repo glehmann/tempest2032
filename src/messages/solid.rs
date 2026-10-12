@@ -26,7 +26,6 @@ struct FrameKey {
     clock: u32,
     banner: Option<(Id, u32)>,
     rewards: Vec<(Id, u32, Option<Vec3>)>,
-    game_over: Option<u32>,
     viewport: f32,
     paused: bool,
     pause_choice: usize,
@@ -133,21 +132,28 @@ fn draw(
         .map_or(384., |w| 240. * w.width() / w.height().max(1.));
     let key = FrameKey {
         epoch: messages.epoch,
-        clock: messages.clock,
+        clock: if messages.banner.is_some() {
+            messages.clock
+        } else {
+            0
+        },
         banner: messages.banner.map(|a| (a.event.id, a.age)),
         rewards: messages
             .rewards
             .iter()
             .map(|a| (a.event.id, a.age, a.event.origin))
             .collect(),
-        game_over: messages.game_over.map(|a| a.age),
         viewport,
         paused: time.is_paused(),
         pause_choice: menu.selected,
-        views: cameras
-            .iter()
-            .map(|(c, p)| (p.to_matrix(), c.logical_viewport_size()))
-            .collect(),
+        views: if messages.rewards.iter().any(|a| a.event.origin.is_some()) {
+            cameras
+                .iter()
+                .map(|(c, p)| (p.to_matrix(), c.logical_viewport_size()))
+                .collect()
+        } else {
+            Vec::new()
+        },
     };
     if graphics.last.as_ref() == Some(&key) {
         return;
@@ -200,7 +206,7 @@ fn draw(
                 } else {
                     banner.extend(
                         glyph
-                            .fragments
+                            .fragments()
                             .iter()
                             .map(|f| f.triangle.map(|(p, c)| (transform(p, f.center), c))),
                     );
@@ -320,12 +326,29 @@ fn draw(
             }
         }
     }
-    for (handle, triangles) in [
-        (&graphics.banner, banner),
-        (&graphics.rewards, rewards),
-        (&graphics.pause, paused),
+    for (handle, triangles, was_visible) in [
+        (
+            &graphics.banner,
+            banner,
+            graphics.last.as_ref().is_some_and(|k| k.banner.is_some()),
+        ),
+        (
+            &graphics.rewards,
+            rewards,
+            graphics
+                .last
+                .as_ref()
+                .is_some_and(|k| !k.rewards.is_empty()),
+        ),
+        (
+            &graphics.pause,
+            paused,
+            graphics.last.as_ref().is_some_and(|k| k.paused),
+        ),
     ] {
-        *meshes.get_mut(handle).unwrap() = geometry::mesh(triangles);
+        if was_visible || !triangles.is_empty() {
+            *meshes.get_mut(handle).unwrap() = geometry::mesh(triangles);
+        }
     }
     graphics.last = Some(key);
 }

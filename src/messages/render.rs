@@ -19,6 +19,7 @@ struct Graphic;
 pub(super) struct Assets {
     mesh: Handle<Mesh>,
     layouts: HashMap<super::Id, Vec<GlyphTriangle>>,
+    visible: bool,
 }
 
 #[cfg(test)]
@@ -137,6 +138,7 @@ pub(super) fn setup(
     commands.insert_resource(Assets {
         mesh,
         layouts: HashMap::new(),
+        visible: false,
     });
 }
 
@@ -226,9 +228,14 @@ pub(super) fn draw(
             }
         }
     }
-    if let Some(mesh) = meshes.get_mut(&assets.mesh) {
+    let visible = !triangles.is_empty();
+    if (visible || assets.visible)
+        && let Some(mesh) = meshes.get_mut(&assets.mesh)
+    {
         *mesh = message_mesh(triangles);
+        mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
     }
+    assets.visible = visible;
 }
 
 fn cell_point(point: Vec2, center: Vec2, scale: Vec2, shear: f32) -> Vec2 {

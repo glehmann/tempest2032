@@ -6,6 +6,7 @@ use lyon_tessellation::{
     path::Path,
 };
 use std::collections::{BTreeMap, HashMap};
+use std::sync::OnceLock;
 
 pub(crate) type Triangle = [(Vec3, Color); 3];
 pub(crate) const ADVANCE: f32 = 17.;
@@ -30,7 +31,14 @@ pub(super) struct Fragment {
 
 pub(crate) struct Glyph {
     pub triangles: Vec<Triangle>,
-    pub(super) fragments: Vec<Fragment>,
+    fragments: OnceLock<Box<[Fragment]>>,
+}
+
+impl Glyph {
+    pub(super) fn fragments(&self) -> &[Fragment] {
+        self.fragments
+            .get_or_init(|| fragments(&self.triangles).into_boxed_slice())
+    }
 }
 
 #[derive(Resource)]
@@ -817,7 +825,7 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
     if contours.is_empty() {
         return Glyph {
             triangles: Vec::new(),
-            fragments: Vec::new(),
+            fragments: OnceLock::new(),
         };
     }
     let mut contours = contours.to_vec();
@@ -935,14 +943,14 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
             }
         }
     }
-    let fragments = if paint.style == Style::Chrome && paint.rows.is_empty() {
-        fragments(&triangles)
-    } else {
-        Vec::new()
-    };
+    triangles.shrink_to_fit();
     Glyph {
         triangles,
-        fragments,
+        fragments: if paint.style == Style::Chrome && paint.rows.is_empty() {
+            OnceLock::new()
+        } else {
+            OnceLock::from(Box::default())
+        },
     }
 }
 
@@ -1080,7 +1088,7 @@ pub(crate) fn mesh(triangles: Vec<Triangle>) -> Mesh {
     }
     Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
+        RenderAssetUsages::RENDER_WORLD,
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)

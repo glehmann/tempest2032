@@ -24,6 +24,9 @@ bevy = { version = "0.18", default-features = false, features = [
     "default_font", "bevy_sprite_render", "bevy_audio", "bevy_gilrs", "x11", "wayland", "png", "sysinfo_plugin",
 ] }
 
+[target.'cfg(unix)'.dependencies]
+tikv-jemallocator = "0.6"
+
 [profile.dev]
 opt-level = 1
 

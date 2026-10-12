@@ -2,6 +2,15 @@ use super::*;
 use clap::ValueEnum;
 
 #[test]
+fn glyph_cache_starts_without_fragmentation_and_keeps_no_spare_triangle_capacity() {
+    let glyphs = Glyphs::default();
+    for glyph in glyphs.0.values() {
+        assert_eq!(glyph.triangles.len(), glyph.triangles.capacity());
+        assert!(glyph.fragments.get().is_none_or(|f| f.is_empty()));
+    }
+}
+
+#[test]
 fn score_bodies_have_more_depth_and_visible_extrusion_than_announcements() {
     let contours = outline('0');
     let score = extrude(&contours, &Paint::new(Style::Rainbow));
@@ -108,23 +117,24 @@ fn fragmentation_preserves_surface_area_depth_and_fixed_cell_bounds() {
     let glyph = glyphs.get('A', Style::Chrome);
     let area = |t: &Triangle| (t[1].0 - t[0].0).cross(t[2].0 - t[0].0).length() / 2.;
     let whole: f32 = glyph.triangles.iter().map(area).sum();
-    let pieces: f32 = glyph.fragments.iter().map(|f| area(&f.triangle)).sum();
+    assert!(glyph.fragments.get().is_none());
+    let pieces: f32 = glyph.fragments().iter().map(|f| area(&f.triangle)).sum();
     assert!((whole - pieces).abs() < whole * 0.0001);
-    assert!(glyph.fragments.iter().all(|f| {
+    assert!(glyph.fragments().iter().all(|f| {
         f.triangle
             .iter()
             .all(|(p, _)| (p.truncate() - f.center).abs().max_element() <= 0.501)
     }));
     assert!(
         glyph
-            .fragments
+            .fragments()
             .iter()
             .flat_map(|f| f.triangle)
             .any(|(p, _)| p.z < 0.)
     );
     assert!(
         glyph
-            .fragments
+            .fragments()
             .iter()
             .flat_map(|f| f.triangle)
             .any(|(p, _)| p.z > 0.)

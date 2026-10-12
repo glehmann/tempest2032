@@ -141,6 +141,9 @@ pub(crate) fn run(args: cli::Cli) {
         });
     }
     app.insert_resource(ClearColor(Color::BLACK))
+        // All game materials are unlit; PBR still allocates fallback shadow maps.
+        .insert_resource(bevy::light::PointLightShadowMap { size: 1 })
+        .insert_resource(bevy::light::DirectionalLightShadowMap { size: 1 })
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

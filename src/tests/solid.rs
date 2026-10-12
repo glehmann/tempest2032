@@ -108,15 +108,22 @@ fn sharp_banner_has_geometry_and_disappears_when_replaced_without_growing_asset_
             age: 60,
         });
         app.update();
-        let handle = &app.world().resource::<Graphics>().banner;
+        let handle = app.world().resource::<Graphics>().banner.clone();
         assert!(
             app.world()
                 .resource::<Assets<Mesh>>()
-                .get(handle)
+                .get(&handle)
                 .unwrap()
                 .count_vertices()
                 > 0
         );
+        let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
+        let mesh = meshes.get_mut(&handle).unwrap();
+        assert_eq!(
+            mesh.asset_usage,
+            bevy::asset::RenderAssetUsages::RENDER_WORLD
+        );
+        mesh.take_gpu_data().unwrap();
     }
     app.world_mut().resource_mut::<Messages>().banner = None;
     app.update();

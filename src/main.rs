@@ -2,6 +2,10 @@
 
 use clap::Parser;
 
+#[cfg(unix)]
+#[global_allocator]
+static ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod animations;
 mod app;
 mod camera;
