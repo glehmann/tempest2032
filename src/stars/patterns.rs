@@ -30,7 +30,7 @@ pub(crate) enum Pattern {
 }
 
 impl Pattern {
-    pub(super) fn stars(self, level: usize) -> Vec<Star> {
+    pub(crate) fn stars(self, level: usize) -> Vec<Star> {
         match self {
             Self::Level => {
                 let code = (level.saturating_sub(1) & 255) as u32;

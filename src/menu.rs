@@ -382,11 +382,11 @@ fn setup(mut commands: Commands) {
         .with_children(|root| {
             root.spawn((
                 background::Canvas,
-                ImageNode::default(),
                 Node {
                     position_type: PositionType::Absolute,
                     width: percent(100),
                     height: percent(100),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
             ));

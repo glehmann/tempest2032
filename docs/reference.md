@@ -163,14 +163,15 @@ input has been checked through a simulated browser Gamepad API.
 
 ## Welcome, settings, and high scores
 
-Normal launches open Welcome with the spectrum-portal logo using the same
-15 Hz CRY scale/rotate/fade operation as the game-over view. Text remains sharp
-in front of the feedback. Enter / A starts at level one; P, Pause, or controller
+Normal launches open Welcome with level two's colored star field drifting outward
+behind the menu panel. Welcome, Configuration, and initials entry share this
+real-time background, independent of the gameplay stars. Enter / A starts at
+level one; P, Pause, or controller
 Start opens Configuration. Use up/down to select, left/right to change
 difficulty, and Enter / A to confirm. P / Start or Esc / B returns to Welcome.
 Esc / B on Welcome quits.
 
-Gameplay fixed updates stop on front-end screens, while real-time logo
+Gameplay fixed updates stop on front-end screens, while real-time star
 animation, input, and title music remain live. Gameplay pause still freezes
 virtual time and audio. Transition buttons are consumed, and held controller
 buttons or keyboard auto-repeat cannot confirm the next screen or fire into
