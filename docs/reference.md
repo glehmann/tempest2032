@@ -111,6 +111,8 @@ make web-serve
 ```
 
 Open <http://127.0.0.1:8000> and click Play to enable audio and focus the canvas.
+The canvas fills the window above a small fullscreen/GitHub bar. Controls appear
+in the Play/Resume prompt.
 Enter / controller A then starts a run from Welcome. The Fullscreen button uses
 the browser's fullscreen API. Press a controller button to let the browser detect
 it. Esc on Welcome leaves the game running; close the tab to quit.

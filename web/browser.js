@@ -4,6 +4,7 @@ const overlay = document.querySelector('#overlay');
 const status = document.querySelector('#status');
 const play = document.querySelector('#play');
 const fullscreen = document.querySelector('#fullscreen');
+const controls = '\n\nMove: arrows / A D · Fire: Space / Z\nJump: X · Superzapper: C\nPause / configuration: P · FPS: F3\nConfirm: Enter · Back: Esc\n\nControllers supported. Press a controller button to connect.';
 const audioContexts = new Set();
 let loaded = false;
 let engaged = false;
@@ -43,7 +44,7 @@ window.tempestBrowser = {
   },
   ready: () => {
     loaded = true;
-    status.textContent = 'Ready. Click Play to enable sound and focus the game.';
+    status.textContent = `Click Play to enable sound and focus the game.${controls}`;
     play.disabled = false;
     fullscreen.disabled = false;
   },
@@ -67,7 +68,7 @@ function suspend() {
   engaged = false;
   pendingSuspension = true;
   overlay.hidden = false;
-  status.textContent = 'Game suspended. Click Resume to continue.';
+  status.textContent = `Game suspended. Click Resume to continue.${controls}`;
   play.textContent = 'Resume';
   for (const context of audioContexts) context.suspend().catch(console.warn);
 }
