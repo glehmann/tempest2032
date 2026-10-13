@@ -1,0 +1,63 @@
+name: GitHub release
+
+on:
+  push:
+    tags: ['**']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Test tagged source
+    permissions:
+      contents: read
+    uses: $/.github/workflows/ci.yml
+
+  packages:
+    name: Build release packages
+    needs: checks
+    permissions:
+      contents: read
+    uses: $/.github/workflows/packages.yml
+
+  publish:
+    name: Publish release
+    needs: packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: tempest2032-*
+          path: release-assets
+      - name: Attach packages and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          packages=(
+            release-assets/tempest2032-windows-x86_64/*.exe
+            release-assets/tempest2032-macos-arm64/*.dmg
+            release-assets/tempest2032-linux-*/*.tar.gz
+            release-assets/tempest2032-flatpak-*/*.flatpak
+            release-assets/tempest2032-flatpak-x86_64/flathub-submission.tar.gz
+          )
+          test "${#packages[@]}" -eq 7
+          for package in "${packages[@]}"; do test -s "$package"; done
+          if gh release view --repo "$GITHUB_REPOSITORY" -- "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload --repo "$GITHUB_REPOSITORY" --clobber -- "$RELEASE_TAG" "${packages[@]}"
+          else
+            gh release create --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
+              --title "Tempest 2032 $RELEASE_TAG" --draft -- "$RELEASE_TAG" "${packages[@]}"
+          fi
+          gh release edit --repo "$GITHUB_REPOSITORY" --draft=false -- "$RELEASE_TAG"

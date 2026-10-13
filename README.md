@@ -10,10 +10,10 @@ high-resolution displays.
 
 ## Install and play
 
-Download a package from a successful [Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
-run. Expand **Artifacts** at the bottom of the run page; downloads require a GitHub
-account and remain available for three days. Extract the downloaded artifact ZIP,
-then:
+Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
+Development builds are available under **Artifacts** in successful
+[Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
+runs for three days. Then:
 
 - **Windows:** run the setup `.exe`. It installs for your account and adds a Start
   menu shortcut. No administrator access is required.
@@ -32,8 +32,7 @@ the downloaded app.
 
 Windows shortcuts, the macOS app, and Flatpak start in fullscreen.
 All game assets and levels are included. Linux needs a graphical desktop and a
-Vulkan-capable graphics driver. Flathub submission files are built alongside the
-Flatpak bundles; the app is not yet published on Flathub.
+Vulkan-capable graphics driver.
 
 ### Build from source
 
