@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 import plistlib
+import shutil
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -29,6 +31,11 @@ class Packages(unittest.TestCase):
 
     def test_mac_bundle_and_applications_link_are_inside_dmg_source(self):
         def command(args, **kwargs):
+            if args[0] == "rustc":
+                executable = Path(args[args.index("-o") + 1])
+                executable.write_bytes(b"launcher")
+                executable.chmod(0o755)
+                return
             if args[:2] != ["hdiutil", "create"]:
                 return
             stage = Path(args[args.index("-srcfolder") + 1])
@@ -36,7 +43,8 @@ class Packages(unittest.TestCase):
             with (contents / "Info.plist").open("rb") as file:
                 info = plistlib.load(file)
             self.assertEqual(info["CFBundleIdentifier"], package.APP_ID)
-            self.assertEqual(info["CFBundleExecutable"], "tempest2032")
+            self.assertEqual(info["CFBundleExecutable"], "tempest2032-fullscreen")
+            self.assertTrue((contents / "MacOS/tempest2032-fullscreen").stat().st_mode & 0o111)
             self.assertTrue((contents / "Resources/icon.icns").is_file())
             self.assertEqual((contents / "MacOS/tempest2032").read_bytes(), b"standalone game")
             self.assertEqual((stage / "Applications").readlink(), Path("/Applications"))
@@ -44,13 +52,27 @@ class Packages(unittest.TestCase):
         with patch("package.subprocess.run", side_effect=command) as run:
             package.native("macos", "aarch64-apple-darwin", self.binary, self.output)
         self.assertEqual([call.args[0][0] for call in run.call_args_list],
-                         ["codesign", "codesign", "hdiutil", "hdiutil"])
+                         ["rustc", "codesign", "codesign", "codesign", "hdiutil", "hdiutil"])
+
+    @unittest.skipUnless(shutil.which("sh") and shutil.which("rustc"), "Launcher test requires Rust and a shell")
+    def test_fullscreen_launcher_forwards_arguments_from_a_path_with_spaces(self):
+        directory = self.output / "App With Spaces"
+        directory.mkdir()
+        subprocess.run(["rustc", "--edition=2024", str(package.ROOT / "packaging/fullscreen.rs"),
+                        "-o", str(directory / "tempest2032-fullscreen")], check=True)
+        executable = directory / "tempest2032"
+        executable.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        executable.chmod(0o755)
+        result = subprocess.run([str(directory / "tempest2032-fullscreen"), "--levels", "Custom Levels"],
+                                check=True, capture_output=True, text=True)
+        self.assertEqual(result.stdout.splitlines(), ["--fullscreen", "--levels", "Custom Levels"])
 
     def test_flatpak_dependencies_have_checksums_and_source_is_pinned(self):
         revision = "a" * 40
         package.flatpak(self.output, revision)
         manifest = json.loads((self.output / f"{package.APP_ID}.json").read_text())
         self.assertEqual(manifest["modules"][0]["sources"][0]["commit"], revision)
+        self.assertEqual(manifest["command"], "tempest2032-fullscreen")
         sources = json.loads((self.output / "cargo-sources.json").read_text())
         archives = [source for source in sources if source["type"] == "archive"]
         self.assertGreater(len(archives), 100)
@@ -62,6 +84,10 @@ class Packages(unittest.TestCase):
             self.assertEqual(set(archive.getnames()), {f"{package.APP_ID}.json", "cargo-sources.json"})
 
     def test_windows_installer_is_checked_and_uninstalled(self):
+        installer = (package.ROOT / "packaging/windows/installer.iss").read_text()
+        launch_lines = [line for line in installer.splitlines() if 'Filename: "{app}\\tempest2032.exe"' in line]
+        self.assertEqual(len(launch_lines), 3)
+        self.assertTrue(all('Parameters: "--fullscreen"' in line for line in launch_lines))
         def command(args, **kwargs):
             if "/VERYSILENT" not in args or args[0].endswith("unins000.exe"):
                 return

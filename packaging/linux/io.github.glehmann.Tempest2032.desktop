@@ -2,7 +2,7 @@
 Type=Application
 Name=Tempest 2032
 Comment=An arcade tube shooter with graphics for modern hardware
-Exec=tempest2032
+Exec=tempest2032-fullscreen
 Icon=io.github.glehmann.Tempest2032
 Terminal=false
 Categories=Game;ArcadeGame;

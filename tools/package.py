@@ -51,6 +51,11 @@ def native(platform, target, binary, output):
         elif platform == "macos":
             contents = stage / "Tempest 2032.app" / "Contents"
             copy_binary(binary, contents / "MacOS/tempest2032")
+            subprocess.run([
+                "rustc", "--edition=2024", "-C", "opt-level=s", "-C", "strip=symbols",
+                str(ROOT / "packaging/fullscreen.rs"),
+                "-o", str(contents / "MacOS/tempest2032-fullscreen"),
+            ], check=True)
             resources = contents / "Resources"
             resources.mkdir()
             shutil.copyfile(ROOT / "packaging/macos/icon.icns", resources / "icon.icns")
@@ -59,7 +64,7 @@ def native(platform, target, binary, output):
                     "CFBundleIdentifier": APP_ID,
                     "CFBundleName": "Tempest 2032",
                     "CFBundleDisplayName": "Tempest 2032",
-                    "CFBundleExecutable": "tempest2032",
+                    "CFBundleExecutable": "tempest2032-fullscreen",
                     "CFBundleIconFile": "icon.icns",
                     "CFBundlePackageType": "APPL",
                     "CFBundleShortVersionString": VERSION,
@@ -67,6 +72,7 @@ def native(platform, target, binary, output):
                     "LSMinimumSystemVersion": "11.0",
                     "NSHighResolutionCapable": True,
                 }, file)
+            subprocess.run(["codesign", "--force", "--sign", "-", str(contents / "MacOS/tempest2032")], check=True)
             subprocess.run(["codesign", "--force", "--sign", "-", str(contents.parent)], check=True)
             subprocess.run(["codesign", "--verify", "--strict", str(contents.parent)], check=True)
             (stage / "Applications").symlink_to("/Applications")

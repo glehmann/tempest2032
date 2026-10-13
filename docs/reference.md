@@ -113,6 +113,9 @@ and do not persist checkout credentials.
 dispatches. It builds optimized packages on native runners for Windows x86_64,
 macOS arm64, and Linux x86_64/arm64. Each job uploads its packages as an Actions
 artifact with a three-day retention period. It does not publish GitHub Releases.
+Windows shortcuts and the installer's Play action pass `--fullscreen`. The macOS
+app and Flatpak use a small launcher that passes `--fullscreen` and forwards any
+additional arguments to the game executable.
 
 `tools/package.py` packages the standalone binary:
 

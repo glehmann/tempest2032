@@ -30,6 +30,7 @@ The macOS app and Windows installer are not publisher-signed yet. On macOS,
 use **Open Anyway** in System Settings → Privacy & Security if Gatekeeper blocks
 the downloaded app.
 
+Windows shortcuts, the macOS app, and Flatpak start in fullscreen.
 All game assets and levels are included. Linux needs a graphical desktop and a
 Vulkan-capable graphics driver. Flathub submission files are built alongside the
 Flatpak bundles; the app is not yet published on Flathub.

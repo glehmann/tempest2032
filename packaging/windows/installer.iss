@@ -29,8 +29,8 @@ Name: desktopicon; Description: "Create a desktop shortcut"; Flags: unchecked
 Source: "{#BinaryPath}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Tempest 2032"; Filename: "{app}\tempest2032.exe"
-Name: "{autodesktop}\Tempest 2032"; Filename: "{app}\tempest2032.exe"; Tasks: desktopicon
+Name: "{group}\Tempest 2032"; Filename: "{app}\tempest2032.exe"; Parameters: "--fullscreen"
+Name: "{autodesktop}\Tempest 2032"; Filename: "{app}\tempest2032.exe"; Parameters: "--fullscreen"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\tempest2032.exe"; Description: "Play Tempest 2032"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\tempest2032.exe"; Parameters: "--fullscreen"; Description: "Play Tempest 2032"; Flags: nowait postinstall skipifsilent

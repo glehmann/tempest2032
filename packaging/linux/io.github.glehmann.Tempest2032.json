@@ -4,7 +4,7 @@
   "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
   "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
-  "command": "tempest2032",
+  "command": "tempest2032-fullscreen",
   "finish-args": [
     "--share=ipc",
     "--socket=wayland",
@@ -25,7 +25,9 @@
       },
       "build-commands": [
         "cargo build --release --locked --offline",
+        "rustc --edition=2024 -C opt-level=s -C strip=symbols packaging/fullscreen.rs -o target/tempest2032-fullscreen",
         "install -Dm755 target/release/tempest2032 /app/bin/tempest2032",
+        "install -Dm755 target/tempest2032-fullscreen /app/bin/tempest2032-fullscreen",
         "install -Dm644 assets/steam/icon.png /app/share/icons/hicolor/256x256/apps/io.github.glehmann.Tempest2032.png",
         "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.desktop /app/share/applications/io.github.glehmann.Tempest2032.desktop",
         "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.metainfo.xml /app/share/metainfo/io.github.glehmann.Tempest2032.metainfo.xml"
