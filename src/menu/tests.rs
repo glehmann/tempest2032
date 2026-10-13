@@ -178,14 +178,20 @@ fn held_controller_confirm_does_not_fire_or_submit_the_next_screen() {
                 .resource::<ButtonInput<KeyCode>>()
                 .pressed(KeyCode::Enter)
         );
+        assert!(
+            !app.world()
+                .resource::<ButtonInput<KeyCode>>()
+                .pressed(KeyCode::KeyZ)
+        );
     }
-    app.world_mut().resource_mut::<Game>().status = Status::GameOver;
     app.world_mut().resource_mut::<Store>().data.initials = "XYZ".into();
     app.world_mut()
         .get_mut::<Gamepad>(entity)
         .unwrap()
         .digital_mut()
         .press(GamepadButton::East);
+    app.update();
+    app.world_mut().resource_mut::<Game>().status = Status::GameOver;
     app.world_mut().resource_mut::<Game>().score = 42;
     app.update();
     assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Gameplay);

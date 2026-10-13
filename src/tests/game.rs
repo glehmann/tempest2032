@@ -169,7 +169,7 @@ fn capture_preserves_both_poses_then_retreats_the_camera_before_losing_a_life() 
     app.world_mut()
         .resource_mut::<powerups::Upgrades>()
         .jump_enabled = true;
-    for key in [KeyCode::KeyA, KeyCode::Enter, KeyCode::KeyJ] {
+    for key in [KeyCode::KeyA, KeyCode::KeyZ, KeyCode::KeyX] {
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(key);

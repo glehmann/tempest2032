@@ -14,7 +14,7 @@ use crate::weapons::fire_bullets;
 use bevy::prelude::*;
 
 #[test]
-fn a_jump_tap_between_ticks_is_preserved_while_enter_is_held() {
+fn a_jump_tap_between_ticks_is_preserved_while_fire_is_held() {
     let mut app = App::new();
     app.insert_resource(Upgrades {
         jump_enabled: true,
@@ -32,14 +32,14 @@ fn a_jump_tap_between_ticks_is_preserved_while_enter_is_held() {
     );
     app.world_mut()
         .spawn((Glider::default(), Weapon::default(), Transform::default()));
-    for key in [KeyCode::KeyJ, KeyCode::ShiftLeft] {
+    for fire in [KeyCode::KeyZ, KeyCode::Space] {
         let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-        keys.press(KeyCode::Enter);
-        keys.press(key);
+        keys.press(fire);
+        keys.press(KeyCode::KeyX);
         app.world_mut().run_schedule(PreUpdate);
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
-            .release(key);
+            .release(KeyCode::KeyX);
         app.world_mut().run_schedule(FixedUpdate);
         assert!(app.world().resource::<Upgrades>().jump_height > 0);
         assert!(
@@ -52,6 +52,9 @@ fn a_jump_tap_between_ticks_is_preserved_while_enter_is_held() {
         let mut upgrades = app.world_mut().resource_mut::<Upgrades>();
         upgrades.jump_height = 0;
         upgrades.jump_velocity = 0;
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset(fire);
     }
 }
 
@@ -63,7 +66,7 @@ fn jump_lands_and_resets_its_velocity() {
         ..default()
     };
     let mut keys = ButtonInput::default();
-    keys.press(KeyCode::KeyJ);
+    keys.press(KeyCode::KeyX);
     app.insert_resource(upgrades)
         .insert_resource(keys)
         .init_resource::<Game>()
@@ -75,7 +78,7 @@ fn jump_lands_and_resets_its_velocity() {
     assert!(app.world().resource::<Upgrades>().jump_height > 0);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .release(KeyCode::KeyJ);
+        .release(KeyCode::KeyX);
     for _ in 0..100 {
         app.world_mut().run_schedule(FixedUpdate);
     }

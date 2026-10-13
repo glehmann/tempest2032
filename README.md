@@ -85,17 +85,19 @@ Controller buttons use Xbox names.
 | Action | Keyboard | Controller |
 | --- | --- | --- |
 | Move | Left/right arrows or A/D | D-pad or left stick |
-| Fire | Hold Space or Enter | Hold A |
-| Jump, once unlocked | J or Shift | B, left trigger, or left bumper |
-| Superzapper | Z | X, right trigger, or right bumper |
+| Fire | Hold Z or Space | Hold A |
+| Jump, once unlocked | X | B, left trigger, or left bumper |
+| Superzapper | C | X, right trigger, or right bumper |
 | Pause/resume | P or Pause | Start |
-| Restart | R | Restart in the pause menu |
+| Restart | Restart in the pause menu | Restart in the pause menu |
 | Return to Welcome | Esc during gameplay | Keyboard only |
 | Quit | Esc on Welcome | B on Welcome or Exit in the pause menu |
 
 Use up/down and confirm with Enter, Space, or controller A in the pause menu.
 Esc resumes when paused. In warp stages, steer with the arrows, W/A/S/D, D-pad,
 or left stick.
+Enter confirms menus and does not fire. In Steam Input, use a Gamepad layout
+to keep the same controller controls on Steam Deck and other Steam controllers.
 
 For high-score initials, type three letters or use left/right to select a slot
 and up/down to change its letter. Enter / A saves; Backspace / B erases.

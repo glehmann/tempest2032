@@ -16,8 +16,8 @@ fn app() -> App {
 
 fn press(app: &mut App) {
     let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-    keys.reset(KeyCode::KeyZ);
-    keys.press(KeyCode::KeyZ);
+    keys.reset(KeyCode::KeyC);
+    keys.press(KeyCode::KeyC);
     app.world_mut().run_schedule(PreUpdate);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
@@ -46,7 +46,7 @@ fn one_press_matches_the_recorded_jaguar_three_flipper_clear() {
     press(&mut app);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .reset(KeyCode::KeyZ);
+        .reset(KeyCode::KeyC);
     // The recording scores 150, 300, 450 at 5.370, 5.437, 5.503 seconds.
     for (elapsed_ticks, score) in [(1, 150), (3, 150), (1, 300), (3, 300), (1, 450)] {
         ticks(&mut app, elapsed_ticks);
@@ -74,7 +74,7 @@ fn a_short_tap_starts_a_four_tick_sweep_without_spending_the_second_use_while_he
     press(&mut app);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .release(KeyCode::KeyZ);
+        .release(KeyCode::KeyC);
     ticks(&mut app, 1);
     let count = |app: &mut App| {
         app.world_mut()

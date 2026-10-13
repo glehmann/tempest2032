@@ -45,7 +45,7 @@ fn active_fire_covers_the_normal_shot_delay_but_releasing_fire_allows_a_grab() {
             app.world_mut().resource_mut::<powerups::Upgrades>().laser = laser;
             app.world_mut()
                 .resource_mut::<ButtonInput<KeyCode>>()
-                .press(KeyCode::Enter);
+                .press(KeyCode::KeyZ);
             ticks(&mut app, 2);
             let flipper = enemy(
                 &mut app,
@@ -66,7 +66,7 @@ fn active_fire_covers_the_normal_shot_delay_but_releasing_fire_allows_a_grab() {
             if release {
                 app.world_mut()
                     .resource_mut::<ButtonInput<KeyCode>>()
-                    .release(KeyCode::Enter);
+                    .release(KeyCode::KeyZ);
             }
             ticks(&mut app, if laser { 1 } else { 2 });
             assert_eq!(app.world().resource::<Game>().lives, 4);
@@ -87,7 +87,7 @@ fn active_fire_covers_the_normal_shot_delay_but_releasing_fire_allows_a_grab() {
 }
 
 #[test]
-fn a_full_magazine_allows_a_grab_even_with_enter_held() {
+fn a_full_magazine_allows_a_grab_even_with_fire_held() {
     let mut app = app();
     app.init_resource::<ShotAssets>().add_systems(
         FixedUpdate,
@@ -102,7 +102,7 @@ fn a_full_magazine_allows_a_grab_even_with_enter_held() {
     );
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::Enter);
+        .press(KeyCode::KeyZ);
     for _ in 0..MAX_BULLETS {
         app.world_mut()
             .spawn((Bullet { lane: 0 }, Transform::from_xyz(0.0, 0.0, -10.0)));
@@ -143,7 +143,7 @@ fn holding_fire_without_moving_cannot_clear_the_first_wave() {
         );
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
-            .press(KeyCode::Enter);
+            .press(KeyCode::KeyZ);
         for _ in 0..15_000 {
             ticks(&mut app, 1);
             if app.world().resource::<Game>().lives < 4 {
@@ -179,7 +179,7 @@ fn firing_destroys_an_incoming_flipper_before_it_can_grab_the_player() {
         app.world_mut().resource_mut::<powerups::Upgrades>().laser = laser;
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
-            .press(KeyCode::Enter);
+            .press(KeyCode::KeyZ);
         enemy(
             &mut app,
             7,
@@ -212,7 +212,7 @@ fn a_pause_in_fire_lets_an_incoming_flipper_grab_the_player() {
     );
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::Enter);
+        .press(KeyCode::KeyZ);
     enemy(
         &mut app,
         7,
@@ -226,7 +226,7 @@ fn a_pause_in_fire_lets_an_incoming_flipper_grab_the_player() {
     ticks(&mut app, 8);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .release(KeyCode::Enter);
+        .release(KeyCode::KeyZ);
     ticks(&mut app, 24);
     assert!(app.world().resource::<Game>().status == Status::Captured);
     assert_eq!(app.world().resource::<Game>().score, 0);

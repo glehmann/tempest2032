@@ -42,7 +42,7 @@ fn app() -> App {
     app.world_mut().flush();
     let mut keys = ButtonInput::default();
     keys.press(KeyCode::KeyA);
-    keys.press(KeyCode::Enter);
+    keys.press(KeyCode::KeyZ);
     app.insert_resource(Game {
         status: Status::Entering,
         entry: Some(0),

@@ -102,7 +102,7 @@ pub(crate) fn preview_input(
     keys.release(KeyCode::KeyD);
     keys.release(KeyCode::KeyA);
     keys.release(KeyCode::Space);
-    keys.release(KeyCode::KeyJ);
+    keys.release(KeyCode::KeyX);
     if game.status == crate::game::Status::Bonus {
         for key in [
             KeyCode::ArrowUp,
@@ -165,7 +165,7 @@ pub(crate) fn preview_input(
         keys.release(key);
     }
     if upgrades.jump_enabled && pickups.is_empty() && capture.tick.is_multiple_of(120) {
-        keys.press(KeyCode::KeyJ);
+        keys.press(KeyCode::KeyX);
     }
     if (30..capture.end_tick.saturating_sub(30)).contains(&capture.tick) {
         keys.press(KeyCode::Space);
@@ -274,7 +274,7 @@ pub(crate) fn preview_transition(
         if capture.preview == CapturePreview::Exit {
             game.remaining = 0;
         } else {
-            for key in [KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space] {
+            for key in [KeyCode::KeyZ, KeyCode::Space] {
                 keys.release(key);
             }
             let shot = EnemyShot {

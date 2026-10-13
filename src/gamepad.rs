@@ -23,13 +23,15 @@ pub(crate) fn add_systems(app: &mut App) {
     );
 }
 
-fn button_key(button: GamepadButton) -> Option<KeyCode> {
+fn button_key(button: GamepadButton, menu: bool) -> Option<KeyCode> {
     Some(match button {
-        GamepadButton::South => KeyCode::Enter,
-        GamepadButton::East => KeyCode::KeyJ,
-        GamepadButton::LeftTrigger | GamepadButton::LeftTrigger2 => KeyCode::KeyJ,
-        GamepadButton::West => KeyCode::KeyZ,
-        GamepadButton::RightTrigger | GamepadButton::RightTrigger2 => KeyCode::KeyZ,
+        GamepadButton::South if menu => KeyCode::Enter,
+        GamepadButton::South => KeyCode::KeyZ,
+        GamepadButton::East if menu => KeyCode::Escape,
+        GamepadButton::East => KeyCode::KeyX,
+        GamepadButton::LeftTrigger | GamepadButton::LeftTrigger2 => KeyCode::KeyX,
+        GamepadButton::West => KeyCode::KeyC,
+        GamepadButton::RightTrigger | GamepadButton::RightTrigger2 => KeyCode::KeyC,
         GamepadButton::Start => KeyCode::KeyP,
         GamepadButton::DPadLeft => KeyCode::ArrowLeft,
         GamepadButton::DPadRight => KeyCode::ArrowRight,
@@ -52,16 +54,15 @@ fn axis_key(axis: GamepadAxis, value: f32) -> Option<KeyCode> {
     }
 }
 
-fn keys_of(gamepad: &Gamepad, menu: bool) -> impl Iterator<Item = KeyCode> + '_ {
+fn keys_of<'a>(
+    gamepad: &'a Gamepad,
+    menu: bool,
+    blocked: &'a [GamepadButton],
+) -> impl Iterator<Item = KeyCode> + 'a {
     gamepad
         .get_pressed()
-        .filter_map(move |&button| {
-            if menu && button == GamepadButton::East {
-                Some(KeyCode::Escape)
-            } else {
-                button_key(button)
-            }
-        })
+        .filter(|button| !blocked.contains(button))
+        .filter_map(move |&button| button_key(button, menu))
         .chain(
             GamepadAxis::all()
                 .into_iter()
@@ -69,26 +70,45 @@ fn keys_of(gamepad: &Gamepad, menu: bool) -> impl Iterator<Item = KeyCode> + '_ 
         )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn map_controllers(
     gamepads: Query<&Gamepad>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut held: Local<Vec<KeyCode>>,
     front: Option<Res<crate::menu::FrontEnd>>,
     mut previous_menu: Local<Option<bool>>,
+    game: Option<Res<crate::game::Game>>,
+    time: Option<Res<Time<Virtual>>>,
+    mut previous_buttons: Local<Vec<GamepadButton>>,
+    mut blocked: Local<Vec<GamepadButton>>,
 ) {
-    let menu = front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay);
-    let mut wanted: Vec<KeyCode> = gamepads.iter().flat_map(|pad| keys_of(pad, menu)).collect();
+    let menu = front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay)
+        || game.is_some_and(|game| game.status == crate::game::Status::GameOver)
+        || time.is_some_and(|time| time.is_paused());
+    let buttons: Vec<_> = gamepads
+        .iter()
+        .flat_map(|pad| pad.get_pressed().copied())
+        .collect();
+    if let Some(previous) = *previous_menu {
+        // Held actions must not become confirm/back when the input context changes.
+        for &button in &buttons {
+            if previous_buttons.contains(&button)
+                && !blocked.contains(&button)
+                && button_key(button, previous) != button_key(button, menu)
+            {
+                blocked.push(button);
+            }
+        }
+    }
+    blocked.retain(|button| buttons.contains(button));
+    *previous_buttons = buttons;
+    *previous_menu = Some(menu);
+    let mut wanted: Vec<KeyCode> = gamepads
+        .iter()
+        .flat_map(|pad| keys_of(pad, menu, &blocked))
+        .collect();
     wanted.sort_unstable();
     wanted.dedup();
-    if previous_menu.is_some_and(|previous| previous != menu) {
-        for key in &*held {
-            keys.release(*key);
-        }
-        *held = wanted;
-        *previous_menu = Some(menu);
-        return;
-    }
-    *previous_menu = Some(menu);
     for key in wanted.iter().filter(|key| !held.contains(key)) {
         keys.press(*key);
     }

@@ -96,13 +96,13 @@ fn shot_has_a_white_core_inside_a_cyan_green_glow() {
 }
 
 #[test]
-fn enter_fires_immediately_and_repeats_at_the_weapon_cadence() {
+fn z_fires_immediately_and_repeats_at_the_weapon_cadence() {
     let mut app = firing_app(START_PROGRESS, &[]);
     ticks(&mut app, 1);
     assert_eq!(bullet_count(&mut app), 0);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::Enter);
+        .press(KeyCode::KeyZ);
     ticks(&mut app, 1);
     assert_eq!(bullet_count(&mut app), 1);
     ticks(&mut app, 3);
@@ -111,7 +111,7 @@ fn enter_fires_immediately_and_repeats_at_the_weapon_cadence() {
     assert_eq!(bullet_count(&mut app), 2);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
-        .release(KeyCode::Enter);
+        .release(KeyCode::KeyZ);
     ticks(&mut app, 8);
     assert_eq!(bullet_count(&mut app), 2);
     assert!(
@@ -125,7 +125,7 @@ fn enter_fires_immediately_and_repeats_at_the_weapon_cadence() {
 
 #[test]
 fn a_full_magazine_skips_a_shot_instead_of_firing_as_soon_as_a_slot_frees() {
-    let mut app = firing_app(START_PROGRESS, &[KeyCode::Enter]);
+    let mut app = firing_app(START_PROGRESS, &[KeyCode::KeyZ]);
     let slots: Vec<_> = (0..MAX_BULLETS)
         .map(|_| {
             app.world_mut()
@@ -153,6 +153,20 @@ fn a_full_magazine_skips_a_shot_instead_of_firing_as_soon_as_a_slot_frees() {
             .unwrap()
             .firing
     );
+}
+
+#[test]
+fn menu_confirm_jump_and_zapper_keys_do_not_fire() {
+    for key in [
+        KeyCode::Enter,
+        KeyCode::NumpadEnter,
+        KeyCode::KeyX,
+        KeyCode::KeyC,
+    ] {
+        let mut app = firing_app(START_PROGRESS, &[key]);
+        ticks(&mut app, 8);
+        assert_eq!(bullet_count(&mut app), 0, "{key:?}");
+    }
 }
 
 #[test]

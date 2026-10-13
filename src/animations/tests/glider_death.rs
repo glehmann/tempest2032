@@ -150,7 +150,7 @@ fn shot_hit_uses_four_zap_outlines_and_locks_controls_until_the_retreat_finishes
         0
     );
     let original = glider_transform(START_PROGRESS);
-    for key in [KeyCode::KeyA, KeyCode::Enter, KeyCode::KeyJ] {
+    for key in [KeyCode::KeyA, KeyCode::KeyZ, KeyCode::KeyX] {
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(key);
@@ -302,7 +302,7 @@ fn jump_or_invulnerability_prevents_the_hit_animation() {
                 .jump_enabled = true;
             app.world_mut()
                 .resource_mut::<ButtonInput<KeyCode>>()
-                .press(KeyCode::KeyJ);
+                .press(KeyCode::KeyX);
         } else {
             app.world_mut().resource_mut::<Game>().invulnerable = 60;
         }

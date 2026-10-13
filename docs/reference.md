@@ -768,7 +768,7 @@ newly added levels. You can copy just the executable to another PC; the
 Clearing a level advances after the exit animation. The last level loops back to
 level one, carrying score, lives, and unspent warp tokens. Acquired upgrades
 and the pickup sequence reset on each web entry. A death retries the current
-level and removes upgrades. R starts a fresh run from level one.
+level and removes upgrades. Restart in the pause menu starts a fresh run from level one.
 
 Start directly on the second level with:
 
@@ -934,7 +934,7 @@ with the spacing contracting from 16 depth units to zero. Movement and firing
 are available during this effect; the enemy wave starts counting down as soon
 as the web settles. The solid claw replaces the outlines when rezzing ends.
 
-Restarting with R and re-entering after a lost life replay this sequence.
+Restarting from the pause menu and re-entering after a lost life replay this sequence.
 
 ## Level exit
 
@@ -951,7 +951,7 @@ tick. Reaching the source's 2,000-unit claw depth triggers the warp flash.
 
 After the flash, the next configured level begins with score, lives, and
 unspent warp tokens preserved. Upgrades reset on entry to the next web.
-The last level loops back to the first. R cancels the exit
+The last level loops back to the first. Restart in the pause menu cancels the exit
 and starts a fresh game.
 
 ## HUD
@@ -978,9 +978,10 @@ camera, excluded from gameplay camera movement and projection systems.
 | --- | --- |
 | Left arrow or A | Move clockwise |
 | Right arrow or D | Move counterclockwise |
-| Enter, numpad Enter, or Space | Fire, hold for repeat fire |
-| J or Shift | Jump, after collecting the jump upgrade |
-| Z | Superzapper |
+| Z or Space | Fire, hold for repeat fire |
+| X | Jump, after collecting the jump upgrade |
+| C | Superzapper |
+| All four arrows or W/A/S/D | Steer in warp zones |
 | P or Pause | Pause or resume |
 | Up/down arrows or W/S, then Enter or Space | Select and confirm a pause-menu option |
 | Escape | Resume while paused; abandon the run and return to Welcome during gameplay; quit on Welcome |
@@ -997,6 +998,13 @@ their Xbox position, so a PlayStation pad behaves the same way:
 | Start | Pause or resume |
 | D-pad up/down or left stick up/down, then A | Select and confirm a pause-menu option |
 
+Steam Input should use a Gamepad layout. Steam's virtual gamepad follows this
+same mapping; there is no separate bundled Steam keyboard-emulation profile.
+Gameplay A/B/X map to Z/X/C, while A/B map to Enter/Escape in front-end screens,
+game over, and the pause menu. Held A/B buttons are suppressed until released
+when their meaning changes. Enter and numpad Enter only confirm menus; neither
+fires. Physical keyboard actions use Z/X/C with Space as an alternate Fire key.
+
 Hold a movement key to accelerate around the rim. The 60 Hz simulation uses
 the original 16:16 movement values, acceleration `0x400` per tick and maximum
 velocity `0x6000`. That reaches 22.5 lanes per second after 24 ticks.
@@ -1011,7 +1019,7 @@ vertex order, so it also reverses the input sign.
 
 ### Superzapper
 
-Press `Z` during gameplay to trigger the Superzapper. The first use displays
+Press `C` during gameplay to trigger the Superzapper. The first use displays
 "EAT ELECTRIC DEATH!", plays the original crackle sample, and sweeps eligible
 enemies and ordinary enemy shots one target every four simulation ticks.
 One press starts the entire sweep. At 60 Hz, consecutive hits are about
@@ -1031,7 +1039,7 @@ use has no lightning beam: the original clears its bolt flag before rendering.
 Targets follow the original newest-first active-object list: the first eligible
 object is zapped. On level one, the newest Flipper is usually the farthest down
 the web, but the zapper does not compare distances.
-Both uses recharge on web entry, including a retry after losing a life. Holding `Z`
+Both uses recharge on web entry, including a retry after losing a life. Holding `C`
 does not spend the second use automatically. An empty zap still uses a charge.
 
 Zaps bypass Beastie armor and normal shot windows, and open Tankers normally.
@@ -1139,7 +1147,7 @@ and travel down the web together at two depth units per tick, reaching the
 rear after 80 ticks. The camera stays at the rim during this descent.
 `snatch_it_away` then pulls the camera back at eight depth units per tick until
 the original viewpoint threshold of -400, about 50 more ticks with this camera.
-Only then is the life deducted and the wave reset. R cancels the sequence and
+Only then is the life deducted and the wave reset. Restart in the pause menu cancels the sequence and
 restarts immediately.
 
 An enemy-shot hit shows "SHOT YOU!" and replaces the glider with `zap`'s
@@ -1153,11 +1161,11 @@ The blue web faces fade out during the explosion.
 After 121 ticks the starburst disappears, and the camera retreats at eight
 depth units per tick until the same -400 viewpoint threshold as a grab. Only
 then is the life deducted, followed by re-entry or game over. Movement, jumping,
-and firing are locked during the sequence; R cancels it and restarts.
+and firing are locked during the sequence; Restart in the pause menu cancels it and restarts.
 
 You start with three lives. Losing a life resets the wave and gives two seconds
 of invulnerability.
-Press **R** to restart on level one. After a level-clear exit, the next web loads
+Choose **Restart** in the pause menu to restart on level one. After a level-clear exit, the next web loads
 automatically.
 
 ## Power-ups
@@ -1190,7 +1198,7 @@ reward sequence unchanged.
 | --- | --- |
 | 1 | Particle laser: rotating rings of four color-cycling dots, shot speed 4.5 instead of 3.5 units per tick, a three-tick firing interval instead of four, and shots that pass through enemies |
 | 2 | Surprise: normally 2,000 points; a 9-in-256 chance of 3,000 points and a level skip |
-| 3 | Jump enabled: J or Shift lifts the claw off the rim, avoiding enemies and shots until landing |
+| 3 | Jump enabled: X lifts the claw off the rim, avoiding enemies and shots until landing |
 | 4 | Another surprise bonus |
 | 5 | AI droid: a rotating, colour-cycling wireframe cube that seeks the closest enemy, crosses one lane in 16 ticks, fires every six ticks using the player's current shot visuals, and adds eight bullet slots |
 | 6 | Superzap plus a warp token |
@@ -1203,7 +1211,7 @@ with camera-relative depth, and use `pulser` for their color sweep.
 Jump presses are buffered between simulation ticks and work while firing.
 The jump uses `sclawr`'s initial velocity of two units per tick and acceleration
 `0xc11`; the camera follows its height. Losing a life removes the laser, jump,
-and droid and restarts the collection sequence. Restarting with R clears all
+and droid and restarts the collection sequence. Restarting from the pause menu clears all
 power-ups. The wave waits for remaining pickups to be collected or missed
 before displaying level clear.
 
@@ -1355,7 +1363,7 @@ cargo run --release -- --warp-zone rings --warp-course 3 --level 33
 the original course number from 1 to 8 and requires direct warp startup.
 `--level` is the web reached after a failed direct-start run; success adds
 four to that destination subject to the late-game restriction. Direct entry
-does not require or consume tokens. R cancels the bonus and restarts level one.
+does not require or consume tokens. Restart in the pause menu cancels the bonus and restarts level one.
 
 Screenshot and recording options also work in a bonus scene:
 

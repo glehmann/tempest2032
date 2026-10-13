@@ -10,8 +10,7 @@ use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
 pub(crate) fn queue_jump(keys: Res<ButtonInput<KeyCode>>, mut upgrades: ResMut<Upgrades>) {
-    upgrades.jump_queued |= upgrades.jump_enabled
-        && keys.any_just_pressed([KeyCode::KeyJ, KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    upgrades.jump_queued |= upgrades.jump_enabled && keys.just_pressed(KeyCode::KeyX);
 }
 
 pub(crate) fn update_jump(
@@ -24,8 +23,7 @@ pub(crate) fn update_jump(
     if game.status != Status::Playing {
         return;
     }
-    let requested = std::mem::take(&mut upgrades.jump_queued)
-        || keys.any_pressed([KeyCode::KeyJ, KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let requested = std::mem::take(&mut upgrades.jump_queued) || keys.pressed(KeyCode::KeyX);
     if upgrades.jump_height == 0 && upgrades.jump_enabled && requested {
         crate::sound::play(&mut commands, crate::sound::Effect::Jump);
         upgrades.jump_velocity = 2 * LANE_UNIT;

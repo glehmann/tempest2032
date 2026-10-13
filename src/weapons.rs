@@ -162,7 +162,7 @@ pub(crate) fn fire_bullets(
     upgrades: Option<Res<Upgrades>>,
 ) {
     let (glider, weapon, transform) = &mut *glider;
-    if !keys.any_pressed([KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::Space]) {
+    if !keys.any_pressed([KeyCode::KeyZ, KeyCode::Space]) {
         weapon.firing = false;
         return;
     }
