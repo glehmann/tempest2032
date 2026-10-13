@@ -1,7 +1,7 @@
 //! Front-end screens stay responsive without advancing the gameplay simulation.
 
 mod background;
-mod welcome;
+mod lettering;
 
 use crate::{
     difficulty::Difficulty,
@@ -117,7 +117,7 @@ pub(crate) fn add_systems(app: &mut App) {
         )
         .add_systems(Update, draw)
         .add_systems(Update, draw_game_over_hint);
-    welcome::add_systems(app);
+    lettering::add_systems(app);
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(Update, installation.before(draw));
     background::add_systems(app);
@@ -312,7 +312,7 @@ pub(crate) fn input(
         front.blocked = front.physical.get_pressed().copied().collect();
         for mut window in &mut windows {
             window.ime_enabled = front.screen == Screen::Initials;
-            window.ime_position = Vec2::new(window.width() / 2., window.height() * 0.3);
+            window.ime_position = Vec2::new(window.width() / 2., window.height() * 0.48);
         }
         keys.reset_all();
     } else {
@@ -372,7 +372,7 @@ fn setup(
         )
         .unwrap(),
     );
-    let scores = welcome::setup(&mut commands, &mut images, &mut meshes, &mut materials);
+    let lettering = lettering::setup(&mut commands, &mut images, &mut meshes, &mut materials);
     commands.spawn((
         GameOverHint,
         Text::default(),
@@ -441,8 +441,8 @@ fn setup(
                     },
                 ));
                 panel.spawn((
-                    welcome::Scores,
-                    ViewportNode::new(scores),
+                    lettering::Canvas,
+                    ViewportNode::new(lettering),
                     Node {
                         width: percent(100),
                         height: percent(62),
@@ -499,10 +499,10 @@ fn draw(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut root: Query<&mut Node, With<Root>>,
     mut panels: Query<&mut Node, (With<Panel>, Without<Root>)>,
-    mut welcome_nodes: Query<
+    mut illustrated_nodes: Query<
         &mut Node,
         (
-            Or<(With<Logo>, With<welcome::Scores>)>,
+            Or<(With<Logo>, With<lettering::Canvas>)>,
             Without<Root>,
             Without<Panel>,
             Without<Label>,
@@ -514,6 +514,7 @@ fn draw(
     >,
 ) {
     let screen = front.screen;
+    let illustrated = matches!(screen, Screen::Welcome | Screen::Initials);
     let scale = windows.iter().next().map_or(1., |window| {
         (window.height() / 800.).min(window.width() / 1100.)
     });
@@ -523,32 +524,17 @@ fn draw(
         } else {
             Display::Flex
         };
-        // Leave the initials above the Steam Deck keyboard's lower-half overlay.
-        node.align_items = if screen == Screen::Initials {
-            AlignItems::FlexStart
-        } else {
-            AlignItems::Center
-        };
-        node.padding.top = px(if screen == Screen::Initials {
-            24. * scale
-        } else {
-            0.
-        });
     }
     if screen == Screen::Gameplay {
         return;
     }
     for mut panel in &mut panels {
-        panel.height = if screen == Screen::Welcome {
-            percent(86)
-        } else {
-            Val::Auto
-        };
+        panel.height = if illustrated { percent(86) } else { Val::Auto };
         panel.padding = UiRect::all(px(20. * scale));
         panel.row_gap = px(16. * scale);
     }
-    for mut node in &mut welcome_nodes {
-        node.display = if screen == Screen::Welcome {
+    for mut node in &mut illustrated_nodes {
+        node.display = if illustrated {
             Display::Flex
         } else {
             Display::None
@@ -589,34 +575,15 @@ fn draw(
             ("CONFIGURATION".into(), body,
                 "UP / DOWN  SELECT     LEFT / RIGHT  DIFFICULTY\nENTER / A  CONFIRM     P / START / ESC / B  BACK".into())
         }
-        Screen::Initials => {
-            let initials = front.initials.map(char::from);
-            let slots = initials
-                .iter()
-                .enumerate()
-                .map(|(index, letter)| {
-                    if index == front.cursor {
-                        format!("[{letter}]")
-                    } else {
-                        format!(" {letter} ")
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join("  ");
-            (
-                "NEW HIGH SCORE".into(),
-                format!(
-                    "{}  /  {}\n\nENTER YOUR INITIALS\n\n{slots}",
-                    front.score,
-                    difficulty.label()
-                ),
-                if cfg!(target_arch = "wasm32") {
-                    "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS.".into()
-                } else {
-                    "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS. STEAM DECK: STEAM + X".into()
-                },
-            )
-        }
+        Screen::Initials => (
+            String::new(),
+            String::new(),
+            if cfg!(target_arch = "wasm32") {
+                "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS.".into()
+            } else {
+                "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS. STEAM DECK: STEAM + X".into()
+            },
+        ),
         Screen::Gameplay => unreachable!(),
     };
     let notice = [&front.notice, &store.notice]

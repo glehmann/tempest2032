@@ -171,11 +171,13 @@ Start opens Configuration. Use up/down to select, left/right to change
 difficulty, and Enter / A to confirm. P / Start or Esc / B returns to Welcome.
 Esc / B on Welcome quits.
 
-Welcome shows the embedded spectrum-portal logo and a high-score table built
-from the announcements' beveled lettering and the HUD's rainbow score digits.
-The table renders at the UI's native resolution. The centered panel occupies
+Welcome and initials entry share the embedded spectrum-portal logo, the
+announcements' beveled lettering, and the HUD's rainbow score digits.
+Both render at the UI's native resolution. Their centered panels occupy
 70% of the window width and 86% of its height; lettering, padding, and spacing
-scale with the window without a pixel-size cap.
+scale with the window without a pixel-size cap. Initials entry highlights the
+selected letter with rainbow shading and a gold underline, keeping the fields
+above the Steam Deck keyboard's lower-half overlay.
 
 Gameplay fixed updates stop on front-end screens, while real-time star
 animation, input, and title music remain live. Gameplay pause still freezes

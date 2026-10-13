@@ -33,7 +33,7 @@ fn key(app: &mut App, key: KeyCode) {
 }
 
 #[test]
-fn welcome_scales_with_the_window_and_restores_other_menu_screens() {
+fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens() {
     let (mut app, _directory) = app(true);
     app.init_resource::<Assets<Image>>()
         .init_resource::<Assets<Mesh>>()
@@ -41,7 +41,7 @@ fn welcome_scales_with_the_window_and_restores_other_menu_screens() {
         .init_resource::<crate::messages::geometry::Glyphs>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw.after(input));
-    welcome::add_systems(&mut app);
+    lettering::add_systems(&mut app);
     let window = app
         .world_mut()
         .spawn((
@@ -61,7 +61,7 @@ fn welcome_scales_with_the_window_and_restores_other_menu_screens() {
     app.update();
     let scores = app
         .world_mut()
-        .query_filtered::<Entity, With<welcome::Scores>>()
+        .query_filtered::<Entity, With<lettering::Canvas>>()
         .single(app.world())
         .unwrap();
     let camera = app.world().get::<ViewportNode>(scores).unwrap().camera;
@@ -119,6 +119,44 @@ fn welcome_scales_with_the_window_and_restores_other_menu_screens() {
         Display::Flex
     );
     assert!(app.world().get::<Camera>(camera).unwrap().is_active);
+    app.world_mut()
+        .resource_mut::<FrontEnd>()
+        .enter_initials(u32::MAX, "AAA");
+    app.update();
+    let node = app
+        .world_mut()
+        .query_filtered::<&Node, With<Panel>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!((node.width, node.height), (percent(70), percent(86)));
+    assert!(app.world().get::<Camera>(camera).unwrap().is_active);
+    let mesh = app
+        .world_mut()
+        .query::<&Mesh3d>()
+        .single(app.world())
+        .unwrap()
+        .0
+        .clone();
+    let positions = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&mesh)
+        .unwrap()
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .unwrap()
+        .clone();
+    key(&mut app, KeyCode::ArrowRight);
+    assert_ne!(
+        app.world()
+            .resource::<Assets<Mesh>>()
+            .get(&mesh)
+            .unwrap()
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .unwrap(),
+        &positions
+    );
+    key(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
     key(&mut app, KeyCode::Enter);
     assert!(!app.world().get::<Camera>(camera).unwrap().is_active);
 }
