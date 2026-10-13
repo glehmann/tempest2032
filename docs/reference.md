@@ -1114,6 +1114,8 @@ object is zapped. On level one, the newest Flipper is usually the farthest down
 the web, but the zapper does not compare distances.
 Both uses recharge on web entry, including a retry after losing a life. Holding `C`
 does not spend the second use automatically. An empty zap still uses a charge.
+The recharge announcement is silent on level one, including new runs and retries;
+later levels still show the message and play the recharge sound.
 
 Zaps bypass Beastie armor and normal shot windows, and open Tankers normally.
 Tankers' released enemies remain eligible for subsequent bolts. Mirrors,

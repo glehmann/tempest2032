@@ -234,7 +234,7 @@ pub(crate) fn run(args: cli::Cli) {
     crate::menu::add_systems(&mut app);
     #[cfg(target_arch = "wasm32")]
     crate::browser::add_systems(&mut app);
-    if direct && args.warp_zone.is_none() {
+    if direct && starting_level > 1 && args.warp_zone.is_none() {
         app.world_mut()
             .resource_mut::<Game>()
             .announce(crate::messages::Id::SuperzapperRecharge);

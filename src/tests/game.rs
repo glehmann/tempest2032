@@ -49,6 +49,11 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
     ticks(&mut app, 1);
     assert!(app.world().get_entity(old).is_err());
     assert_eq!(app.world().resource::<Level>().number, 2);
+    assert_eq!(app.world().resource::<Game>().announcements.len(), 1);
+    assert_eq!(
+        app.world().resource::<Game>().announcements[0].id,
+        crate::messages::Id::SuperzapperRecharge
+    );
     assert_eq!(
         (
             app.world().resource::<Game>().score,
@@ -74,9 +79,15 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
             .progress,
         3 * LANE_UNIT
     );
+    app.world_mut().resource_mut::<Game>().announcements.clear();
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Level>().number, 2);
+    assert_eq!(app.world().resource::<Game>().announcements.len(), 1);
+    assert_eq!(
+        app.world().resource::<Game>().announcements[0].id,
+        crate::messages::Id::SuperzapperRecharge
+    );
     assert!(!app.world().resource::<powerups::Upgrades>().laser);
     assert_eq!(
         app.world_mut()
@@ -89,6 +100,7 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Level>().number, 1);
+    assert!(app.world().resource::<Game>().announcements.is_empty());
     assert_eq!(
         (
             app.world().resource::<Game>().score,
@@ -96,6 +108,9 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
         ),
         (0, 4)
     );
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
+    ticks(&mut app, 1);
+    assert!(app.world().resource::<Game>().announcements.is_empty());
 }
 
 #[test]
