@@ -51,6 +51,7 @@ struct WordArt {
     triangles: Vec<[Vec2; 3]>,
     colors: Vec<Color>,
     pixels: Vec<u16>,
+    numeral: Option<Box<WordArt>>,
 }
 
 pub(super) struct GlyphTriangle {
@@ -108,7 +109,7 @@ impl Default for Font {
                 })
                 .collect();
             let triangles = decode(&mut data, 0.002);
-            let pixels = if key == 0 || key == 1 {
+            let pixels = if matches!(key, 0 | 1 | 3 | 7) {
                 (0..(size.x * size.y) as usize)
                     .map(|_| word(&mut data))
                     .collect()
@@ -120,6 +121,7 @@ impl Default for Font {
                 colors,
                 triangles,
                 pixels,
+                numeral: None,
             };
             if key == 7 {
                 numeral = Some(graphic);
@@ -137,23 +139,13 @@ impl Default for Font {
                         (p - numeral.size / 2.) * 0.5 + badge.size / 2. + Vec2::new(0., -18.)
                     })
                 }));
+            badge.numeral = Some(Box::new(numeral));
         }
         Self(glyphs, art)
     }
 }
 
 impl Font {
-    pub(super) fn solid_art(&self, id: super::Id) -> (Vec<[Vec2; 3]>, Vec<Color>, Vec2) {
-        let art = &self.1[&id];
-        (
-            art.triangles
-                .iter()
-                .map(|t| t.map(|p| p - art.size / 2.))
-                .collect(),
-            art.colors.clone(),
-            art.size,
-        )
-    }
     pub(super) fn layout(&self, id: super::Id) -> Vec<GlyphTriangle> {
         if matches!(
             id,
@@ -173,35 +165,25 @@ impl Font {
         self.1.get(&id).map_or_else(
             || self.triangles(id.text()),
             |art| {
-                if matches!(id, super::Id::Points2000 | super::Id::Excellent) {
-                    let min_intensity = if id == super::Id::Points2000 { 32 } else { 0 };
-                    return art
-                        .pixels
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, pixel)| **pixel != 0 && **pixel as u8 >= min_intensity)
-                        .flat_map(|(index, pixel)| {
-                            let origin = Vec2::new(
-                                (index % art.size.x as usize) as f32,
-                                (index / art.size.x as usize) as f32,
-                            ) - art.size / 2.;
-                            let corners =
-                                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y].map(|p| p + origin);
-                            let color = Color::LinearRgba(
-                                crate::cry::color((pixel >> 8) as u8, *pixel as u8).to_linear(),
-                            );
-                            [
-                                [corners[0], corners[1], corners[2]],
-                                [corners[0], corners[2], corners[3]],
-                            ]
-                            .map(|points| GlyphTriangle {
-                                points,
-                                origin: Vec2::ZERO,
-                                colors: [color; 3],
-                                cell: origin + Vec2::splat(0.5),
-                            })
-                        })
-                        .collect();
+                if matches!(
+                    id,
+                    super::Id::Points2000 | super::Id::Excellent | super::Id::OneUp
+                ) {
+                    let min_intensity = match id {
+                        super::Id::Points2000 => 32,
+                        super::Id::OneUp => 81,
+                        _ => 0,
+                    };
+                    let mut cells = pixel_cells(art, min_intensity, 1., Vec2::ZERO);
+                    if let Some(numeral) = &art.numeral {
+                        cells.extend(pixel_cells(
+                            numeral,
+                            min_intensity,
+                            0.5,
+                            Vec2::new(0., -18.),
+                        ));
+                    }
+                    return cells;
                 }
                 art.triangles
                     .iter()
@@ -247,6 +229,34 @@ impl Font {
             })
             .collect()
     }
+}
+
+fn pixel_cells(art: &WordArt, min_intensity: u8, scale: f32, offset: Vec2) -> Vec<GlyphTriangle> {
+    art.pixels
+        .iter()
+        .enumerate()
+        .filter(|(_, pixel)| **pixel != 0 && **pixel as u8 >= min_intensity)
+        .flat_map(|(index, pixel)| {
+            let origin = Vec2::new(
+                (index % art.size.x as usize) as f32,
+                (index / art.size.x as usize) as f32,
+            ) - art.size / 2.;
+            let corners =
+                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y].map(|p| (p + origin) * scale + offset);
+            let color =
+                Color::LinearRgba(crate::cry::color((pixel >> 8) as u8, *pixel as u8).to_linear());
+            [
+                [corners[0], corners[1], corners[2]],
+                [corners[0], corners[2], corners[3]],
+            ]
+            .map(|points| GlyphTriangle {
+                points,
+                origin: Vec2::ZERO,
+                colors: [color; 3],
+                cell: (origin + Vec2::splat(0.5)) * scale + offset,
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -438,44 +448,65 @@ mod tests {
     #[test]
     fn reward_cells_cover_source_pixels_above_their_intensity_cutoff() {
         let font = Font::default();
-        for id in [super::super::Id::Points2000, super::super::Id::Excellent] {
+        for id in [
+            super::super::Id::Points2000,
+            super::super::Id::Excellent,
+            super::super::Id::OneUp,
+        ] {
             let art = &font.1[&id];
             let layout = font.layout(id);
             let visible = |pixel: u16| {
-                pixel != 0 && (id != super::super::Id::Points2000 || pixel & 255 >= 32)
+                pixel != 0
+                    && match id {
+                        super::super::Id::Points2000 => pixel & 255 >= 32,
+                        super::super::Id::OneUp => pixel & 255 > 80,
+                        _ => true,
+                    }
             };
-            let mut coverage = vec![0.; art.pixels.len()];
-            for glyph in layout {
-                let cell = glyph.cell + art.size / 2.;
-                let index = cell.y as usize * art.size.x as usize + cell.x as usize;
-                assert!(
-                    visible(art.pixels[index]),
-                    "{id:?} filled a transparent square"
-                );
-                coverage[index] += (glyph.points[1] - glyph.points[0])
-                    .perp_dot(glyph.points[2] - glyph.points[0])
-                    .abs()
-                    / 2.;
-                let pixel = art.pixels[index];
-                assert!(glyph.colors.iter().all(|color| *color
-                    == Color::LinearRgba(
-                        crate::cry::color((pixel >> 8) as u8, pixel as u8).to_linear()
-                    )));
-            }
-            for (index, pixel) in art.pixels.iter().enumerate() {
-                assert_eq!(
-                    coverage[index],
-                    f32::from(visible(*pixel)),
-                    "{id:?} has incomplete or duplicate coverage at ({}, {}), pixel {pixel:#06x}",
-                    index % art.size.x as usize,
-                    index / art.size.x as usize
-                );
-            }
-            assert!(
-                art.pixels
-                    .iter()
-                    .any(|pixel| visible(*pixel) && pixel & 255 <= 80)
+            let parts = std::iter::once((art, 1., Vec2::ZERO)).chain(
+                art.numeral
+                    .as_ref()
+                    .map(|numeral| (&**numeral, 0.5, Vec2::new(0., -18.))),
             );
+            for (art, scale, offset) in parts {
+                let mut coverage = vec![0.; art.pixels.len()];
+                for glyph in &layout {
+                    let cell = (glyph.cell - offset) / scale + art.size / 2.;
+                    if cell.cmplt(Vec2::ZERO).any() || cell.cmpge(art.size).any() {
+                        continue;
+                    }
+                    let index = cell.y as usize * art.size.x as usize + cell.x as usize;
+                    assert!(
+                        visible(art.pixels[index]),
+                        "{id:?} filled a transparent square"
+                    );
+                    coverage[index] += (glyph.points[1] - glyph.points[0])
+                        .perp_dot(glyph.points[2] - glyph.points[0])
+                        .abs()
+                        / (2. * scale * scale);
+                    let pixel = art.pixels[index];
+                    assert!(glyph.colors.iter().all(|color| *color
+                        == Color::LinearRgba(
+                            crate::cry::color((pixel >> 8) as u8, pixel as u8).to_linear()
+                        )));
+                }
+                for (index, pixel) in art.pixels.iter().enumerate() {
+                    assert_eq!(
+                        coverage[index],
+                        f32::from(visible(*pixel)),
+                        "{id:?} has incomplete or duplicate coverage at ({}, {}), pixel {pixel:#06x}",
+                        index % art.size.x as usize,
+                        index / art.size.x as usize
+                    );
+                }
+                if id != super::super::Id::OneUp {
+                    assert!(
+                        art.pixels
+                            .iter()
+                            .any(|pixel| visible(*pixel) && pixel & 255 <= 80)
+                    );
+                }
+            }
         }
     }
     #[test]

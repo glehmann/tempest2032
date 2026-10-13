@@ -2,21 +2,18 @@
 
 use super::{
     Id, Messages,
-    geometry::{self, ADVANCE, Glyphs, OverlayCamera, Paint, Style, Triangle},
+    geometry::{self, ADVANCE, Glyphs, OverlayCamera, Style, Triangle},
 };
 use bevy::{
     camera::{ScalingMode, visibility::RenderLayers},
     core_pipeline::tonemapping::Tonemapping,
     prelude::*,
 };
-use std::collections::HashMap;
 
 #[derive(Resource)]
 struct Graphics {
     banner: Handle<Mesh>,
-    rewards: Handle<Mesh>,
     pause: Handle<Mesh>,
-    art: HashMap<Id, Vec<Triangle>>,
     last: Option<FrameKey>,
 }
 
@@ -25,11 +22,9 @@ struct FrameKey {
     epoch: u32,
     clock: u32,
     banner: Option<(Id, u32)>,
-    rewards: Vec<(Id, u32, Option<Vec3>)>,
     viewport: f32,
     paused: bool,
     pause_choice: usize,
-    views: Vec<(Mat4, Option<Vec2>)>,
 }
 
 pub(super) fn add_systems(app: &mut App) {
@@ -45,7 +40,6 @@ pub(super) fn add_systems(app: &mut App) {
 
 fn setup(
     mut commands: Commands,
-    font: Res<super::font::Font>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -75,12 +69,6 @@ fn setup(
         cull_mode: None,
         ..default()
     });
-    let blend = materials.add(StandardMaterial {
-        unlit: true,
-        cull_mode: None,
-        alpha_mode: AlphaMode::Blend,
-        ..default()
-    });
     let mut spawn = |material: Handle<StandardMaterial>| {
         let mesh = meshes.add(geometry::mesh(Vec::new()));
         commands.spawn((
@@ -92,28 +80,14 @@ fn setup(
         mesh
     };
     let banner = spawn(opaque.clone());
-    let rewards = spawn(blend);
     let pause = spawn(opaque);
-    let mut art = HashMap::new();
-    let (triangles, rows, size) = font.solid_art(Id::OneUp);
-    let mut paint = Paint::new(Style::Chrome);
-    paint.rows = rows;
-    paint.top = -size.y / 2.;
-    paint.height = size.y;
-    art.insert(
-        Id::OneUp,
-        geometry::extrude(&geometry::contours_from_triangles(&triangles), &paint).triangles,
-    );
     commands.insert_resource(Graphics {
         banner,
-        rewards,
         pause,
-        art,
         last: None,
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn draw(
     messages: Res<Messages>,
     glyphs: Res<Glyphs>,
@@ -122,7 +96,6 @@ fn draw(
     time: Res<Time<Virtual>>,
     menu: Res<crate::pause::Menu>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform), geometry::GameCameras>,
 ) {
     let viewport = windows
         .iter()
@@ -136,22 +109,9 @@ fn draw(
             0
         },
         banner: messages.banner.map(|a| (a.event.id, a.age)),
-        rewards: messages
-            .rewards
-            .iter()
-            .map(|a| (a.event.id, a.age, a.event.origin))
-            .collect(),
         viewport,
         paused: time.is_paused(),
         pause_choice: menu.selected,
-        views: if messages.rewards.iter().any(|a| a.event.origin.is_some()) {
-            cameras
-                .iter()
-                .map(|(c, p)| (p.to_matrix(), c.logical_viewport_size()))
-                .collect()
-        } else {
-            Vec::new()
-        },
     };
     if graphics.last.as_ref() == Some(&key) {
         return;
@@ -212,74 +172,6 @@ fn draw(
             }
         }
     }
-    let mut rewards = Vec::new();
-    for active in &messages.rewards {
-        if matches!(active.event.id, Id::Points2000 | Id::Excellent) {
-            continue;
-        }
-        let Some(glyph) = graphics.art.get(&active.event.id) else {
-            continue;
-        };
-        let center = if let Some(origin) = active.event.origin {
-            let Some(p) = cameras.iter().find_map(|(camera, pose)| {
-                let point = camera.world_to_viewport(pose, origin).ok()?;
-                let size = camera.logical_viewport_size()?;
-                Some(Vec2::new(point.x - size.x / 2., size.y / 2. - point.y) * (240. / size.y))
-            }) else {
-                continue;
-            };
-            p
-        } else {
-            Vec2::ZERO
-        };
-        let age = active.age as f32;
-        let score = matches!(
-            active.event.id,
-            Id::Points250 | Id::Points500 | Id::Points750
-        );
-        let copies = if score {
-            1
-        } else {
-            (1 + active.age / 8).min(20)
-        };
-        for copy in (0..copies).rev() {
-            let scale = if score {
-                (2. + age) * 0.16
-            } else {
-                (age / 16.) * 128. / ((210. - age - copy as f32 * age / 4.).max(1.) + 80.)
-            };
-            let alpha = if score {
-                (1. - (age - 50.).max(0.) / 30.).max(0.)
-            } else {
-                1. / (1. + copy as f32 * 0.6)
-            };
-            let flash =
-                crate::cry::color((active.age as u8).wrapping_mul(16).wrapping_add(30), 255);
-            for triangle in glyph {
-                let centroid = triangle.iter().map(|(p, _)| p.truncate()).sum::<Vec2>() / 3.;
-                let expansion = if score {
-                    (age - 16.).max(0.) * 0.035
-                } else {
-                    0.
-                };
-                rewards.push(triangle.map(|(p, c)| {
-                    let xy = p.truncate() * scale + centroid * expansion;
-                    (
-                        Vec3::new(
-                            center.x + xy.x,
-                            center.y - xy.y,
-                            12. + p.z * scale - copy as f32 * 0.01,
-                        ),
-                        if active.event.id == Id::OneUp {
-                            flash.with_alpha(alpha)
-                        } else {
-                            c.with_alpha(alpha)
-                        },
-                    )
-                }));
-            }
-        }
-    }
     let mut paused = paused_geometry(&glyphs, viewport, time.is_paused());
     if time.is_paused() {
         let fit = ((viewport - 24.) / 174.).clamp(0.01, 1.);
@@ -329,14 +221,6 @@ fn draw(
             &graphics.banner,
             banner,
             graphics.last.as_ref().is_some_and(|k| k.banner.is_some()),
-        ),
-        (
-            &graphics.rewards,
-            rewards,
-            graphics
-                .last
-                .as_ref()
-                .is_some_and(|k| !k.rewards.is_empty()),
         ),
         (
             &graphics.pause,

@@ -88,6 +88,7 @@ impl Effect {
 struct Request {
     effect: Effect,
     period: Option<u16>,
+    repeats: u8,
 }
 
 #[derive(Resource, Default)]
@@ -98,19 +99,23 @@ pub(crate) struct Sounds {
 }
 
 pub(crate) fn play(commands: &mut Commands, effect: Effect) {
-    request(commands, effect, None);
+    request(commands, effect, None, 0);
 }
 
 pub(crate) fn pitched(commands: &mut Commands, effect: Effect, period: u16) {
-    request(commands, effect, Some(period));
+    request(commands, effect, Some(period), 0);
 }
 
-fn request(commands: &mut Commands, effect: Effect, period: Option<u16>) {
+fn request(commands: &mut Commands, effect: Effect, period: Option<u16>, repeats: u8) {
     commands.queue(move |world: &mut World| {
         if let Some(mut sounds) = world.get_resource_mut::<Sounds>()
             && sounds.pending.len() < 128
         {
-            sounds.pending.push(Request { effect, period });
+            sounds.pending.push(Request {
+                effect,
+                period,
+                repeats,
+            });
         }
     });
 }
@@ -130,20 +135,31 @@ pub(crate) struct Sample {
     period: u16,
     repeat: usize,
     repeat_length: usize,
+    repeats: u8,
     looping: bool,
+}
+
+impl Sample {
+    fn frames(&self) -> usize {
+        self.data.len() + self.repeat_length * usize::from(self.repeats)
+    }
 }
 
 pub(crate) struct Decoder {
     sample: Sample,
     position: usize,
+    repeats: u8,
 }
 
 impl Iterator for Decoder {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
-        if self.sample.looping && self.position == self.sample.repeat + self.sample.repeat_length {
+        if (self.sample.looping || self.repeats > 0)
+            && self.position == self.sample.repeat + self.sample.repeat_length
+        {
             self.position = self.sample.repeat;
+            self.repeats = self.repeats.saturating_sub(1);
         }
         let value = *self.sample.data.get(self.position)? as i8;
         self.position += 1;
@@ -163,7 +179,7 @@ impl Source for Decoder {
     }
     fn total_duration(&self) -> Option<Duration> {
         (!self.sample.looping).then(|| {
-            Duration::from_secs_f64(self.sample.data.len() as f64 / f64::from(self.sample_rate()))
+            Duration::from_secs_f64(self.sample.frames() as f64 / f64::from(self.sample_rate()))
         })
     }
 }
@@ -175,6 +191,7 @@ impl Decodable for Sample {
         Decoder {
             sample: self.clone(),
             position: 0,
+            repeats: self.repeats,
         }
     }
 }
@@ -198,6 +215,7 @@ fn samples() -> [Sample; 30] {
             period,
             repeat: fields[1],
             repeat_length: fields[2],
+            repeats: 0,
             looping: false,
         }
     })
@@ -268,6 +286,7 @@ fn update(
     mut commands: Commands,
     mut sounds: ResMut<Sounds>,
     catalog: Res<Catalog>,
+    mut assets: ResMut<Assets<Sample>>,
     time: Res<Time>,
     game: Res<crate::game::Game>,
     volume: Res<GlobalVolume>,
@@ -327,7 +346,8 @@ fn update(
             commands.entity(active.remove(index).0).despawn();
         }
         let index = request.effect as usize;
-        let sample = &catalog.samples[index];
+        let mut sample = catalog.samples[index].clone();
+        sample.repeats = request.repeats;
         let period = request
             .period
             .unwrap_or_else(|| {
@@ -346,8 +366,13 @@ fn update(
         };
         let speed = playback_speed(sample.period, period) * scale;
         let deadline = now
-            + sample.data.len() as f64 / (f64::from(playback_rate(period)) * f64::from(scale))
+            + sample.frames() as f64 / (f64::from(playback_rate(period)) * f64::from(scale))
             + 0.25;
+        let audio = if request.repeats == 0 {
+            catalog.shots[index].clone()
+        } else {
+            assets.add(sample)
+        };
         let entity = commands
             .spawn((
                 Voice {
@@ -355,7 +380,7 @@ fn update(
                     generation: sounds.generation,
                     deadline,
                 },
-                AudioPlayer(catalog.shots[index].clone()),
+                AudioPlayer(audio),
                 PlaybackSettings::DESPAWN
                     .with_speed(speed)
                     .with_volume(Volume::Linear(
@@ -383,7 +408,11 @@ pub(crate) fn announcement(commands: &mut Commands, id: crate::messages::Id) {
             pitched(commands, Effect::Crackle, 500);
             return;
         }
-        Id::YesYesYes | Id::WarpEnabled => Effect::Yes,
+        Id::YesYesYes => {
+            request(commands, Effect::Yes, None, 2);
+            return;
+        }
+        Id::WarpEnabled => Effect::Yes,
         Id::Points2000 | Id::Points250 | Id::Points500 | Id::Points750 => Effect::Reward,
         _ => return,
     };

@@ -5,7 +5,7 @@ use lyon_tessellation::{
     BuffersBuilder, FillOptions, FillRule, FillTessellator, FillVertex, VertexBuffers, math::point,
     path::Path,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub(crate) type Triangle = [(Vec3, Color); 3];
@@ -1023,52 +1023,6 @@ fn fragments(triangles: &[Triangle]) -> Vec<Fragment> {
         }
     }
     output
-}
-
-pub(super) fn contours_from_triangles(triangles: &[[Vec2; 3]]) -> Vec<Vec<Vec2>> {
-    let key = |p: Vec2| (p.x.to_bits(), p.y.to_bits());
-    let mut edges = BTreeMap::new();
-    for triangle in triangles {
-        for i in 0..3 {
-            let a = triangle[i];
-            let b = triangle[(i + 1) % 3];
-            let mut pair = [key(a), key(b)];
-            pair.sort_unstable();
-            if edges.remove(&pair).is_none() {
-                edges.insert(pair, (a, b));
-            }
-        }
-    }
-    let mut links: BTreeMap<_, Vec<Vec2>> = BTreeMap::new();
-    for (_, (a, b)) in edges {
-        links.entry(key(a)).or_default().push(b);
-    }
-    let mut contours = Vec::new();
-    while let Some((&start, _)) = links.first_key_value() {
-        let mut current = start;
-        let mut contour = Vec::new();
-        loop {
-            contour.push(Vec2::new(
-                f32::from_bits(current.0),
-                f32::from_bits(current.1),
-            ));
-            let Some(targets) = links.get_mut(&current) else {
-                break;
-            };
-            let next = targets.pop().unwrap();
-            if targets.is_empty() {
-                links.remove(&current);
-            }
-            current = key(next);
-            if current == start {
-                break;
-            }
-        }
-        if contour.len() >= 3 {
-            contours.push(contour);
-        }
-    }
-    contours
 }
 
 pub(crate) fn mesh(triangles: Vec<Triangle>) -> Mesh {

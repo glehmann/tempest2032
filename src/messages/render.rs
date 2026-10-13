@@ -75,6 +75,7 @@ mod tests {
         for (id, width, height) in [
             (super::super::Id::Points2000, 197, 65),
             (super::super::Id::Excellent, 178, 42),
+            (super::super::Id::OneUp, 50, 45),
             (super::super::Id::Points250, 51, 18),
             (super::super::Id::Points500, 51, 18),
             (super::super::Id::Points750, 51, 18),
@@ -158,6 +159,7 @@ pub(super) fn draw(
             active.event.id,
             super::Id::Points2000
                 | super::Id::Excellent
+                | super::Id::OneUp
                 | super::Id::Points250
                 | super::Id::Points500
                 | super::Id::Points750

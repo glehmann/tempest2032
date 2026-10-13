@@ -136,8 +136,8 @@ fn sharp_banner_has_geometry_and_disappears_when_replaced_without_growing_asset_
             .count_vertices(),
         0
     );
-    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 3);
-    assert_eq!(app.world().resource::<Assets<StandardMaterial>>().len(), 2);
+    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 2);
+    assert_eq!(app.world().resource::<Assets<StandardMaterial>>().len(), 1);
 }
 
 #[test]
@@ -146,6 +146,7 @@ fn accepted_approach_effects_are_not_duplicated_in_the_new_renderer() {
     for id in [
         Id::Points2000,
         Id::Excellent,
+        Id::OneUp,
         Id::Points250,
         Id::Points500,
         Id::Points750,
@@ -155,14 +156,11 @@ fn accepted_approach_effects_are_not_duplicated_in_the_new_renderer() {
             age: 30,
         }];
         app.update();
-        let handle = &app.world().resource::<Graphics>().rewards;
-        assert_eq!(
+        assert!(
             app.world()
                 .resource::<Assets<Mesh>>()
-                .get(handle)
-                .unwrap()
-                .count_vertices(),
-            0
+                .iter()
+                .all(|(_, mesh)| mesh.count_vertices() == 0)
         );
     }
 }
@@ -176,19 +174,13 @@ fn game_over_uses_the_previous_bitmap_feedback_without_a_sharp_3d_foreground() {
             age,
         });
         app.update();
-        assert!(
-            !app.world()
-                .resource::<Graphics>()
-                .art
-                .contains_key(&Id::GameOver)
-        );
         for (_, mesh) in app.world().resource::<Assets<Mesh>>().iter() {
             assert_eq!(mesh.count_vertices(), 0);
         }
     }
     app.world_mut().resource_mut::<Messages>().game_over = None;
     app.update();
-    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 3);
+    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 2);
 }
 
 #[test]

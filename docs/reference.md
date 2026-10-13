@@ -428,6 +428,11 @@ Use `--effects-pitch 1.5` for a smaller increase or `--effects-pitch 1` for the
 unscaled driver rate. The multiplier must be greater than zero and at most four.
 Voices keep their driver rate regardless of this setting.
 
+YES! YES! YES! plays the original `yes` sample once, then repeats its stored loop
+region twice, producing three spoken repetitions. Playback and voice cleanup
+include the complete sequence. The original `yeson` uses this looping sample
+(`yak.s:16332-16338`, sample-table entry 23).
+
 To regenerate `assets/sounds.bin` from the original source tree:
 
 ```sh
@@ -1357,13 +1362,15 @@ Death messages are emitted when the collision occurs, independently of the
 small score/lives HUD. A new announcement replaces the active one, including
 restarting an identical message's animation.
 
-EXCELLENT and 2000 retain their original fixed-size coloured cell rendering and
+EXCELLENT, 2000, and 1UP use original fixed-size coloured cell rendering and
 approach animation. 2000 omits cells with CRY intensity below 32 to trim its
 darkest shading. Their cells separate
-in both directions as it grows, keeping the playfield visible through the gaps.
-The 250/500/750 and 1UP graphics use beveled 3D geometry based on
-their separate original outlines. Score graphics expand into fragments, and extra-life graphics flash with
-trailing copies. They coexist with ordinary announcements. Score-based extra
+in both directions as they grow, keeping the playfield visible through the gaps.
+1UP combines the original UP pixels with a half-sized 1 above them, excluding
+CRY intensities at or below 80. It uses the same separated squares as 2000 and
+EXCELLENT, with no solid foreground or overlapping trails filling the gaps.
+The 250/500/750 score labels use their shorter cell expansion and fade.
+They coexist with ordinary announcements. Score-based extra
 lives trigger a 1UP effect for each award. Game over clears
 ordinary messages and keeps the slower 15 Hz pulse and scale-and-rotate CRY
 feedback. Its lettering and fading trails use the previous bitmap rendering;

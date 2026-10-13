@@ -28,10 +28,12 @@ fn gameplay_pitch_scales_effects_and_cleanup_without_changing_voices() {
             Request {
                 effect: Effect::Shot,
                 period: None,
+                repeats: 0,
             },
             Request {
                 effect: Effect::Recharge,
                 period: None,
+                repeats: 0,
             },
         ]);
         app.update();
@@ -115,6 +117,69 @@ fn engine_loops_play_the_intro_once_then_repeat_only_the_original_loop_region() 
 }
 
 #[test]
+fn yes_sequence_repeats_the_original_loop_twice_then_finishes() {
+    let mut sample = samples()[Effect::Yes as usize].clone();
+    sample.repeats = 2;
+    let mut decoder = sample.decoder();
+    let duration = decoder.total_duration().unwrap().as_secs_f64();
+    assert!(duration > 3.5 && duration < 3.7);
+    let initial: Vec<_> = decoder.by_ref().take(sample.data.len()).collect();
+    assert_eq!(initial.len(), sample.data.len());
+    for _ in 0..2 {
+        let repeat: Vec<_> = decoder.by_ref().take(sample.repeat_length).collect();
+        assert_eq!(
+            repeat,
+            initial[sample.repeat..sample.repeat + sample.repeat_length]
+        );
+    }
+    assert_eq!(decoder.next(), None);
+}
+
+#[test]
+fn yes_yes_yes_playback_keeps_all_three_repetitions_at_voice_pitch() {
+    for (id, repeats) in [
+        (crate::messages::Id::YesYesYes, 2),
+        (crate::messages::Id::WarpEnabled, 0),
+    ] {
+        let mut app = app();
+        app.insert_resource(EffectsPitch(3.));
+        announcement(&mut app.world_mut().commands(), id);
+        app.world_mut().flush();
+        app.update();
+        let (player, settings, voice) = app
+            .world_mut()
+            .query::<(&AudioPlayer<Sample>, &PlaybackSettings, &Voice)>()
+            .single(app.world())
+            .unwrap();
+        let sample = app
+            .world()
+            .resource::<Assets<Sample>>()
+            .get(&player.0)
+            .unwrap();
+        assert_eq!(sample.repeats, repeats);
+        assert_eq!(settings.speed, 1.);
+        let duration = sample.decoder().total_duration().unwrap().as_secs_f64();
+        assert!((voice.deadline - duration - 0.25).abs() < 0.001);
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs_f64(1.5));
+        app.update();
+        assert_eq!(
+            app.world_mut().query::<&Voice>().iter(app.world()).count(),
+            usize::from(repeats > 0)
+        );
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs(3));
+        app.update();
+        assert_eq!(
+            app.world_mut().query::<&Voice>().iter(app.world()).count(),
+            0
+        );
+    }
+}
+
+#[test]
 fn shots_emit_only_when_a_bullet_is_actually_fired() {
     let mut app = firing_app(0, &[KeyCode::Space]);
     app.init_resource::<Sounds>();
@@ -144,6 +209,7 @@ fn sustained_fire_is_bounded_and_high_priority_voices_replace_shots() {
             .extend((0..10).map(|_| Request {
                 effect: Effect::Shot,
                 period: None,
+                repeats: 0,
             }));
         app.update();
         assert_eq!(
@@ -157,6 +223,7 @@ fn sustained_fire_is_bounded_and_high_priority_voices_replace_shots() {
         .push(Request {
             effect: Effect::Recharge,
             period: None,
+            repeats: 0,
         });
     app.update();
     assert!(
@@ -212,6 +279,7 @@ fn reset_stops_old_voices_and_muting_drops_new_requests() {
         .push(Request {
             effect: Effect::Recharge,
             period: None,
+            repeats: 0,
         });
     app.update();
     assert_eq!(
@@ -235,6 +303,7 @@ fn reset_stops_old_voices_and_muting_drops_new_requests() {
         .push(Request {
             effect: Effect::Shot,
             period: None,
+            repeats: 0,
         });
     app.update();
     assert!(app.world().resource::<Sounds>().pending.is_empty());

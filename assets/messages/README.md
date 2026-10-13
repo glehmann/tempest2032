@@ -43,13 +43,15 @@ the artwork's width, height, and one CRY shading color per row before the contou
 the same command, using `assets/messages/wordart.bin` as the output.
 The 1UP badge combines the UP graphic and its separately stored numeral,
 with the smaller numeral above the main lettering.
-The EXCELLENT and 2000 records also store their original CRY pixels after the
-contours. Their unchanged approach uses one opaque, fixed-size quad per foreground
+The EXCELLENT, 2000, UP, and separate 1 records also store their original CRY
+pixels after the contours. Their approach uses one opaque, fixed-size quad per foreground
 source pixel rather than enlarged solid artwork or overlapping echoes. The
 2000 renderer treats CRY intensities below 32 as transparent to trim its darkest
 cells. EXCELLENT retains every nonzero source pixel, including dark shading. The
-250/500/750 and 1UP outlines supply the surfaces for extruded foreground meshes, with
-the row colours supplying a continuous face gradient.
+1UP uses the original UP pixels and half-sized 1, with CRY intensities above 80
+to exclude the sheet's dark background. Its cells separate with the same approach
+as 2000 and EXCELLENT. The 250/500/750 outlines remain reference assets; their
+runtime labels use the cell-based announcement font.
 
 The binary starts with `T32S`, followed by glyph records: ASCII byte, contour
 count (big-endian u16), then point count (u16) and pairs of signed i16 X/Y
