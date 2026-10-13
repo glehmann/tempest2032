@@ -1044,6 +1044,15 @@ anti-aliasing and no transparency fringe or low-resolution shading texture.
 Up to eight spare-life icons and three warp pyramids are displayed. The active
 life is excluded, so the last playable life has no life icon in the HUD.
 New runs start with three spare lives plus the active life, for four lives total.
+
+Scoring grants an extra life at every 20,000-point boundary, including points
+from pickups, superzap kills, and warp bonuses. One award can cross several
+boundaries and earn several lives. The original `doscore` checks carries into
+the ten-thousands digit and calls `do_oneup` when it goes odd to even
+(`yak.s:18371-18388`); this is every 20,000 points, not every 100,000.
+Each award queues its own 1UP animation and sound, even if a death occurs on the
+same tick. The eight visible spare-life icons do not limit the stored life count.
+
 Level, upgrade, control, and bonus-stage debug labels are removed; upgrades
 still announce themselves when collected.
 Pause shows red-faced, gold-beveled PAUSED lettering in the large font's
@@ -1244,7 +1253,7 @@ depth units per tick until the same -400 viewpoint threshold as a grab. Only
 then is the life deducted, followed by re-entry or game over. Movement, jumping,
 and firing are locked during the sequence; Restart in the pause menu cancels it and restarts.
 
-You start with three lives. Losing a life resets the wave and gives two seconds
+You start with four lives total. Losing a life resets the wave and gives two seconds
 of invulnerability.
 Choose **Restart** in the pause menu to restart on level one. After a level-clear exit, the next web loads
 automatically.
@@ -1293,8 +1302,20 @@ Jump presses are buffered between simulation ticks and work while firing.
 The jump uses `sclawr`'s initial velocity of two units per tick and acceleration
 `0xc11`; the camera follows its height. Losing a life removes the laser, jump,
 and droid and restarts the collection sequence. Restarting from the pause menu clears all
-power-ups. The wave waits for remaining pickups to be collected or missed
-before displaying level clear.
+power-ups. Remaining pickups do not delay level exit; they continue forming and
+moving while the claw descends through the web. Collection uses their distance
+ahead of the moving claw, rather than the rim, until the claw reaches the rear.
+
+Collecting a pickup during exit displays and says YES! YES! YES! and reserves an
+early AI droid for the next web's first collected pickup. It grants no points
+and does not itself skip a level. The reserved droid survives web changes,
+warp zones, and retries until collected; restarting clears it. Further pickups
+during the same exit give surprise bonuses instead of reserving more droids.
+The early droid leaves the regular reward index unchanged, so the next pickup
+still grants the laser. Its later normal droid slot is skipped to superzap plus
+a warp token. This follows `run_pup`'s `wave_tim == -2` and `dnt` branches at
+`yak.s:10535-10576`. There is no direct 1UP reward in `pupvex`; points pickups can
+earn lives by crossing the normal score thresholds.
 
 Warp tokens accumulate across webs and survive deaths, up to three. The pickup
 sequence and acquired laser, jump, and droid reset on every web entry, so later
@@ -1340,8 +1361,8 @@ darkest shading. Their cells separate
 in both directions as it grows, keeping the playfield visible through the gaps.
 The 250/500/750 and 1UP graphics use beveled 3D geometry based on
 their separate original outlines. Score graphics expand into fragments, and extra-life graphics flash with
-trailing copies. They coexist with ordinary announcements. A lives increase
-triggers a 1UP effect, without changing how lives are awarded. Game over clears
+trailing copies. They coexist with ordinary announcements. Score-based extra
+lives trigger a 1UP effect for each award. Game over clears
 ordinary messages and keeps the slower 15 Hz pulse and scale-and-rotate CRY
 feedback. Its lettering and fading trails use the previous bitmap rendering;
 there is no separate sharp 3D foreground. The score stays visible until restart.
@@ -1350,8 +1371,8 @@ The tunnel instruction lasts 200 ticks at its original lower-screen anchor.
 SPEED BOOST is shown in gate flight, matching its suppression in psychedelic
 rings. WARP 5 LEVELS! follows the source victory timing and late-game display
 conditions. The message catalog also provides previews for wording whose
-mechanics or screens have not yet been implemented, such as YES! YES! YES!,
-practice completion, and final-game victory.
+mechanics or screens have not yet been implemented, such as practice completion
+and final-game victory.
 
 Preview a message without waiting for its gameplay trigger:
 

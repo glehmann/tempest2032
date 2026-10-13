@@ -18,7 +18,7 @@ const FRAME_WINDOW: Duration = Duration::from_secs(2);
 pub(crate) struct HudAssets {
     life: Vec<Triangle>,
     mesh: Handle<Mesh>,
-    previous: Option<(u32, u8, u8, f32)>,
+    previous: Option<(u32, u16, u8, f32)>,
 }
 
 pub(crate) fn setup(

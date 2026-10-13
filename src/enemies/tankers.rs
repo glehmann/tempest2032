@@ -253,7 +253,7 @@ pub(crate) fn open(
     tanker: &Tanker,
     contents: Contents,
 ) {
-    game.score += 100;
+    game.add_score(100);
     if contents == Contents::Pulsars {
         for direction in [-1, 1] {
             let pulsar = Pulsar::released(

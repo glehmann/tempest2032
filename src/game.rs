@@ -32,7 +32,7 @@ pub(crate) enum Status {
 #[derive(Resource)]
 pub(crate) struct Game {
     pub(crate) score: u32,
-    pub(crate) lives: u8,
+    pub(crate) lives: u16,
     pub(crate) status: Status,
     pub(crate) remaining: u16,
     pub(crate) spawn_timer: u16,
@@ -104,6 +104,16 @@ impl Default for Game {
 }
 
 impl Game {
+    pub(crate) fn add_score(&mut self, points: u32) {
+        let previous = self.score / 20_000;
+        self.score += points;
+        // doscore awards a life when the ten-thousands digit goes odd to even.
+        for _ in previous..self.score / 20_000 {
+            self.lives = self.lives.saturating_add(1);
+            self.announce(crate::messages::Id::OneUp);
+        }
+    }
+
     pub(crate) fn announce(&mut self, id: crate::messages::Id) {
         self.announcements.push(id.into());
     }
@@ -195,7 +205,6 @@ pub(crate) fn check_game(
     living: Query<(), With<Enemy>>,
     bullets: Query<Entity, With<Bullet>>,
     enemy_shots: Query<(Entity, &EnemyShot)>,
-    pickups: Query<(Entity, &powerups::PowerUp)>,
     droids: Query<Entity, With<powerups::Droid>>,
 ) {
     if !matches!(game.status, Status::Playing | Status::Respawning) {
@@ -283,11 +292,7 @@ pub(crate) fn check_game(
         }
         return;
     }
-    if game.remaining == 0
-        && living.is_empty()
-        && enemy_shots.is_empty()
-        && pickups.iter().all(|(_, pickup)| pickup.captured)
-    {
+    if game.remaining == 0 && living.is_empty() && enemy_shots.is_empty() {
         game.status = Status::Exiting;
         if (4..=16).contains(&level.number) && !game.outta_here {
             game.announce(crate::messages::Id::AvoidSpikes);

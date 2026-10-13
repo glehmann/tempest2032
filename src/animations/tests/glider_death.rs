@@ -54,7 +54,7 @@ fn enemy_shot_reaching_the_player_lane_costs_a_life() {
     assert!(app.world().resource::<Game>().status == Status::Entering);
 }
 
-fn app(lives: u8) -> App {
+fn app(lives: u16) -> App {
     let mut app = App::new();
     let mut meshes = Assets::<Mesh>::default();
     let mut materials = Assets::<StandardMaterial>::default();

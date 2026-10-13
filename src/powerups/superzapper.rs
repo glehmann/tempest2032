@@ -202,7 +202,7 @@ pub(crate) fn advance(
         } else {
             0
         };
-        game.score += points;
+        game.add_score(points);
         if fuse.is_some() || alien.is_some() {
             game.score_popup(points, pose.translation);
         }

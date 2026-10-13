@@ -1,6 +1,7 @@
 //! Power-up reward progression and persistent upgrade state. Pickups award
 //! particle laser, points, jumping, an AI droid, and superzap warp tokens.
 
+use crate::game::{Game, Status};
 use crate::powerups::droid::droid_mesh;
 use bevy::prelude::*;
 
@@ -26,6 +27,7 @@ pub(crate) struct Upgrades {
     pub(crate) jump_queued: bool,
     pub(crate) zapper: superzapper::Superzapper,
     pub(crate) droid: bool,
+    droid_next: bool,
     warp_tokens: u8,
     frame: u32,
     pub(crate) announcements: Vec<crate::messages::Id>,
@@ -44,6 +46,7 @@ impl Default for Upgrades {
             jump_queued: false,
             zapper: superzapper::Superzapper::default(),
             droid: false,
+            droid_next: false,
             warp_tokens: 0,
             frame: 0,
             announcements: Vec::new(),
@@ -58,6 +61,7 @@ enum Reward {
     Bonus,
     Jump,
     Droid,
+    DroidNext,
     Zap,
     Skip,
 }
@@ -77,7 +81,24 @@ impl Upgrades {
         self.announcements.push(message);
     }
 
-    fn collect(&mut self, score: &mut u32) -> Reward {
+    fn collect(&mut self, game: &mut Game) -> Reward {
+        if game.status == Status::Exiting {
+            if !self.droid_next {
+                self.droid_next = true;
+                self.message(crate::messages::Id::YesYesYes);
+                return Reward::DroidNext;
+            }
+            self.stage = 1;
+        } else if self.droid_next {
+            self.droid_next = false;
+            self.droid = true;
+            self.message(crate::messages::Id::AiDroid);
+            return Reward::Droid;
+        }
+        // An early droid leaves bonum unchanged; its normal slot becomes superzap.
+        if self.stage == 4 && self.droid {
+            self.stage = 5;
+        }
         let reward = match self.stage {
             0 => {
                 self.laser = true;
@@ -89,7 +110,7 @@ impl Upgrades {
                 self.message(crate::messages::Id::JumpEnabled);
                 Reward::Jump
             }
-            4 if !self.droid => {
+            4 => {
                 self.droid = true;
                 self.message(crate::messages::Id::AiDroid);
                 Reward::Droid
@@ -108,12 +129,12 @@ impl Upgrades {
             _ => {
                 self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
                 if self.random >> 24 <= 8 {
-                    *score += 3000;
+                    game.add_score(3000);
                     self.message(crate::messages::Id::OuttaHere);
                     self.message(crate::messages::Id::Excellent);
                     Reward::Skip
                 } else {
-                    *score += 2000;
+                    game.add_score(2000);
                     self.message(match self.stage {
                         1 | 6 => crate::messages::Id::Zappo,
                         3 => crate::messages::Id::Outstanding,
@@ -129,9 +150,10 @@ impl Upgrades {
     }
 
     pub(crate) fn lose_life(&mut self) {
-        let tokens = self.warp_tokens;
+        let (tokens, droid_next) = (self.warp_tokens, self.droid_next);
         *self = Self::default();
         self.warp_tokens = tokens;
+        self.droid_next = droid_next;
     }
 
     pub(crate) fn land(&mut self) {
@@ -142,11 +164,13 @@ impl Upgrades {
     }
 
     pub(crate) fn begin_level(&mut self) {
-        let (tokens, random, frame) = (self.warp_tokens, self.random, self.frame);
+        let (tokens, random, frame, droid_next) =
+            (self.warp_tokens, self.random, self.frame, self.droid_next);
         *self = Self::default();
         self.warp_tokens = tokens;
         self.random = random;
         self.frame = frame;
+        self.droid_next = droid_next;
     }
 
     pub(crate) fn warp_tokens(&self) -> u8 {

@@ -349,11 +349,11 @@ fn automatic_powerup_sweep_preserves_manual_charge_and_restores_a_spent_last_cha
         let mut app = app();
         app.world_mut().resource_mut::<Upgrades>().zapper.uses = uses;
         enemy(&mut app, 3, 40 * LANE_UNIT, Motion::Climb);
-        let mut score = 0;
+        let mut game = Game::default();
         for _ in 0..6 {
             app.world_mut()
                 .resource_mut::<Upgrades>()
-                .collect(&mut score);
+                .collect(&mut game);
         }
         ticks(&mut app, 5);
         assert_eq!(app.world().resource::<Game>().score, 150);

@@ -343,8 +343,10 @@ fn success_awards_once_and_skips_four_extra_webs_except_in_the_late_game() {
             .phase = Phase::Success(1);
         ticks(&mut app, 1);
         assert_eq!(app.world().resource::<Game>().score, 20_000);
+        assert_eq!(app.world().resource::<Game>().lives, 5);
         ticks(&mut app, 10);
         assert_eq!(app.world().resource::<Game>().score, 20_000);
+        assert_eq!(app.world().resource::<Game>().lives, 5);
         app.world_mut()
             .resource_mut::<Game>()
             .bonus

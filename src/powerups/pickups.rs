@@ -40,12 +40,14 @@ impl PowerUp {
         (!self.captured && self.depth >= 0).then_some(self.lane)
     }
 
-    pub(crate) fn tick(&mut self, lane: usize, grounded: bool) -> bool {
+    pub(crate) fn tick(&mut self, lane: usize, claw_depth: Option<i32>) -> bool {
         if self.rez >= 0 {
             self.rez -= 4;
         } else if self.captured {
             self.radius += 5;
-        } else if grounded && self.lane == lane && (0..=32 * LANE_UNIT).contains(&self.depth) {
+        } else if self.lane == lane
+            && claw_depth.is_some_and(|depth| (0..=32 * LANE_UNIT).contains(&(self.depth - depth)))
+        {
             self.captured = true;
             self.radius = 11;
             return true;
@@ -106,11 +108,19 @@ pub(crate) fn advance_powerups(
 ) {
     upgrades.frame = upgrades.frame.wrapping_add(1);
     let lane = level.web.selected_lane(player.progress) as usize;
+    let claw_depth = match game.status {
+        Status::Playing if upgrades.jump_height == 0 => Some(0),
+        Status::Exiting => game
+            .exit
+            .filter(|exit| !exit.wireframe && exit.depth >= 0)
+            .map(|exit| exit.depth),
+        _ => None,
+    };
     for (entity, mut pickup) in &mut pickups {
-        if (pickup.captured || game.status == Status::Playing)
-            && pickup.tick(lane, upgrades.jump_height == 0)
+        if (pickup.captured || matches!(game.status, Status::Playing | Status::Exiting))
+            && pickup.tick(lane, claw_depth)
         {
-            let reward = upgrades.collect(&mut game.score);
+            let reward = upgrades.collect(&mut game);
             crate::sound::pitched(&mut commands, crate::sound::Effect::Warp, 428);
             game.announcements.extend(
                 upgrades

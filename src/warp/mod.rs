@@ -329,7 +329,7 @@ pub(crate) fn advance(
                 - i32::from(keys.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]));
             if let Some(tunnel) = &mut session.tunnel {
                 let (score, phase) = tunnel.step(horizontal, session.course);
-                game.score += score;
+                game.add_score(score);
                 if let Some(phase) = phase {
                     session.phase = phase;
                     session.notice = if matches!(phase, Phase::Failure(_)) {
@@ -339,7 +339,7 @@ pub(crate) fn advance(
                     };
                 }
             } else {
-                game.score += session.step_flight(horizontal, vertical);
+                game.add_score(session.step_flight(horizontal, vertical));
             }
         }
         Phase::Failure(1) | Phase::Victory(1) => {
@@ -355,7 +355,7 @@ pub(crate) fn advance(
                 game.announce(crate::messages::Id::WarpFive);
             }
             if !tunnel {
-                game.score += 20_000;
+                game.add_score(20_000);
             }
             if levels.0[session.destination].number < 91 {
                 session.destination = (session.destination + 4) % levels.0.len();

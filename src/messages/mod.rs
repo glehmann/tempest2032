@@ -56,7 +56,6 @@ pub(crate) struct Messages {
     pub(super) clock: u32,
     pub(crate) events: Vec<Event>,
     epoch: u32,
-    lives: Option<u8>,
 }
 
 #[derive(Resource)]
@@ -144,12 +143,6 @@ fn advance(
         };
     }
     if preview.is_none() {
-        if let Some(lives) = messages.lives {
-            for _ in lives..game.lives {
-                messages.send(Id::OneUp);
-            }
-        }
-        messages.lives = Some(game.lives);
         for id in upgrades.announcements.drain(..) {
             messages.send(id);
         }
@@ -187,7 +180,7 @@ fn advance(
 mod tests {
     use super::*;
     #[test]
-    fn frozen_previews_keep_exact_age_and_life_gains_emit_one_effect_each() {
+    fn frozen_previews_keep_exact_age_and_score_lives_emit_one_effect_each() {
         let mut app = App::new();
         app.init_resource::<Messages>()
             .init_resource::<crate::game::Game>()
@@ -205,15 +198,17 @@ mod tests {
         assert_eq!(app.world().resource::<Preview>().elapsed, 131);
         app.world_mut().remove_resource::<Preview>();
         app.update();
-        app.world_mut().resource_mut::<crate::game::Game>().lives += 1;
+        let mut game = app.world_mut().resource_mut::<crate::game::Game>();
+        game.add_score(40_000);
+        game.lives -= 1;
         app.update();
-        assert_eq!(app.world().resource::<Messages>().rewards.len(), 1);
+        assert_eq!(app.world().resource::<Messages>().rewards.len(), 2);
         assert_eq!(
             app.world().resource::<Messages>().rewards[0].event.id,
             Id::OneUp
         );
         app.update();
-        assert_eq!(app.world().resource::<Messages>().rewards.len(), 1);
+        assert_eq!(app.world().resource::<Messages>().rewards.len(), 2);
     }
     #[test]
     fn tunnel_instructions_expire_at_200_ticks_and_game_over_persists() {

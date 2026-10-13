@@ -31,6 +31,33 @@ use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn score_awards_every_twenty_thousand_boundary_including_multiple_lives_at_once() {
+    let mut game = Game::default();
+    game.add_score(19_999);
+    assert_eq!((game.score, game.lives), (19_999, 4));
+    assert!(game.announcements.is_empty());
+    game.add_score(1);
+    assert_eq!((game.score, game.lives), (20_000, 5));
+    game.add_score(79_999);
+    assert_eq!((game.score, game.lives), (99_999, 8));
+    game.add_score(1);
+    assert_eq!((game.score, game.lives), (100_000, 9));
+    game.add_score(0);
+    assert_eq!(game.announcements.len(), 5);
+    assert!(
+        game.announcements
+            .iter()
+            .all(|event| event.id == crate::messages::Id::OneUp)
+    );
+    game.lives = 255;
+    game.add_score(20_000);
+    assert_eq!(
+        game.lives, 256,
+        "the eight HUD icons do not cap earned lives"
+    );
+}
+
+#[test]
 fn level_loading_distinguishes_advancing_retrying_and_restarting() {
     let mut app = app();
     let mut second = Level::default();
@@ -311,7 +338,7 @@ fn rim_contact_costs_a_life_resets_the_wave_and_grants_a_grace_period() {
 }
 
 #[test]
-fn completion_requires_no_remaining_spawns_and_no_live_enemies() {
+fn completion_requires_no_remaining_spawns_or_enemies_but_does_not_wait_for_pickups() {
     let mut app = app();
     app.add_systems(FixedUpdate, check_game);
     app.world_mut().resource_mut::<Game>().remaining = 0;
@@ -328,15 +355,14 @@ fn completion_requires_no_remaining_spawns_and_no_live_enemies() {
     );
     app.world_mut().flush();
     ticks(&mut app, 1);
-    assert!(app.world().resource::<Game>().status == Status::Playing);
-    let pickup = app
-        .world_mut()
-        .query_filtered::<Entity, With<powerups::PowerUp>>()
-        .single(app.world())
-        .unwrap();
-    app.world_mut().despawn(pickup);
-    ticks(&mut app, 1);
     assert!(app.world().resource::<Game>().status == Status::Exiting);
+    assert_eq!(
+        app.world_mut()
+            .query::<&powerups::PowerUp>()
+            .iter(app.world())
+            .count(),
+        1
+    );
 }
 
 #[test]
