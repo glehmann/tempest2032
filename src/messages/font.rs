@@ -174,11 +174,12 @@ impl Font {
             || self.triangles(id.text()),
             |art| {
                 if matches!(id, super::Id::Points2000 | super::Id::Excellent) {
+                    let min_intensity = if id == super::Id::Points2000 { 32 } else { 0 };
                     return art
                         .pixels
                         .iter()
                         .enumerate()
-                        .filter(|(_, pixel)| **pixel != 0)
+                        .filter(|(_, pixel)| **pixel != 0 && **pixel as u8 >= min_intensity)
                         .flat_map(|(index, pixel)| {
                             let origin = Vec2::new(
                                 (index % art.size.x as usize) as f32,
@@ -435,16 +436,22 @@ mod tests {
     use super::*;
     use clap::ValueEnum;
     #[test]
-    fn reward_cells_cover_every_nontransparent_source_pixel_including_dark_shading() {
+    fn reward_cells_cover_source_pixels_above_their_intensity_cutoff() {
         let font = Font::default();
         for id in [super::super::Id::Points2000, super::super::Id::Excellent] {
             let art = &font.1[&id];
             let layout = font.layout(id);
+            let visible = |pixel: u16| {
+                pixel != 0 && (id != super::super::Id::Points2000 || pixel & 255 >= 32)
+            };
             let mut coverage = vec![0.; art.pixels.len()];
             for glyph in layout {
                 let cell = glyph.cell + art.size / 2.;
                 let index = cell.y as usize * art.size.x as usize + cell.x as usize;
-                assert_ne!(art.pixels[index], 0, "{id:?} filled a transparent square");
+                assert!(
+                    visible(art.pixels[index]),
+                    "{id:?} filled a transparent square"
+                );
                 coverage[index] += (glyph.points[1] - glyph.points[0])
                     .perp_dot(glyph.points[2] - glyph.points[0])
                     .abs()
@@ -458,7 +465,7 @@ mod tests {
             for (index, pixel) in art.pixels.iter().enumerate() {
                 assert_eq!(
                     coverage[index],
-                    f32::from(*pixel != 0),
+                    f32::from(visible(*pixel)),
                     "{id:?} has incomplete or duplicate coverage at ({}, {}), pixel {pixel:#06x}",
                     index % art.size.x as usize,
                     index / art.size.x as usize
@@ -467,7 +474,7 @@ mod tests {
             assert!(
                 art.pixels
                     .iter()
-                    .any(|pixel| *pixel != 0 && pixel & 255 <= 80)
+                    .any(|pixel| visible(*pixel) && pixel & 255 <= 80)
             );
         }
     }

@@ -1329,7 +1329,8 @@ small score/lives HUD. A new announcement replaces the active one, including
 restarting an identical message's animation.
 
 EXCELLENT and 2000 retain their original fixed-size coloured cell rendering and
-approach animation. Their cells separate
+approach animation. 2000 omits cells with CRY intensity below 32 to trim its
+darkest shading. Their cells separate
 in both directions as it grows, keeping the playfield visible through the gaps.
 The 250/500/750 and 1UP graphics use beveled 3D geometry based on
 their separate original outlines. Score graphics expand into fragments, and extra-life graphics flash with
