@@ -1420,6 +1420,17 @@ remain. Completion awards 20,000 points and advances four additional webs
 when the pending destination is below level 91. The bonus returns through
 normal web entry with fresh power-ups and restored cameras.
 
+The original vertical control limits apply to powered steering, not coasting.
+`iycon` spans ±320 raw units, while `m7run` divides them by eight for the camera,
+giving a powered range of ±40 gate units (`yak.s:23906`, `yak.s:4863-4870`).
+Higher and lower gates use the arrow gates' vertical velocity kicks. Release
+the vertical input to coast beyond the limit; holding the outward direction
+there clears velocity through `inertcon`'s `instop` branch. Use the opposite
+direction to brake, then release or stop the inward motion near the next gate.
+The reachability test drives the real keyboard input and bonus systems through
+all 53 gates in every course at its first-cycle speed. It does not reposition
+the player directly.
+
 The scene uses the original eight-arm polygon-gate and icon layouts, a
 crosshair, stars, and a scrolling Mode-7-style surface using the original
 `beasty6.cry` texture. The surface lies at zero height, appearing overhead

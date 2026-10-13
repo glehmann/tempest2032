@@ -103,6 +103,8 @@ Controller buttons use Xbox names.
 Use up/down and confirm with Enter, Space, or controller A in the pause menu.
 Esc resumes when paused. In warp stages, steer with the arrows, W/A/S/D, D-pad,
 or left stick.
+In gate-flight warps, release the vertical control after an arrow gate to coast
+on its boost. Holding that direction at the height limit stops the momentum.
 Enter confirms menus and does not fire. In Steam Input, use a Gamepad layout
 to keep the same controller controls on Steam Deck and other Steam controllers.
 

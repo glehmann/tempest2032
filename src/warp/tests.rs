@@ -214,25 +214,92 @@ fn inertial_controls_have_source_acceleration_friction_and_nonclamping_coast() {
     assert_eq!(axis.velocity, 0);
 }
 
+fn steer(axis: Axis, target: i32, acceleration: i32, min: i32, max: i32) -> i32 {
+    let stopping = i64::from(axis.position)
+        + i64::from(axis.velocity) * i64::from(axis.velocity.abs()) / (2 * i64::from(acceleration));
+    let direction = (i64::from(target) - stopping).signum() as i32;
+    if direction == axis.velocity.signum()
+        && ((direction < 0 && axis.position < min) || (direction > 0 && axis.position >= max))
+    {
+        0
+    } else {
+        direction
+    }
+}
+
 #[test]
-fn perfect_runs_reach_the_final_gate_on_all_eight_courses() {
+fn steering_inputs_reach_every_gate_on_all_eight_courses() {
     for course in 1..=8 {
-        let mut session = Session::new(ZoneKind::GateFlight, 0, Some(course), 1);
+        let mut app = app(1);
+        app.world_mut().resource_mut::<Game>().bonus_attempts[0] = courses::ORDER
+            .iter()
+            .position(|index| *index == usize::from(course - 1))
+            .unwrap() as u32;
+        enter(&mut app, 1, Some(course));
         for _ in 0..100_000 {
-            if let Some(index) = session.gates.front().map(|g| g.index) {
-                aim(&mut session, index, 0, 0);
-            }
-            session.step_flight(0, 0);
+            let session = app.world().resource::<Game>().bonus.as_ref().unwrap();
             if !matches!(session.phase, Phase::Flying) {
                 break;
             }
+            let index = session
+                .gates
+                .front()
+                .map_or(session.passed, |gate| gate.index);
+            let (x, y, _) = session.spec(index);
+            let horizontal = steer(
+                session.x,
+                (160 + i32::from(x)) * UNIT,
+                0x1000,
+                0,
+                320 * UNIT,
+            );
+            let vertical = steer(
+                session.y,
+                i32::from(y) * 8 * UNIT,
+                0x8000,
+                -320 * UNIT,
+                320 * UNIT,
+            );
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.reset_all();
+            for (direction, negative, positive) in [
+                (horizontal, KeyCode::ArrowLeft, KeyCode::ArrowRight),
+                (vertical, KeyCode::ArrowUp, KeyCode::ArrowDown),
+            ] {
+                if direction != 0 {
+                    keys.press(if direction < 0 { negative } else { positive });
+                }
+            }
+            ticks(&mut app, 1);
         }
+        let session = app.world().resource::<Game>().bonus.as_ref().unwrap();
         assert!(
             matches!(session.phase, Phase::Success(_)),
-            "course {course} failed"
+            "course {course} failed at gate {}, position {:?}, target {:?}",
+            session.passed + 1,
+            session.position(),
+            session.spec(session.passed)
         );
         assert_eq!(session.passed, GATES);
     }
+}
+
+#[test]
+fn vertical_boosts_need_released_input_to_coast_beyond_the_powered_limit() {
+    let mut session = Session::new(ZoneKind::GateFlight, 0, Some(1), 1);
+    aim(&mut session, 35, 0, 0);
+    session.pass(35);
+    let mut held = session.y;
+    held.step(-1, 0x8000, 0x2000, 0x80000, -320 * UNIT, 320 * UNIT);
+    assert_eq!(held.velocity, 0);
+    assert_eq!(held.position, -48 * 8 * UNIT);
+    for _ in 0..32 {
+        session
+            .y
+            .step(0, 0x8000, 0x2000, 0x80000, -320 * UNIT, 320 * UNIT);
+    }
+    assert!(session.position().y < -64.);
+    assert!(session.y.velocity < 0);
 }
 
 #[test]
