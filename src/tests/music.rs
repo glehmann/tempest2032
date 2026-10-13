@@ -124,3 +124,20 @@ fn same_track_is_preserved_and_new_tracks_replace_it_after_a_fade() {
         0
     );
 }
+
+#[test]
+fn welcome_and_configuration_use_the_original_title_screen_module() {
+    let mut app = app();
+    app.insert_resource(crate::menu::FrontEnd::new(
+        crate::menu::Screen::Welcome,
+        true,
+        Vec::new(),
+    ));
+    app.update();
+    assert_eq!(current(&mut app).1, 0);
+    app.world_mut()
+        .resource_mut::<crate::menu::FrontEnd>()
+        .screen = crate::menu::Screen::Configuration;
+    app.update();
+    assert_eq!(current(&mut app).1, 0);
+}

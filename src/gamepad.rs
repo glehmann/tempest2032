@@ -52,10 +52,16 @@ fn axis_key(axis: GamepadAxis, value: f32) -> Option<KeyCode> {
     }
 }
 
-fn keys_of(gamepad: &Gamepad) -> impl Iterator<Item = KeyCode> + '_ {
+fn keys_of(gamepad: &Gamepad, menu: bool) -> impl Iterator<Item = KeyCode> + '_ {
     gamepad
         .get_pressed()
-        .filter_map(|&button| button_key(button))
+        .filter_map(move |&button| {
+            if menu && button == GamepadButton::East {
+                Some(KeyCode::Escape)
+            } else {
+                button_key(button)
+            }
+        })
         .chain(
             GamepadAxis::all()
                 .into_iter()
@@ -63,15 +69,27 @@ fn keys_of(gamepad: &Gamepad) -> impl Iterator<Item = KeyCode> + '_ {
         )
 }
 
-fn map_controllers(
+pub(crate) fn map_controllers(
     gamepads: Query<&Gamepad>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut held: Local<Vec<KeyCode>>,
+    front: Option<Res<crate::menu::FrontEnd>>,
+    mut previous_menu: Local<Option<bool>>,
 ) {
-    let mut wanted: Vec<KeyCode> = gamepads.iter().flat_map(keys_of).collect();
+    let menu = front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay);
+    let mut wanted: Vec<KeyCode> = gamepads.iter().flat_map(|pad| keys_of(pad, menu)).collect();
     wanted.sort_unstable();
     wanted.dedup();
-    for key in &wanted {
+    if previous_menu.is_some_and(|previous| previous != menu) {
+        for key in &*held {
+            keys.release(*key);
+        }
+        *held = wanted;
+        *previous_menu = Some(menu);
+        return;
+    }
+    *previous_menu = Some(menu);
+    for key in wanted.iter().filter(|key| !held.contains(key)) {
         keys.press(*key);
     }
     for key in held.iter().filter(|key| !wanted.contains(key)) {

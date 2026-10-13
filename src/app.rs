@@ -53,6 +53,9 @@ fn normal_scene(game: Res<Game>) -> bool {
 
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
+    let direct = args.direct_start();
+    let store = crate::scores::Store::load();
+    let difficulty = args.difficulty.unwrap_or(store.data.difficulty);
     if let Some(pattern) = args.starfield {
         app.insert_resource(stars::Animation::new(pattern));
     }
@@ -105,7 +108,7 @@ pub(crate) fn run(args: cli::Cli) {
         .add_systems(FixedUpdate, preview_input.before(move_glider))
         .add_systems(Update, capture_motion);
     }
-    let starting_level = args.level as usize;
+    let starting_level = args.level.unwrap_or(1) as usize;
     let mut levels = match Levels::load(&args.levels) {
         Ok(levels) => levels,
         Err(error) => {
@@ -115,11 +118,31 @@ pub(crate) fn run(args: cli::Cli) {
     };
     // Scale the parsed catalog, never the TOML, so the shipped source values
     // stay intact and every later level swap inherits the chosen difficulty.
-    let scale = args.difficulty.scale();
+    let eligible = !direct && levels.is_standard();
+    let mut front = crate::menu::FrontEnd::new(
+        if let Some(preview) = args.menu_preview {
+            match preview {
+                crate::menu::Preview::Welcome => crate::menu::Screen::Welcome,
+                crate::menu::Preview::Configuration => crate::menu::Screen::Configuration,
+                crate::menu::Preview::Initials => crate::menu::Screen::Initials,
+            }
+        } else if direct {
+            crate::menu::Screen::Gameplay
+        } else {
+            crate::menu::Screen::Welcome
+        },
+        eligible,
+        levels.0.clone(),
+    );
+    if matches!(args.menu_preview, Some(crate::menu::Preview::Initials)) {
+        front.preview_initials();
+    }
+    app.insert_resource(front).insert_resource(store);
+    let scale = difficulty.scale();
     for level in &mut levels.0 {
         level.scale_difficulty(scale);
     }
-    app.insert_resource(args.difficulty);
+    app.insert_resource(difficulty);
     let initial = levels
         .0
         .get(starting_level - 1)
@@ -185,19 +208,14 @@ pub(crate) fn run(args: cli::Cli) {
     app.insert_resource(crate::music::MusicVolume(args.music_volume));
     crate::pause::add_systems(&mut app);
     crate::gamepad::add_systems(&mut app);
-    if args.warp_zone.is_none() {
+    crate::menu::add_systems(&mut app);
+    if direct && args.warp_zone.is_none() {
         app.world_mut()
             .resource_mut::<Game>()
             .announce(crate::messages::Id::SuperzapperRecharge);
     }
     stars::add_systems(&mut app);
     app.run();
-}
-
-fn quit_on_escape(keys: Res<ButtonInput<KeyCode>>, mut exit: MessageWriter<AppExit>) {
-    if keys.just_pressed(KeyCode::Escape) {
-        exit.write(AppExit::Success);
-    }
 }
 
 fn add_systems(app: &mut App) {
@@ -284,7 +302,8 @@ fn add_systems(app: &mut App) {
             (powerups::queue_jump, powerups::superzapper::queue)
                 .after(bevy::input::InputSystems)
                 .run_if(normal_scene)
-                .run_if(crate::pause::running),
+                .run_if(crate::pause::running)
+                .run_if(crate::menu::playing),
         )
         .add_systems(
             FixedUpdate,
@@ -359,13 +378,7 @@ fn add_systems(app: &mut App) {
         )
         .add_systems(
             Update,
-            (
-                fit_camera.run_if(normal_scene),
-                quit_on_escape,
-                load_level,
-                update_hud,
-            )
-                .chain(),
+            (fit_camera.run_if(normal_scene), load_level, update_hud).chain(),
         )
         .add_systems(Update, sync_web.after(load_level))
         .add_systems(

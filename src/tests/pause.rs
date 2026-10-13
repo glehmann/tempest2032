@@ -57,6 +57,28 @@ fn pause_stops_fixed_updates_and_resumes_without_catching_up() {
 }
 
 #[test]
+fn front_end_stops_gameplay_ticks_but_keeps_virtual_time_for_menu_music() {
+    let mut app = app();
+    app.insert_resource(crate::menu::FrontEnd::new(
+        crate::menu::Screen::Welcome,
+        true,
+        Vec::new(),
+    ));
+    let ticks = app.world().resource::<Ticks>().0;
+    let elapsed = app.world().resource::<Time<Virtual>>().elapsed();
+    for _ in 0..60 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<Ticks>().0, ticks);
+    assert!(app.world().resource::<Time<Virtual>>().elapsed() > elapsed);
+    app.world_mut()
+        .resource_mut::<crate::menu::FrontEnd>()
+        .screen = crate::menu::Screen::Gameplay;
+    app.update();
+    assert_eq!(app.world().resource::<Ticks>().0, ticks + 1);
+}
+
+#[test]
 fn pause_defaults_to_resume_and_confirm_resumes() {
     let mut app = app();
     key(&mut app, KeyCode::KeyP);

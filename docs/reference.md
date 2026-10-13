@@ -56,10 +56,11 @@ The pause menu offers Resume, Restart, and Exit, with Resume selected each time
 it opens. Use up/down arrows or W/S to choose, then Enter or Space to confirm.
 Restart returns to level one with a fresh score and lives.
 Press `P` or `Pause` again to resume.
-`Esc` resumes while paused and quits during gameplay.
-On the game-over panel, press any key, controller button, or mouse button to
-start again at level one. Buttons already held when game over appears do not
-dismiss it.
+`Esc` resumes while paused and returns to Welcome during gameplay, abandoning
+the run without saving its score. Press Esc on Welcome to quit.
+On the game-over panel, press Enter, Space, or controller A to continue. A
+qualifying standard run asks for three-letter initials before returning to
+Welcome; other runs return directly. Held buttons do not dismiss the panel.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
@@ -89,6 +90,55 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 `libxkbcommon-dev`, `libwayland-dev`, `libudev-dev`, and `libasound2-dev`. Running needs a
 graphical desktop and a Vulkan-capable graphics driver. Windows and macOS use
 their native window backends.
+
+## Welcome, settings, and high scores
+
+Normal launches open Welcome with the spectrum-portal logo using the same
+15 Hz CRY scale/rotate/fade operation as the game-over view. Text remains sharp
+in front of the feedback. Enter / A starts at level one; P, Pause, or controller
+Start opens Configuration. Use up/down to select, left/right to change
+difficulty, and Enter / A to confirm. P / Start or Esc / B returns to Welcome.
+Esc / B on Welcome quits.
+
+Gameplay fixed updates stop on front-end screens, while real-time logo
+animation, input, and title music remain live. Gameplay pause still freezes
+virtual time and audio. Transition buttons are consumed, and held controller
+buttons or keyboard auto-repeat cannot confirm the next screen or fire into
+the new run.
+
+The local top-ten tables are separate for Low, Normal, and High. Equal scores
+stay behind earlier entries; zero scores do not qualify. Only completed runs
+started from Welcome with definitions matching the entire bundled catalog can
+save scores. Identical external definitions count as standard; modified or
+additional levels do not. Explicit `--level`, including `--level 1`, direct
+`--warp-zone`, screenshots, recordings, and message previews bypass Welcome
+and disable score saving for the entire session, including after restarting.
+Abandoned runs do not submit scores.
+
+Initials entry accepts A-Z from keyboard text events and IME commits, converting
+lowercase letters to uppercase. On a controller, left/right selects a slot,
+up/down cycles its letter, A saves, and B erases. Physical keyboards use
+Backspace and Enter. Steam Deck's manually opened Steam + X keyboard uses the
+same field. The last submitted initials are reused as the next default.
+
+Difficulty, initials, and tables are stored in `tempest2032/player.toml` under
+`dirs::data_local_dir()`: `$XDG_DATA_HOME` or `~/.local/share` on Linux,
+`%LOCALAPPDATA%` on Windows, and `~/Library/Application Support` on macOS.
+This path does not depend on the executable's location. Writes use a temporary
+file in the same directory and atomic replacement. Failed writes keep scores
+in memory and display an error. An unreadable, invalid, or unsupported-version
+file is preserved, with saving disabled for that session.
+
+Capture front-end screens without playing a run:
+
+```sh
+cargo run -- --menu-preview welcome --message-size 1280x800 --screenshot target/welcome.png
+cargo run -- --menu-preview configuration --screenshot target/configuration.png
+cargo run -- --menu-preview initials --screenshot target/initials.png
+```
+
+`--menu-preview` requires `--screenshot` and cannot combine with level, warp,
+or message previews. `--message-size` accepts either kind of preview.
 
 ## Continuous integration
 
@@ -204,6 +254,12 @@ flatpak build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 ```
 
 ## Steam installation
+
+The welcome screen's configuration menu also offers **Install in Steam**. It
+runs the same installer on a background thread and displays success or error
+details without blocking menu input. The success message advises restarting
+Steam and warns when the running client might overwrite the shortcut. This
+action is unavailable inside the game's Flatpak sandbox.
 
 Run the executable you want to install:
 
@@ -342,6 +398,10 @@ Tracks loop and continue across levels or retries that use the same tune.
 Changing tracks fades the previous music down over one second before starting
 the next. Music stops with the application; it does not require FFmpeg or an
 external tracker player.
+
+Welcome, Configuration, and initials entry use `tune13.mod`. The original
+`rreset` title-screen setup requests `modnum = 1` at `yak.s:1018`; entry one in
+`images_sounds.s:63-70` is `tune13.mod`, also used by game over.
 
 Regenerate the embedded modules from the original source tree or cartridge:
 
@@ -774,9 +834,12 @@ and animation behavior stays in Rust.
 ### Difficulty
 
 `--difficulty low|normal|high` scales enemy tempo and player pressure at
-runtime. It never edits the TOML: the scale is applied once to the parsed
-catalog at startup, so the shipped source values stay intact and every later
-level swap inherits it. `normal` leaves the configured values unchanged.
+runtime. The welcome screen's configuration menu selects the same settings.
+The parsed, unscaled catalog is retained, and each new run builds its active
+catalog from those originals. Switching difficulty never compounds scaling or
+edits TOML files. `normal` leaves the configured values unchanged. The saved
+menu selection is used on subsequent launches; an explicit `--difficulty`
+overrides it for that launch without changing the saved choice.
 
 | Setting | Player bullet speed | Alien shot budget | Enemy climb speed | Spawn interval |
 | --- | --- | --- | --- | --- |
@@ -920,7 +983,7 @@ camera, excluded from gameplay camera movement and projection systems.
 | Z | Superzapper |
 | P or Pause | Pause or resume |
 | Up/down arrows or W/S, then Enter or Space | Select and confirm a pause-menu option |
-| Escape | Resume while paused; quit during gameplay |
+| Escape | Resume while paused; abandon the run and return to Welcome during gameplay; quit on Welcome |
 
 Controllers work alongside the keyboard through `gilrs`. Buttons are read by
 their Xbox position, so a PlayStation pad behaves the same way:

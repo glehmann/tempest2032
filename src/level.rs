@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 
 include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, PartialEq)]
 pub(crate) struct Level {
     pub(crate) number: usize,
     pub(crate) web: Web,
@@ -33,7 +33,7 @@ pub(crate) struct Level {
     pub(crate) aliens: Option<Generator>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct Pulsars {
     pub(crate) generator: Generator,
     pub(crate) phase_ticks: u8,
@@ -72,7 +72,7 @@ impl PulsarDefinition {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct Generator {
     pub(crate) first_spawn_ticks: u16,
     pub(crate) spawn_interval_ticks: u16,
@@ -124,7 +124,7 @@ impl GeneratorDefinition {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct Flippers {
     pub(crate) enabled: bool,
     pub(crate) count: u16,
@@ -149,7 +149,7 @@ impl Default for Level {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct Appearance {
     pub(crate) surface: [f32; 3],
@@ -167,7 +167,7 @@ impl Default for Appearance {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct PowerUps {
     pub(crate) kill_interval: u8,
@@ -441,6 +441,14 @@ impl Default for Levels {
 }
 
 impl Levels {
+    pub(crate) fn is_standard(&self) -> bool {
+        self.0.len() == BUNDLED_LEVELS.len()
+            && BUNDLED_LEVELS.iter().all(|(name, source)| {
+                Level::parse(source, name)
+                    .is_ok_and(|level| self.0.get(level.number - 1) == Some(&level))
+            })
+    }
+
     pub(crate) fn load(directory: &Path) -> Result<Self, String> {
         let mut levels = Vec::new();
         match std::fs::read_dir(directory) {

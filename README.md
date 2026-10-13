@@ -11,9 +11,7 @@ high-resolution displays.
 ## Install and play
 
 Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
-Development builds are available under **Artifacts** in successful
-[Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
-runs for three days. Then:
+Then:
 
 - **Windows:** run the setup `.exe`. It installs for your account and adds a Start
   menu shortcut. No administrator access is required.
@@ -33,6 +31,14 @@ the downloaded app.
 Windows shortcuts, the macOS app, and Flatpak start in fullscreen.
 All game assets and levels are included. Linux needs a graphical desktop and a
 Vulkan-capable graphics driver.
+
+The welcome screen shows the top ten scores for your selected difficulty.
+Press Enter or controller A to play, or P / Start to configure difficulty and
+install in Steam. Difficulty and three-letter high-score initials are saved.
+
+Note: Development builds are available under **Artifacts** in successful
+[Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
+runs for three days.
 
 ### Build from source
 
@@ -61,7 +67,8 @@ sudo apt install build-essential pkg-config libasound2-dev libudev-dev \
 
 ### Add to Steam
 
-Close Steam, then run:
+Choose **Install in Steam** in the welcome screen's configuration menu, then
+restart Steam. You can also close Steam and run:
 
 ```sh
 cargo run --release -- --steam-install
@@ -83,11 +90,16 @@ Controller buttons use Xbox names.
 | Superzapper | Z | X, right trigger, or right bumper |
 | Pause/resume | P or Pause | Start |
 | Restart | R | Restart in the pause menu |
-| Quit | Esc during gameplay | Exit in the pause menu |
+| Return to Welcome | Esc during gameplay | Keyboard only |
+| Quit | Esc on Welcome | B on Welcome or Exit in the pause menu |
 
 Use up/down and confirm with Enter, Space, or controller A in the pause menu.
 Esc resumes when paused. In warp stages, steer with the arrows, W/A/S/D, D-pad,
 or left stick.
+
+For high-score initials, type three letters or use left/right to select a slot
+and up/down to change its letter. Enter / A saves; Backspace / B erases.
+On Steam Deck, open the virtual keyboard with Steam + X.
 
 ## Options
 
@@ -98,8 +110,11 @@ cargo run --release -- --volume 0.3 --music-volume 0.5
 cargo run --release -- --help
 ```
 
-Difficulty defaults to `normal`; `low` and `high` adjust it. Optional TOML files
-in `levels/` override the embedded levels for customization.
+Difficulty initially defaults to `normal`, then remembers your menu selection.
+`--difficulty` overrides it for that launch. `--level` and `--warp-zone` skip the
+welcome screen and disable high-score saving, including `--level 1`.
+Optional TOML files in `levels/` override the embedded levels; changed definitions
+also disable high-score saving.
 
 ## Development
 

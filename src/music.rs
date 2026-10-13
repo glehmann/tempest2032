@@ -123,6 +123,7 @@ fn update(
     time: Res<Time>,
     volume: Res<MusicVolume>,
     master: Res<GlobalVolume>,
+    front: Option<Res<crate::menu::FrontEnd>>,
     mut playing: Query<(
         Entity,
         &mut Playing,
@@ -136,7 +137,12 @@ fn update(
         }
         return;
     }
-    let track = selected(&game, &level);
+    // rreset requests modnum=1 at yak.s:1018; modtable[0] is tune13.mod.
+    let track = if front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay) {
+        0
+    } else {
+        selected(&game, &level)
+    };
     for (entity, mut current, mut settings, sink) in &mut playing {
         current.fade = if current.track == track {
             0.

@@ -104,7 +104,7 @@ fn steam_install_is_a_standalone_mode_with_optional_directory_and_account() {
 fn derive_definition_and_defaults_are_valid() {
     Cli::command().debug_assert();
     let cli = Cli::try_parse_from(["tempest2032"]).unwrap();
-    assert_eq!(cli.level, 1);
+    assert_eq!(cli.level, None);
     assert_eq!(cli.levels, PathBuf::from("levels"));
     assert!(cli.seconds.is_none());
     assert!(!cli.fullscreen);
@@ -148,7 +148,7 @@ fn sound_volume_accepts_silence_and_rejects_nonfinite_or_out_of_range_values() {
 fn fps_display_combines_with_level_and_capture_options() {
     let cli = Cli::try_parse_from(["tempest2032", "--fps", "--level", "3"]).unwrap();
     assert!(cli.fps);
-    assert_eq!(cli.level, 3);
+    assert_eq!(cli.level, Some(3));
     assert!(
         Cli::try_parse_from([
             "tempest2032",
@@ -166,7 +166,7 @@ fn fps_display_combines_with_level_and_capture_options() {
 fn fullscreen_combines_with_level_and_capture_options() {
     let cli = Cli::try_parse_from(["tempest2032", "--fullscreen", "--level", "3"]).unwrap();
     assert!(cli.fullscreen);
-    assert_eq!(cli.level, 3);
+    assert_eq!(cli.level, Some(3));
     assert!(
         Cli::try_parse_from(["tempest2032", "--screenshot", "shot.png", "--fullscreen"])
             .unwrap()
@@ -183,7 +183,7 @@ fn existing_recording_syntax_accepts_duration_and_level_flags_in_either_order() 
             vec!["tempest2032", flag, "target/frames", "--level", "2", "20"],
         ] {
             let cli = Cli::try_parse_from(arguments).unwrap();
-            assert_eq!(cli.level, 2);
+            assert_eq!(cli.level, Some(2));
             assert_eq!(cli.seconds, Some(20));
         }
         assert!(
@@ -209,7 +209,7 @@ fn screenshots_combine_with_level_selection_and_custom_paths() {
     .unwrap();
     assert_eq!(cli.screenshot, Some(PathBuf::from("target/level 2.png")));
     assert_eq!(cli.levels, PathBuf::from("custom levels"));
-    assert_eq!(cli.level, 2);
+    assert_eq!(cli.level, Some(2));
 }
 
 #[test]
@@ -325,12 +325,9 @@ fn original_starfield_variants_can_be_selected_with_levels_and_capture() {
 }
 
 #[test]
-fn difficulty_defaults_to_normal_and_accepts_the_three_settings() {
+fn difficulty_defaults_to_saved_choice_and_accepts_the_three_settings() {
     use crate::difficulty::Difficulty;
-    assert_eq!(
-        Cli::parse_from(["tempest2032"]).difficulty,
-        Difficulty::Normal
-    );
+    assert_eq!(Cli::parse_from(["tempest2032"]).difficulty, None);
     for (name, expected) in [
         ("low", Difficulty::Low),
         ("normal", Difficulty::Normal),
@@ -340,9 +337,23 @@ fn difficulty_defaults_to_normal_and_accepts_the_three_settings() {
             Cli::try_parse_from(["tempest2032", "--difficulty", name])
                 .unwrap()
                 .difficulty,
-            expected
+            Some(expected)
         );
         assert!(Cli::try_parse_from(["tempest2032", "--difficulty", name, "--level", "3"]).is_ok());
     }
     assert!(Cli::try_parse_from(["tempest2032", "--difficulty", "beastly"]).is_err());
+}
+
+#[test]
+fn explicit_level_one_and_warp_launches_bypass_welcome() {
+    assert!(!Cli::parse_from(["tempest2032"]).direct_start());
+    for args in [
+        vec!["tempest2032", "--level", "1"],
+        vec!["tempest2032", "--level", "17"],
+        vec!["tempest2032", "--warp-zone", "rings"],
+        vec!["tempest2032", "--screenshot", "level.png"],
+        vec!["tempest2032", "--message-preview", "game-over"],
+    ] {
+        assert!(Cli::parse_from(args).direct_start());
+    }
 }

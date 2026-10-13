@@ -2,12 +2,12 @@
 //!
 //! These multipliers never touch `levels/*.toml`. They are applied once to the
 //! parsed catalog so the shipped source values stay intact and `normal` remains
-//! exactly the original.
+//! uses the configured values unchanged.
 //!
 //! This is deliberately not Beastly mode. The original's Beastly mode is a
 //! separate, harsher mode: it halves the *player's* bullet speed, forces an
 //! absolute seven-shot alien budget, and stops Flippers pausing between moves.
-//! See the README for the source details.
+//! See docs/reference.md for the source details.
 
 use bevy::prelude::*;
 use clap::ValueEnum;
@@ -34,18 +34,44 @@ impl Scale {
     };
 }
 
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+#[derive(
+    Resource,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    ValueEnum,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
 pub(crate) enum Difficulty {
-    /// Weaker player, fewer alien shots, slower and rarer enemies.
+    /// Faster player bullets, fewer alien shots, slower and rarer enemies.
     Low,
     #[default]
     /// The original source values, unchanged.
     Normal,
-    /// Faster player bullets, more alien shots, faster and denser enemies.
+    /// Slower player bullets, more alien shots, faster and denser enemies.
     High,
 }
 
 impl Difficulty {
+    pub(crate) const ALL: [Self; 3] = [Self::Low, Self::Normal, Self::High];
+
+    pub(crate) fn index(self) -> usize {
+        Self::ALL.iter().position(|value| *value == self).unwrap()
+    }
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Low => "LOW",
+            Self::Normal => "NORMAL",
+            Self::High => "HIGH",
+        }
+    }
+
     pub(crate) fn scale(self) -> Scale {
         match self {
             Self::Normal => Scale::IDENTITY,

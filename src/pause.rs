@@ -22,6 +22,7 @@ pub(crate) fn add_systems(app: &mut App) {
             RunFixedMainLoop,
             RunFixedMainLoopSystems::FixedMainLoop
                 .run_if(running)
+                .run_if(crate::menu::playing)
                 .run_if(|game: Res<crate::game::Game>| {
                     !matches!(game.load, Some(crate::level::LoadReason::Restart))
                 }),
@@ -46,7 +47,15 @@ pub(crate) fn input(
     mut time: ResMut<Time<Virtual>>,
     mut upgrades: Option<ResMut<crate::powerups::Upgrades>>,
     mut exit: MessageWriter<AppExit>,
+    front: Option<Res<crate::menu::FrontEnd>>,
 ) {
+    if front
+        .as_ref()
+        .is_some_and(|front| front.screen != crate::menu::Screen::Gameplay)
+        || (front.is_some() && game.status == crate::game::Status::GameOver)
+    {
+        return;
+    }
     if game.status == crate::game::Status::GameOver && !time.is_paused() {
         if keys.get_just_pressed().next().is_none()
             && gamepads

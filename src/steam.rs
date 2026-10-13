@@ -44,6 +44,47 @@ impl Platform {
 }
 
 pub(crate) fn run(directory: Option<&Path>, user: Option<u32>) -> Result<()> {
+    let report = install_detected(directory, user)?;
+    if !report.running.is_empty() {
+        eprintln!(
+            "Warning: Steam is still running ({}). Tempest 2032 shows up in your library after you restart Steam; until then Steam may drop the shortcut again.",
+            report.running.join(", ")
+        );
+    }
+    println!(
+        "Installed Tempest 2032: {}",
+        report.installed.binary.display()
+    );
+    println!("Steam account: {} ({})", report.user, report.root.display());
+    println!("Shortcut ID: {}", report.installed.app_id);
+    if let Some(backup) = report.installed.backup {
+        println!("Shortcut backup: {}", backup.display());
+    }
+    println!("Restart Steam to find Tempest 2032 in your library.");
+    Ok(())
+}
+
+pub(crate) struct Report {
+    installed: Installed,
+    root: PathBuf,
+    user: u32,
+    running: Vec<String>,
+}
+
+impl Report {
+    pub(crate) fn message(&self) -> String {
+        let warning = if self.running.is_empty() {
+            ""
+        } else {
+            " Steam is running and may overwrite the shortcut until restarted."
+        };
+        format!(
+            "Installed Tempest 2032 in Steam. Restart Steam to see it in your library.{warning}"
+        )
+    }
+}
+
+pub(crate) fn install_detected(directory: Option<&Path>, user: Option<u32>) -> Result<Report> {
     let platform = Platform::current()?;
     let roots = match directory {
         Some(path) => {
@@ -66,20 +107,18 @@ pub(crate) fn run(directory: Option<&Path>, user: Option<u32>) -> Result<()> {
     };
     let root = choose_root(roots, user)?;
     let user = choose_user(&root, user)?;
-    warn_if_steam_running();
+    let running = steam_running();
     let data =
         dirs::data_local_dir().ok_or("Could not locate the user's application-data directory")?;
     let destination = install_directory(platform, &data, &root);
     let executable = std::env::current_exe()?;
     let installed = install(&root, user, &executable, &destination, platform)?;
-    println!("Installed Tempest 2032: {}", installed.binary.display());
-    println!("Steam account: {user} ({})", root.display());
-    println!("Shortcut ID: {}", installed.app_id);
-    if let Some(backup) = installed.backup {
-        println!("Shortcut backup: {}", backup.display());
-    }
-    println!("Start Steam to find Tempest 2032 in your library.");
-    Ok(())
+    Ok(Report {
+        installed,
+        root,
+        user,
+        running,
+    })
 }
 
 fn install_directory(platform: Platform, data: &Path, steam: &Path) -> PathBuf {
@@ -293,7 +332,7 @@ fn is_thread(pid: sysinfo::Pid) -> bool {
 fn is_thread(_pid: sysinfo::Pid) -> bool {
     false
 }
-fn warn_if_steam_running() {
+fn steam_running() -> Vec<String> {
     use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
     let system = System::new_with_specifics(
         RefreshKind::nothing().with_processes(
@@ -321,12 +360,7 @@ fn warn_if_steam_running() {
         })
         .collect();
     running.sort();
-    if !running.is_empty() {
-        eprintln!(
-            "Warning: Steam is still running ({}). Tempest 2032 shows up in your library after you restart Steam; until then Steam may drop the shortcut again.",
-            running.join(", ")
-        );
-    }
+    running
 }
 #[derive(Debug)]
 struct Installed {

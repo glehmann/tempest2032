@@ -51,8 +51,11 @@ pub(crate) fn capture_frame(
     glider: Single<&Visibility, With<Glider>>,
     game: Res<Game>,
     preview: Option<Res<crate::messages::Preview>>,
+    front: Option<Res<crate::menu::FrontEnd>>,
 ) {
-    if let Some(preview) = preview {
+    if front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay) {
+        // Menu previews have no visible glider or fixed gameplay clock.
+    } else if let Some(preview) = preview {
         if preview.elapsed <= u32::from(preview.capture_tick.unwrap_or(60)) {
             return;
         }

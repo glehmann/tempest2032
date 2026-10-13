@@ -16,7 +16,7 @@ fn closed_web() -> bool {
     true
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Web {
     #[serde(default = "closed_web")]
