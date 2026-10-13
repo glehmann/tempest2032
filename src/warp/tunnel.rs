@@ -208,6 +208,7 @@ impl Tunnel {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn target(&self) -> u8 {
         self.arcs[(self.segments as usize + 8) & 63][2].offset
     }

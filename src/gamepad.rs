@@ -14,13 +14,12 @@ use bevy::{
 const DEADZONE: f32 = 0.4;
 
 pub(crate) fn add_systems(app: &mut App) {
-    app.add_systems(
-        PreUpdate,
-        map_controllers
-            .after(bevy::input::InputSystems)
-            .before(crate::pause::input)
-            .run_if(not(resource_exists::<crate::capture::MotionCapture>)),
-    );
+    let system = map_controllers
+        .after(bevy::input::InputSystems)
+        .before(crate::pause::input);
+    #[cfg(not(target_arch = "wasm32"))]
+    let system = system.run_if(not(resource_exists::<crate::capture::MotionCapture>));
+    app.add_systems(PreUpdate, system);
 }
 
 fn button_key(button: GamepadButton, menu: bool) -> Option<KeyCode> {

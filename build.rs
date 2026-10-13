@@ -2,7 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 fn main() {
     #[cfg(windows)]
-    {
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         println!("cargo:rerun-if-changed=packaging/windows/icon.ico");
         winresource::WindowsResource::new()
             .set_icon("packaging/windows/icon.ico")

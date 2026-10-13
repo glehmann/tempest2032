@@ -35,6 +35,7 @@ pub(crate) struct PowerUp {
 }
 
 impl PowerUp {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn preview_lane(&self) -> Option<usize> {
         (!self.captured && self.depth >= 0).then_some(self.lane)
     }

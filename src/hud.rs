@@ -3,6 +3,7 @@
 use crate::game::Game;
 use crate::messages::geometry::{self, Glyphs, Style, Triangle};
 use bevy::camera::visibility::RenderLayers;
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::diagnostic::{
     Diagnostic, DiagnosticPath, DiagnosticsStore, SystemInformationDiagnosticsPlugin,
 };
@@ -171,7 +172,7 @@ pub(crate) fn spawn_fps_label(mut commands: Commands) {
 
 pub(crate) fn update_fps(
     time: Res<Time<Real>>,
-    diagnostics: Res<DiagnosticsStore>,
+    #[cfg(not(target_arch = "wasm32"))] diagnostics: Res<DiagnosticsStore>,
     mut meter: ResMut<FpsMeter>,
     mut label: Single<&mut Text, With<FpsLabel>>,
 ) {
@@ -204,11 +205,13 @@ pub(crate) fn update_fps(
         .fold((f64::MAX, 0.0_f64), |(fastest, slowest), (_, ms)| {
             (fastest.min(*ms), slowest.max(*ms))
         });
+    #[cfg(not(target_arch = "wasm32"))]
     let cpu = average(
         &diagnostics,
         &SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE,
     )
     .map_or(String::new(), |usage| format!("  CPU {usage:.0}%"));
+    #[cfg(not(target_arch = "wasm32"))]
     let memory = average(
         &diagnostics,
         &SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE,
@@ -216,12 +219,15 @@ pub(crate) fn update_fps(
     .map_or(String::new(), |gib| {
         format!("  MEM {:.0} MiB", gib * 1024.0)
     });
-    let text = format!("{fps:.0} FPS  {fastest:.1}-{slowest:.1} ms{cpu}{memory}");
+    let text = format!("{fps:.0} FPS  {fastest:.1}-{slowest:.1} ms");
+    #[cfg(not(target_arch = "wasm32"))]
+    let text = format!("{text}{cpu}{memory}");
     if label.0 != text {
         label.0 = text;
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn average(diagnostics: &DiagnosticsStore, path: &DiagnosticPath) -> Option<f64> {
     diagnostics.get(path).and_then(Diagnostic::average)
 }

@@ -3,6 +3,7 @@
 use crate::difficulty::Difficulty;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
 use std::{io::Write, path::PathBuf};
 
 pub(crate) const LIMIT: usize = 10;
@@ -34,6 +35,25 @@ impl Default for Data {
 }
 
 impl Data {
+    fn parse(text: &str) -> Result<Self, String> {
+        let mut data: Self = toml::from_str(text).map_err(|error| error.to_string())?;
+        if data.version != 1
+            || !valid_initials(&data.initials)
+            || data
+                .tables
+                .iter()
+                .flatten()
+                .any(|entry| !valid_initials(&entry.initials))
+        {
+            return Err("Unsupported or invalid player data".into());
+        }
+        for table in &mut data.tables {
+            table.sort_by_key(|entry| std::cmp::Reverse(entry.score));
+            table.truncate(LIMIT);
+        }
+        Ok(data)
+    }
+
     pub(crate) fn rank(&self, difficulty: Difficulty, score: u32) -> Option<usize> {
         if score == 0 {
             return None;
@@ -64,15 +84,20 @@ impl Data {
 #[derive(Resource)]
 pub(crate) struct Store {
     pub(crate) data: Data,
+    #[cfg(not(target_arch = "wasm32"))]
     path: Option<PathBuf>,
+    #[cfg(target_arch = "wasm32")]
+    writable: bool,
     pub(crate) notice: String,
 }
 
 impl Store {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn load() -> Self {
         Self::open(dirs::data_local_dir().map(|path| path.join("tempest2032/player.toml")))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn open(path: Option<PathBuf>) -> Self {
         let mut store = Self {
             data: default(),
@@ -91,22 +116,7 @@ impl Store {
                 }
                 Err(error) => return Err(error.to_string()),
             };
-            let mut data: Data = toml::from_str(&text).map_err(|error| error.to_string())?;
-            if data.version != 1
-                || !valid_initials(&data.initials)
-                || data
-                    .tables
-                    .iter()
-                    .flatten()
-                    .any(|entry| !valid_initials(&entry.initials))
-            {
-                return Err("Unsupported or invalid player data".into());
-            }
-            for table in &mut data.tables {
-                table.sort_by_key(|entry| std::cmp::Reverse(entry.score));
-                table.truncate(LIMIT);
-            }
-            Ok(data)
+            Data::parse(&text)
         })();
         match result {
             Ok(data) => store.data = data,
@@ -120,6 +130,7 @@ impl Store {
         store
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn save(&mut self) {
         let Some(path) = &self.path else { return };
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
@@ -135,6 +146,60 @@ impl Store {
             format!("Could not save player data: {error}. Scores remain available until you quit.")
         });
     }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load() -> Self {
+        let result = (|| match storage()?
+            .get_item("tempest2032/player.toml")
+            .map_err(|error| format!("{error:?}"))?
+        {
+            Some(text) => Data::parse(&text),
+            None => Ok(Data::default()),
+        })();
+        match result {
+            Ok(data) => Self {
+                data,
+                writable: true,
+                notice: String::new(),
+            },
+            Err(error) => Self {
+                data: default(),
+                writable: false,
+                notice: format!(
+                    "Could not load player data: {error}. Saving is disabled for this session."
+                ),
+            },
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn save(&mut self) {
+        if !self.writable {
+            return;
+        }
+        let result = (|| {
+            storage()?
+                .set_item(
+                    "tempest2032/player.toml",
+                    &toml::to_string(&self.data).map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| format!("{error:?}"))
+        })();
+        self.notice = result.err().map_or_else(String::new, |error| {
+            format!(
+                "Could not save player data: {error}. Scores remain available until you reload."
+            )
+        });
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn storage() -> Result<web_sys::Storage, String> {
+    web_sys::window()
+        .unwrap()
+        .local_storage()
+        .map_err(|error| format!("{error:?}"))?
+        .ok_or_else(|| "Browser storage is unavailable".into())
 }
 
 fn valid_initials(value: &str) -> bool {
@@ -159,6 +224,7 @@ mod tests {
         assert_eq!(data.rank(Difficulty::High, 1), Some(0));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn round_trip_and_invalid_files_are_not_overwritten() {
         let directory = tempfile::tempdir().unwrap();

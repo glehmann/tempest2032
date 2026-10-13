@@ -53,6 +53,7 @@ enum SpawnKind {
 }
 
 impl Flipper {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn preview_target(&self, web: &Web) -> Option<(usize, i32)> {
         self.hit_lane(web).map(|lane| (lane, self.depth))
     }

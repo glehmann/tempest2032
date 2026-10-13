@@ -450,7 +450,10 @@ impl Levels {
     }
 
     pub(crate) fn load(directory: &Path) -> Result<Self, String> {
-        let mut levels = Vec::new();
+        let mut levels: Vec<(std::path::PathBuf, Level)> = Vec::new();
+        #[cfg(target_arch = "wasm32")]
+        let _ = directory;
+        #[cfg(not(target_arch = "wasm32"))]
         match std::fs::read_dir(directory) {
             Ok(entries) => {
                 for entry in entries {

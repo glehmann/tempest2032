@@ -16,7 +16,10 @@ use bevy::{
     prelude::*,
     window::Ime,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{self, Receiver};
+
+const CONFIG_CHOICES: usize = if cfg!(target_arch = "wasm32") { 2 } else { 3 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Screen {
@@ -45,6 +48,7 @@ pub(crate) struct FrontEnd {
     typed: usize,
     score: u32,
     highlight: Option<(Difficulty, usize)>,
+    #[cfg(not(target_arch = "wasm32"))]
     install: Option<std::sync::Mutex<Receiver<Result<String, String>>>>,
     notice: String,
     blocked: Vec<KeyCode>,
@@ -67,6 +71,7 @@ impl FrontEnd {
             typed: 0,
             score: 0,
             highlight: None,
+            #[cfg(not(target_arch = "wasm32"))]
             install: None,
             notice: String::new(),
             blocked: Vec::new(),
@@ -106,8 +111,10 @@ pub(crate) fn add_systems(app: &mut App) {
                 .after(crate::gamepad::map_controllers)
                 .before(crate::pause::input),
         )
-        .add_systems(Update, (installation, draw).chain())
+        .add_systems(Update, draw)
         .add_systems(Update, draw_game_over_hint);
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(Update, installation.before(draw));
     background::add_systems(app);
 }
 
@@ -133,7 +140,7 @@ pub(crate) fn abandon(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn input(
+pub(crate) fn input(
     mut keys: ResMut<ButtonInput<KeyCode>>,
     mut text: MessageReader<KeyboardInput>,
     mut ime: MessageReader<Ime>,
@@ -144,7 +151,7 @@ fn input(
     mut game: ResMut<Game>,
     mut messages: ResMut<crate::messages::Messages>,
     mut windows: Query<&mut Window>,
-    mut exit: MessageWriter<AppExit>,
+    #[cfg(not(target_arch = "wasm32"))] mut exit: MessageWriter<AppExit>,
     mut focus_lost: MessageReader<KeyboardFocusLost>,
     time: Option<Res<Time<Virtual>>>,
     mut commands: Commands,
@@ -210,6 +217,7 @@ fn input(
                     front.screen = Screen::Gameplay;
                     front.highlight = None;
                 } else if keys.just_pressed(KeyCode::Escape) {
+                    #[cfg(not(target_arch = "wasm32"))]
                     exit.write(AppExit::Success);
                 }
             }
@@ -220,7 +228,8 @@ fn input(
                     let up = keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]);
                     let down = keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS]);
                     if up != down {
-                        front.selected = (front.selected + if up { 2 } else { 1 }) % 3;
+                        front.selected = (front.selected + if up { CONFIG_CHOICES - 1 } else { 1 })
+                            % CONFIG_CHOICES;
                     }
                     if front.selected == 0 {
                         let left = keys.just_pressed(KeyCode::ArrowLeft);
@@ -232,9 +241,11 @@ fn input(
                             store.save();
                         }
                     } else if confirm(&keys) {
-                        if front.selected == 2 {
+                        if front.selected == CONFIG_CHOICES - 1 {
                             front.screen = Screen::Welcome;
-                        } else if front.install.is_none() {
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        if front.selected == 1 && front.install.is_none() {
                             if std::env::var_os("FLATPAK_ID").is_some() {
                                 front.notice = "Steam installation is unavailable inside Flatpak. Use a native build to add the game to Steam.".into();
                             } else {
@@ -304,6 +315,7 @@ fn input(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn installation(mut front: ResMut<FrontEnd>) {
     let result =
         front
@@ -492,12 +504,17 @@ fn draw(
             (
                 "TEMPEST 2032".into(),
                 body,
-                "ENTER / A  PLAY\nP / START  CONFIGURATION     ESC / B  EXIT".into(),
+                if cfg!(target_arch = "wasm32") {
+                    "ENTER / A  PLAY\nP / START  CONFIGURATION".into()
+                } else {
+                    "ENTER / A  PLAY\nP / START  CONFIGURATION     ESC / B  EXIT".into()
+                },
             )
         }
         Screen::Configuration => {
             let choices = [
                 format!("DIFFICULTY     < {} >", difficulty.label()),
+                #[cfg(not(target_arch = "wasm32"))]
                 if front.install.is_some() {
                     "INSTALLING IN STEAM...".into()
                 } else {
@@ -533,8 +550,19 @@ fn draw(
                 })
                 .collect::<Vec<_>>()
                 .join("  ");
-            ("NEW HIGH SCORE".into(), format!("{}  /  {}\n\nENTER YOUR INITIALS\n\n{slots}", front.score, difficulty.label()),
-                "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS. STEAM DECK: STEAM + X".into())
+            (
+                "NEW HIGH SCORE".into(),
+                format!(
+                    "{}  /  {}\n\nENTER YOUR INITIALS\n\n{slots}",
+                    front.score,
+                    difficulty.label()
+                ),
+                if cfg!(target_arch = "wasm32") {
+                    "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS.".into()
+                } else {
+                    "LEFT / RIGHT  SLOT     UP / DOWN  LETTER\nENTER / A  SAVE     BACKSPACE / B  ERASE\nOR TYPE THREE LETTERS. STEAM DECK: STEAM + X".into()
+                },
+            )
         }
         Screen::Gameplay => unreachable!(),
     };

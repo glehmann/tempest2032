@@ -92,6 +92,71 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 graphical desktop and a Vulkan-capable graphics driver. Windows and macOS use
 their native window backends.
 
+## Local browser build
+
+The browser version uses Bevy's WebGL2 renderer and a single-threaded
+`wasm32-unknown-unknown` build. All levels, effects, music, and other game assets
+remain embedded. It requires a WebGL2-capable browser and a keyboard or controller;
+touch controls are not implemented.
+
+Install the WASM target and a `wasm-bindgen-cli` version matching the
+`wasm-bindgen` package in `Cargo.lock`. The current version is 0.2.129:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+make web
+make web-serve
+```
+
+Open <http://127.0.0.1:8000> and click Play to enable audio and focus the canvas.
+Enter / controller A then starts a run from Welcome. The Fullscreen button uses
+the browser's fullscreen API. Press a controller button to let the browser detect
+it. Esc on Welcome leaves the game running; close the tab to quit.
+
+The build uses the `web-release` Cargo profile, with optimization level 2 and the
+native release profile's LTO settings. `tools/web.py` checks the bindings version,
+removes the release WASM's debugging name section, and generates the complete
+static site in `target/web/`, including license and
+attribution files. No server-side game code is needed. The local server binds only
+to `127.0.0.1`. These commands also work without Make:
+
+```sh
+python3 tools/web.py build
+python3 tools/web.py serve --port 8000
+```
+
+For development, `python3 tools/web.py build --profile dev` uses the normal Cargo
+development profile. The page accepts `fps`, `level`, `warp-zone`, `warp-course`,
+`volume`, and `music-volume` URL parameters, for example:
+
+```text
+http://127.0.0.1:8000/?fps
+http://127.0.0.1:8000/?level=80&fps
+http://127.0.0.1:8000/?warp-zone=tunnel&warp-course=2
+```
+
+Explicit level and warp starts bypass Welcome and disable score submission, as
+their native command-line counterparts do. The browser FPS display retains frame
+timing but omits desktop process CPU/memory readings and monitor-refresh warnings.
+Filesystem level overrides, capture tools, and Steam installation are native-only.
+
+The same validated player TOML is stored in `localStorage` under the key
+`tempest2032/player.toml`. Scores and difficulty are local to the browser and
+origin, so `localhost`, `127.0.0.1`, different ports, and a future hosted site have
+separate data. Clearing site data removes the tables. Invalid stored data is
+preserved and disables saving for that session; storage failures show a notice.
+
+Losing page or canvas focus, or hiding the tab, suspends virtual time and the audio
+context. Click Resume to continue. An existing gameplay pause stays paused after
+resuming the page. Pending action inputs are cleared, and the 60 Hz simulation
+does not catch up for the time spent away. Rendering and audio callbacks share the
+browser thread, so expensive rendering or shader compilation can interrupt audio.
+Hardware-accelerated Firefox and Chromium have been exercised locally. Chromium's
+software renderer was too slow for smooth playback on the test machine. Safari and
+physical controller compatibility still need manual testing; standard controller
+input has been checked through a simulated browser Gamepad API.
+
 ## Welcome, settings, and high scores
 
 Normal launches open Welcome with the spectrum-portal logo using the same

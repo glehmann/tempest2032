@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tempest 2032</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header>
+      <h1>Tempest 2032</h1>
+      <button id="fullscreen" disabled>Fullscreen</button>
+    </header>
+    <main>
+      <section id="player" aria-label="Game">
+        <canvas id="game" tabindex="0" aria-label="Tempest 2032 game canvas"></canvas>
+        <div id="overlay">
+          <p id="status" role="status">Loading game...</p>
+          <button id="play" disabled>Play</button>
+        </div>
+      </section>
+      <p class="controls">Move: arrows / A D · Fire: Space / Z · Jump: X · Superzapper: C<br>
+        Pause / configuration: P · Confirm: Enter · Back: Esc<br>
+        Controllers supported. Press a controller button to connect.</p>
+      <p class="note">Settings and high scores stay in this browser. Keyboard or controller required.</p>
+    </main>
+    <footer>
+      <a href="https://github.com/glehmann/tempest2032">Source code</a> ·
+      <a href="LICENSE">GPLv3</a> · <a href="NOTICE">Attribution</a>
+    </footer>
+    <script type="module" src="browser.js"></script>
+  </body>
+</html>

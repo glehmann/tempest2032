@@ -2,9 +2,19 @@
 //! schedules. Keeps fixed-tick system ordering and run conditions together.
 
 use crate::enemies::{pulsar_render, pulsars};
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::diagnostic::SystemInformationDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PresentMode, WindowMode};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{
+    capture::{
+        CapturePath, CapturePreview, MotionCapture, capture_frame, capture_motion, preview_input,
+        preview_transition,
+    },
+    frame_pacing::warn_late_frames,
+};
 
 use crate::{
     animations::{
@@ -12,10 +22,6 @@ use crate::{
         level_exit as exit,
     },
     camera::{fit_camera, follow_glider},
-    capture::{
-        CapturePath, CapturePreview, MotionCapture, capture_frame, capture_motion, preview_input,
-        preview_transition,
-    },
     cli,
     collisions::resolve_hits,
     enemies::{
@@ -27,7 +33,6 @@ use crate::{
         spikers, tankers,
     },
     explosion,
-    frame_pacing::warn_late_frames,
     game::{Game, Status, check_game, controlling, load_level},
     glider::{animate_glider, move_glider},
     hud::{FpsMeter, spawn_fps_label, update_fps, update_hud},
@@ -68,15 +73,19 @@ pub(crate) fn run(args: cli::Cli) {
         });
     }
     if args.fps {
+        #[cfg(not(target_arch = "wasm32"))]
         app.add_plugins(SystemInformationDiagnosticsPlugin)
-            .init_resource::<FpsMeter>()
+            .add_systems(Update, warn_late_frames);
+        app.init_resource::<FpsMeter>()
             .add_systems(Startup, spawn_fps_label)
-            .add_systems(Update, (update_fps, warn_late_frames));
+            .add_systems(Update, update_fps);
     }
+    #[cfg(not(target_arch = "wasm32"))]
     if let Some(path) = args.screenshot {
         app.insert_resource(CapturePath(path))
             .add_systems(Update, capture_frame);
     }
+    #[cfg(not(target_arch = "wasm32"))]
     let recording = args
         .record_motion
         .map(|directory| {
@@ -94,6 +103,7 @@ pub(crate) fn run(args: cli::Cli) {
             args.record_shot_hit
                 .map(|directory| (directory, 15, CapturePreview::ShotHit))
         });
+    #[cfg(not(target_arch = "wasm32"))]
     if let Some((directory, default_seconds, preview)) = recording {
         std::fs::create_dir_all(&directory).expect("could not create motion capture directory");
         app.insert_resource(MotionCapture {
@@ -170,6 +180,10 @@ pub(crate) fn run(args: cli::Cli) {
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
+                #[cfg(target_arch = "wasm32")]
+                canvas: Some("#game".into()),
+                #[cfg(target_arch = "wasm32")]
+                fit_canvas_to_parent: true,
                 title: format!("Tempest 2032 | Level {starting_level}"),
                 resolution: args.message_size.map_or_else(
                     || (1100, 850).into(),
@@ -209,6 +223,8 @@ pub(crate) fn run(args: cli::Cli) {
     crate::pause::add_systems(&mut app);
     crate::gamepad::add_systems(&mut app);
     crate::menu::add_systems(&mut app);
+    #[cfg(target_arch = "wasm32")]
+    crate::browser::add_systems(&mut app);
     if direct && args.warp_zone.is_none() {
         app.world_mut()
             .resource_mut::<Game>()
@@ -304,10 +320,6 @@ fn add_systems(app: &mut App) {
                 .run_if(normal_scene)
                 .run_if(crate::pause::running)
                 .run_if(crate::menu::playing),
-        )
-        .add_systems(
-            FixedUpdate,
-            preview_transition.after(preview_input).before(move_glider),
         )
         .add_systems(
             FixedUpdate,
@@ -418,4 +430,9 @@ fn add_systems(app: &mut App) {
                 spikers::draw.after(load_level),
             ),
         );
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(
+        FixedUpdate,
+        preview_transition.after(preview_input).before(move_glider),
+    );
 }
