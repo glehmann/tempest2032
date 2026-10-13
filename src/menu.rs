@@ -1,6 +1,7 @@
 //! Front-end screens stay responsive without advancing the gameplay simulation.
 
 mod background;
+mod welcome;
 
 use crate::{
     difficulty::Difficulty,
@@ -9,11 +10,14 @@ use crate::{
     scores::Store,
 };
 use bevy::{
+    asset::RenderAssetUsages,
+    image::{CompressedImageFormats, ImageSampler, ImageType},
     input::{
         ButtonState,
         keyboard::{Key, KeyboardFocusLost, KeyboardInput},
     },
     prelude::*,
+    ui::widget::ViewportNode,
     window::Ime,
 };
 #[cfg(not(target_arch = "wasm32"))]
@@ -113,6 +117,7 @@ pub(crate) fn add_systems(app: &mut App) {
         )
         .add_systems(Update, draw)
         .add_systems(Update, draw_game_over_hint);
+    welcome::add_systems(app);
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(Update, installation.before(draw));
     background::add_systems(app);
@@ -337,6 +342,10 @@ fn installation(mut front: ResMut<FrontEnd>) {
 #[derive(Component)]
 struct Root;
 #[derive(Component)]
+struct Panel;
+#[derive(Component)]
+struct Logo;
+#[derive(Component)]
 struct GameOverHint;
 #[derive(Component)]
 enum Label {
@@ -346,7 +355,24 @@ enum Label {
     Notice,
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let logo = images.add(
+        Image::from_buffer(
+            include_bytes!("../assets/steam/logo.png"),
+            ImageType::Extension("png"),
+            CompressedImageFormats::NONE,
+            true,
+            ImageSampler::linear(),
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        .unwrap(),
+    );
+    let scores = welcome::setup(&mut commands, &mut images, &mut meshes, &mut materials);
     commands.spawn((
         GameOverHint,
         Text::default(),
@@ -391,18 +417,39 @@ fn setup(mut commands: Commands) {
                 },
             ));
             root.spawn((
+                Panel,
                 Node {
-                    width: percent(86),
-                    max_width: px(760),
+                    width: percent(70),
                     padding: UiRect::all(px(20)),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     row_gap: px(16),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.01, 0.015, 0.035, 0.78)),
             ))
             .with_children(|panel| {
+                panel.spawn((
+                    Logo,
+                    ImageNode::new(logo),
+                    Node {
+                        height: percent(22),
+                        aspect_ratio: Some(1.),
+                        flex_shrink: 0.,
+                        ..default()
+                    },
+                ));
+                panel.spawn((
+                    welcome::Scores,
+                    ViewportNode::new(scores),
+                    Node {
+                        width: percent(100),
+                        height: percent(62),
+                        flex_shrink: 0.,
+                        ..default()
+                    },
+                ));
                 for (label, color) in [
                     (Label::Title, Color::srgb(0.4, 0.9, 1.)),
                     (Label::Body, Color::srgb(1., 0.88, 0.48)),
@@ -444,19 +491,31 @@ fn draw_game_over_hint(
     }
 }
 
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn draw(
     front: Res<FrontEnd>,
     store: Res<Store>,
     difficulty: Res<Difficulty>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut root: Query<&mut Node, With<Root>>,
-    mut labels: Query<(&Label, &mut Text, &mut TextFont)>,
+    mut panels: Query<&mut Node, (With<Panel>, Without<Root>)>,
+    mut welcome_nodes: Query<
+        &mut Node,
+        (
+            Or<(With<Logo>, With<welcome::Scores>)>,
+            Without<Root>,
+            Without<Panel>,
+            Without<Label>,
+        ),
+    >,
+    mut labels: Query<
+        (&Label, &mut Text, &mut TextFont, &mut Node),
+        (Without<Root>, Without<Panel>),
+    >,
 ) {
     let screen = front.screen;
     let scale = windows.iter().next().map_or(1., |window| {
-        (window.height() / 800.)
-            .min(window.width() / 900.)
-            .clamp(0.4, 1.5)
+        (window.height() / 800.).min(window.width() / 1100.)
     });
     for mut node in &mut root {
         node.display = if screen == Screen::Gameplay {
@@ -479,38 +538,32 @@ fn draw(
     if screen == Screen::Gameplay {
         return;
     }
+    for mut panel in &mut panels {
+        panel.height = if screen == Screen::Welcome {
+            percent(86)
+        } else {
+            Val::Auto
+        };
+        panel.padding = UiRect::all(px(20. * scale));
+        panel.row_gap = px(16. * scale);
+    }
+    for mut node in &mut welcome_nodes {
+        node.display = if screen == Screen::Welcome {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
     let (title, body, footer) = match screen {
-        Screen::Welcome => {
-            let mut body = format!("HIGH SCORES  /  {}\n\n", difficulty.label());
-            for rank in 0..crate::scores::LIMIT {
-                let entry = store.data.tables[difficulty.index()].get(rank);
-                let marker = if front.highlight == Some((*difficulty, rank)) {
-                    ">"
-                } else {
-                    " "
-                };
-                body.push_str(&entry.map_or_else(
-                    || format!("{marker} {:2}    ---    --------\n", rank + 1),
-                    |entry| {
-                        format!(
-                            "{marker} {:2}    {}    {:8}\n",
-                            rank + 1,
-                            entry.initials,
-                            entry.score
-                        )
-                    },
-                ));
-            }
-            (
-                "TEMPEST 2032".into(),
-                body,
-                if cfg!(target_arch = "wasm32") {
-                    "ENTER / A  PLAY\nP / START  CONFIGURATION".into()
-                } else {
-                    "ENTER / A  PLAY\nP / START  CONFIGURATION     ESC / B  EXIT".into()
-                },
-            )
-        }
+        Screen::Welcome => (
+            String::new(),
+            String::new(),
+            if cfg!(target_arch = "wasm32") {
+                "ENTER / A  PLAY\nP / START  CONFIGURATION".into()
+            } else {
+                "ENTER / A  PLAY\nP / START  CONFIGURATION     ESC / B  EXIT".into()
+            },
+        ),
         Screen::Configuration => {
             let choices = [
                 format!("DIFFICULTY     < {} >", difficulty.label()),
@@ -572,12 +625,17 @@ fn draw(
         .map(String::as_str)
         .collect::<Vec<_>>()
         .join("\n");
-    for (label, mut text, mut font) in &mut labels {
+    for (label, mut text, mut font, mut node) in &mut labels {
         let (value, size) = match label {
             Label::Title => (&title, 44.),
             Label::Body => (&body, 25.),
             Label::Footer => (&footer, 16.),
             Label::Notice => (&notice, 16.),
+        };
+        node.display = if value.is_empty() {
+            Display::None
+        } else {
+            Display::Flex
         };
         if text.0 != *value {
             text.0.clone_from(value);

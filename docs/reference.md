@@ -171,6 +171,12 @@ Start opens Configuration. Use up/down to select, left/right to change
 difficulty, and Enter / A to confirm. P / Start or Esc / B returns to Welcome.
 Esc / B on Welcome quits.
 
+Welcome shows the embedded spectrum-portal logo and a high-score table built
+from the announcements' beveled lettering and the HUD's rainbow score digits.
+The table renders at the UI's native resolution. The centered panel occupies
+70% of the window width and 86% of its height; lettering, padding, and spacing
+scale with the window without a pixel-size cap.
+
 Gameplay fixed updates stop on front-end screens, while real-time star
 animation, input, and title music remain live. Gameplay pause still freezes
 virtual time and audio. Transition buttons are consumed, and held controller

@@ -33,6 +33,97 @@ fn key(app: &mut App, key: KeyCode) {
 }
 
 #[test]
+fn welcome_scales_with_the_window_and_restores_other_menu_screens() {
+    let (mut app, _directory) = app(true);
+    app.init_resource::<Assets<Image>>()
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<crate::messages::geometry::Glyphs>()
+        .add_systems(Startup, setup)
+        .add_systems(Update, draw.after(input));
+    welcome::add_systems(&mut app);
+    let window = app
+        .world_mut()
+        .spawn((
+            Window {
+                resolution: bevy::window::WindowResolution::new(1280, 800)
+                    .with_scale_factor_override(1.),
+                ..default()
+            },
+            bevy::window::PrimaryWindow,
+        ))
+        .id();
+    app.world_mut().resource_mut::<Store>().data.tables[1] = vec![crate::scores::Entry {
+        initials: "MAX".into(),
+        score: u32::MAX,
+    }];
+    app.world_mut().resource_mut::<FrontEnd>().highlight = Some((Difficulty::Normal, 0));
+    app.update();
+    let scores = app
+        .world_mut()
+        .query_filtered::<Entity, With<welcome::Scores>>()
+        .single(app.world())
+        .unwrap();
+    let camera = app.world().get::<ViewportNode>(scores).unwrap().camera;
+    assert!(app.world().get::<Camera>(camera).unwrap().is_active);
+    let mesh = app
+        .world_mut()
+        .query::<&Mesh3d>()
+        .single(app.world())
+        .unwrap();
+    let mesh = app.world().resource::<Assets<Mesh>>().get(&mesh.0).unwrap();
+    let bevy::mesh::VertexAttributeValues::Float32x3(points) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
+    else {
+        panic!("welcome scores have no positions");
+    };
+    assert!(!points.is_empty());
+    assert!(
+        points
+            .iter()
+            .all(|p| p[0].abs() <= 280. && p[1].abs() <= 195.)
+    );
+    for (width, height, scale) in [(1280., 800., 1.), (2560., 1600., 2.)] {
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .resolution
+            .set(width, height);
+        app.update();
+        let node = app
+            .world_mut()
+            .query_filtered::<&Node, With<Panel>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!((node.width, node.height), (percent(70), percent(86)));
+        assert_eq!(node.padding, UiRect::all(px(20. * scale)));
+        for (label, font) in app
+            .world_mut()
+            .query::<(&Label, &TextFont)>()
+            .iter(app.world())
+        {
+            if matches!(label, Label::Footer) {
+                assert_eq!(font.font_size, 16. * scale);
+            }
+        }
+    }
+    key(&mut app, KeyCode::KeyP);
+    assert_eq!(
+        app.world().get::<Node>(scores).unwrap().display,
+        Display::None
+    );
+    assert!(!app.world().get::<Camera>(camera).unwrap().is_active);
+    key(&mut app, KeyCode::Escape);
+    assert_eq!(
+        app.world().get::<Node>(scores).unwrap().display,
+        Display::Flex
+    );
+    assert!(app.world().get::<Camera>(camera).unwrap().is_active);
+    key(&mut app, KeyCode::Enter);
+    assert!(!app.world().get::<Camera>(camera).unwrap().is_active);
+}
+
+#[test]
 fn menus_do_not_compound_difficulty_and_consume_transition_keys() {
     let (mut app, _directory) = app(true);
     key(&mut app, KeyCode::KeyP);
