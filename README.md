@@ -102,6 +102,7 @@ to keep the same controller controls on Steam Deck and other Steam controllers.
 For high-score initials, type three letters or use left/right to select a slot
 and up/down to change its letter. Enter / A saves; Backspace / B erases.
 On Steam Deck, open the virtual keyboard with Steam + X.
+Initials follow your OS keyboard layout; gameplay bindings use physical key positions.
 
 ## Options
 

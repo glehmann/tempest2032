@@ -11,7 +11,7 @@ use crate::{
 use bevy::{
     input::{
         ButtonState,
-        keyboard::{KeyboardFocusLost, KeyboardInput},
+        keyboard::{Key, KeyboardFocusLost, KeyboardInput},
     },
     prelude::*,
     window::Ime,
@@ -181,7 +181,10 @@ fn input(
         let typed: String = events
             .iter()
             .filter(|event| event.state == ButtonState::Pressed)
-            .filter_map(|event| event.text.as_deref())
+            .filter_map(|event| match &event.logical_key {
+                Key::Character(character) => Some(character.as_str()),
+                _ => event.text.as_deref(),
+            })
             .collect();
         let committed: String = ime
             .read()

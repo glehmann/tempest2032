@@ -263,6 +263,35 @@ fn physical_text_handles_shortcut_letters_and_transition_auto_repeat() {
 }
 
 #[test]
+fn initials_follow_os_characters_instead_of_physical_key_positions() {
+    let (mut app, _directory) = app(true);
+    app.world_mut()
+        .resource_mut::<FrontEnd>()
+        .enter_initials(42, "AAA");
+    for (physical, character, text) in [
+        (KeyCode::KeyQ, "a", Some("a")),
+        (KeyCode::KeyA, "q", None),
+        (KeyCode::KeyY, "z", Some("z")),
+    ] {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(physical);
+        app.world_mut().write_message(KeyboardInput {
+            key_code: physical,
+            logical_key: Key::Character(character.into()),
+            state: ButtonState::Pressed,
+            text: text.map(Into::into),
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+    }
+    assert_eq!(app.world().resource::<FrontEnd>().initials, *b"AQZ");
+    assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Initials);
+    assert!(app.world().resource::<Game>().load.is_none());
+}
+
+#[test]
 fn pause_exit_returns_to_welcome_without_a_held_confirm_starting_another_run() {
     for controller in [false, true] {
         let (mut app, _directory) = app(true);

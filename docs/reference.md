@@ -116,8 +116,10 @@ additional levels do not. Explicit `--level`, including `--level 1`, direct
 and disable score saving for the entire session, including after restarting.
 Abandoned runs do not submit scores.
 
-Initials entry accepts A-Z from keyboard text events and IME commits, converting
-lowercase letters to uppercase. On a controller, left/right selects a slot,
+Initials entry accepts A-Z from OS-translated logical keyboard characters,
+falling back to text events, and also accepts IME commits. It follows the active
+OS layout rather than physical QWERTY key positions used for gameplay, and
+converts lowercase letters to uppercase. On a controller, left/right selects a slot,
 up/down cycles its letter, A saves, and B erases. Physical keyboards use
 Backspace and Enter. Steam Deck's manually opened Steam + X keyboard uses the
 same field. The last submitted initials are reused as the next default.
