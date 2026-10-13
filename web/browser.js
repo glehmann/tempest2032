@@ -91,7 +91,7 @@ document.addEventListener('keydown', event => {
   }
 }, true);
 canvas.addEventListener('keydown', event => {
-  if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.code)) {
+  if (['F3', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.code)) {
     event.preventDefault();
   }
 });

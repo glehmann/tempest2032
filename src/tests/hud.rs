@@ -2,7 +2,7 @@
 //! window of per-frame times, and appends the processor and memory readings
 //! once they arrive.
 
-use crate::hud::{FpsLabel, FpsMeter, spawn_fps_label, update_fps};
+use crate::hud::{FpsDisplay, FpsLabel, FpsMeter, spawn_fps_label, update_fps};
 use bevy::diagnostic::{
     Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore,
     SystemInformationDiagnosticsPlugin,
@@ -118,6 +118,7 @@ fn fps_app() -> App {
         16_666_667,
     )))
     .add_plugins(TimePlugin)
+    .insert_resource(FpsDisplay(true))
     .init_resource::<FpsMeter>()
     .init_resource::<DiagnosticsStore>()
     .add_systems(Startup, spawn_fps_label)

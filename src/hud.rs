@@ -59,6 +59,9 @@ pub(crate) fn setup(
 #[derive(Component)]
 pub(crate) struct FpsLabel;
 
+#[derive(Resource)]
+pub(crate) struct FpsDisplay(pub(crate) bool);
+
 /// Counts frames between readings and retains frame times over a rolling window.
 #[derive(Resource)]
 pub(crate) struct FpsMeter {
@@ -152,9 +155,15 @@ pub(crate) fn update_hud(
     assets.previous = Some(state);
 }
 
-pub(crate) fn spawn_fps_label(mut commands: Commands) {
+pub(crate) fn spawn_fps_label(mut commands: Commands, display: Res<FpsDisplay>) {
     commands.spawn((
         FpsLabel,
+        if display.0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        },
+        GlobalZIndex(20),
         Text::default(),
         TextFont {
             font_size: 14.0,
@@ -168,6 +177,21 @@ pub(crate) fn spawn_fps_label(mut commands: Commands) {
             ..default()
         },
     ));
+}
+
+pub(crate) fn toggle_fps(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut display: ResMut<FpsDisplay>,
+    mut label: Single<&mut Visibility, With<FpsLabel>>,
+) {
+    if keys.just_pressed(KeyCode::F3) {
+        display.0 = !display.0;
+        **label = if display.0 {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
 }
 
 pub(crate) fn update_fps(

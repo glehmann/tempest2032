@@ -35,7 +35,7 @@ use crate::{
     explosion,
     game::{Game, Status, check_game, controlling, load_level},
     glider::{animate_glider, move_glider},
-    hud::{FpsMeter, spawn_fps_label, update_fps, update_hud},
+    hud::{FpsDisplay, FpsMeter, spawn_fps_label, toggle_fps, update_fps, update_hud},
     level::{Level, Levels},
     powerups,
     scene::{setup, sync_web, update_lane},
@@ -72,14 +72,23 @@ pub(crate) fn run(args: cli::Cli) {
             elapsed: 0,
         });
     }
-    if args.fps {
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_plugins(SystemInformationDiagnosticsPlugin)
-            .add_systems(Update, warn_late_frames);
-        app.init_resource::<FpsMeter>()
-            .add_systems(Startup, spawn_fps_label)
-            .add_systems(Update, update_fps);
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(SystemInformationDiagnosticsPlugin)
+        .add_systems(
+            Update,
+            warn_late_frames.run_if(|display: Res<FpsDisplay>| display.0),
+        );
+    app.insert_resource(FpsDisplay(args.fps))
+        .init_resource::<FpsMeter>()
+        .add_systems(Startup, spawn_fps_label)
+        .add_systems(
+            PreUpdate,
+            toggle_fps
+                .after(bevy::input::InputSystems)
+                .before(crate::menu::input)
+                .before(crate::pause::input),
+        )
+        .add_systems(Update, update_fps);
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(path) = args.screenshot {
         app.insert_resource(CapturePath(path))

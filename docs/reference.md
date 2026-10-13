@@ -66,7 +66,8 @@ Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
 Pass `--fullscreen` to start borderless fullscreen on the primary monitor
-instead of a window, and `--fps` to show the frame rate in the top-right corner.
+instead of a window, and `--fps` to start with the frame rate in the top-right corner.
+Press F3 to show or hide the display at any time, including menus and while paused.
 The label refreshes every 0.5 seconds and shows the
 fastest and slowest frame times in milliseconds over the last two seconds.
 Every frame counts, so a single hitch appears at the next refresh and stays
@@ -136,6 +137,7 @@ http://127.0.0.1:8000/?level=80&fps
 http://127.0.0.1:8000/?warp-zone=tunnel&warp-course=2
 ```
 
+F3 toggles the FPS display in the browser too; `?fps` makes it visible at launch.
 Explicit level and warp starts bypass Welcome and disable score submission, as
 their native command-line counterparts do. The browser FPS display retains frame
 timing but omits desktop process CPU/memory readings and monitor-refresh warnings.
