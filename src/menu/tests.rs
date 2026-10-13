@@ -261,3 +261,85 @@ fn physical_text_handles_shortcut_letters_and_transition_auto_repeat() {
     assert_eq!(app.world().resource::<FrontEnd>().initials, *b"PRZ");
     assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Initials);
 }
+
+#[test]
+fn pause_exit_returns_to_welcome_without_a_held_confirm_starting_another_run() {
+    for controller in [false, true] {
+        let (mut app, _directory) = app(true);
+        let mut time = Time::<Virtual>::default();
+        time.pause();
+        app.insert_resource(time)
+            .insert_resource(crate::pause::Menu { selected: 2 })
+            .add_systems(Update, crate::pause::input.after(input));
+        app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Gameplay;
+        app.world_mut().resource_mut::<Game>().score = 1234;
+        let pad = if controller {
+            app.add_systems(Update, crate::gamepad::map_controllers.before(input));
+            let mut pad = Gamepad::default();
+            pad.digital_mut().press(GamepadButton::South);
+            Some(app.world_mut().spawn(pad).id())
+        } else {
+            app.world_mut()
+                .resource_mut::<ButtonInput<KeyCode>>()
+                .press(KeyCode::Enter);
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::Enter,
+                logical_key: bevy::input::keyboard::Key::Enter,
+                state: ButtonState::Pressed,
+                text: None,
+                repeat: false,
+                window: Entity::PLACEHOLDER,
+            });
+            None
+        };
+        app.update();
+        assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
+        assert!(!app.world().resource::<Time<Virtual>>().is_paused());
+        assert_eq!(app.world().resource::<Game>().score, 0);
+        assert!(app.world().resource::<Game>().load.is_none());
+        assert!(
+            app.world()
+                .resource::<Store>()
+                .data
+                .tables
+                .iter()
+                .all(Vec::is_empty)
+        );
+        for _ in 0..3 {
+            if !controller {
+                app.world_mut()
+                    .resource_mut::<ButtonInput<KeyCode>>()
+                    .press(KeyCode::Enter);
+            }
+            app.update();
+            assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
+        }
+        assert!(app.world().resource::<Messages<AppExit>>().is_empty());
+        if let Some(pad) = pad {
+            app.world_mut()
+                .get_mut::<Gamepad>(pad)
+                .unwrap()
+                .digital_mut()
+                .release(GamepadButton::South);
+            app.update();
+            app.world_mut()
+                .get_mut::<Gamepad>(pad)
+                .unwrap()
+                .digital_mut()
+                .press(GamepadButton::South);
+            app.update();
+        } else {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::Enter,
+                logical_key: bevy::input::keyboard::Key::Enter,
+                state: ButtonState::Released,
+                text: None,
+                repeat: false,
+                window: Entity::PLACEHOLDER,
+            });
+            app.update();
+            key(&mut app, KeyCode::Enter);
+        }
+        assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Gameplay);
+    }
+}

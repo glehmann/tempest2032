@@ -141,6 +141,13 @@ fn restart_resumes_and_discarded_jump_inputs_do_not_reappear() {
 #[test]
 fn menu_wraps_exits_and_resets_on_reopening() {
     let mut app = app();
+    app.insert_resource(crate::menu::FrontEnd::new(
+        crate::menu::Screen::Gameplay,
+        true,
+        Vec::new(),
+    ))
+    .init_resource::<crate::messages::Messages>();
+    app.world_mut().resource_mut::<crate::game::Game>().score = 1234;
     key(&mut app, KeyCode::KeyP);
     key(&mut app, KeyCode::ArrowUp);
     assert_eq!(app.world().resource::<Menu>().selected, 2);
@@ -150,12 +157,14 @@ fn menu_wraps_exits_and_resets_on_reopening() {
     key(&mut app, KeyCode::ArrowDown);
     key(&mut app, KeyCode::ArrowDown);
     key(&mut app, KeyCode::Space);
-    assert!(
-        app.world()
-            .resource::<Messages<AppExit>>()
-            .iter_current_update_messages()
-            .any(|exit| matches!(exit, AppExit::Success))
+    assert_eq!(
+        app.world().resource::<crate::menu::FrontEnd>().screen,
+        crate::menu::Screen::Welcome
     );
+    assert!(!app.world().resource::<Time<Virtual>>().is_paused());
+    assert_eq!(app.world().resource::<crate::game::Game>().score, 0);
+    assert!(app.world().resource::<crate::game::Game>().load.is_none());
+    assert!(app.world().resource::<Messages<AppExit>>().is_empty());
 }
 
 #[test]

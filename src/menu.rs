@@ -48,6 +48,7 @@ pub(crate) struct FrontEnd {
     install: Option<std::sync::Mutex<Receiver<Result<String, String>>>>,
     notice: String,
     blocked: Vec<KeyCode>,
+    physical: ButtonInput<KeyCode>,
 }
 
 impl FrontEnd {
@@ -69,6 +70,7 @@ impl FrontEnd {
             install: None,
             notice: String::new(),
             blocked: Vec::new(),
+            physical: default(),
         }
     }
 
@@ -118,6 +120,18 @@ fn welcome(front: &mut FrontEnd, messages: &mut crate::messages::Messages) {
     *messages = default();
 }
 
+pub(crate) fn abandon(
+    front: &mut FrontEnd,
+    game: &mut Game,
+    messages: &mut crate::messages::Messages,
+    commands: &mut Commands,
+) {
+    *game = Game::default();
+    crate::sound::reset(commands);
+    welcome(front, messages);
+    front.blocked = front.physical.get_pressed().copied().collect();
+}
+
 #[allow(clippy::too_many_arguments)]
 fn input(
     mut keys: ResMut<ButtonInput<KeyCode>>,
@@ -131,23 +145,22 @@ fn input(
     mut messages: ResMut<crate::messages::Messages>,
     mut windows: Query<&mut Window>,
     mut exit: MessageWriter<AppExit>,
-    mut physical: Local<ButtonInput<KeyCode>>,
     mut focus_lost: MessageReader<KeyboardFocusLost>,
     time: Option<Res<Time<Virtual>>>,
     mut commands: Commands,
 ) {
     let old_screen = front.screen;
     if focus_lost.read().next().is_some() {
-        physical.reset_all();
+        front.physical.reset_all();
         front.blocked.clear();
     }
     let events: Vec<_> = text.read().cloned().collect();
     for event in &events {
         if event.state == ButtonState::Released {
-            physical.release(event.key_code);
+            front.physical.release(event.key_code);
             front.blocked.retain(|key| *key != event.key_code);
         } else {
-            physical.press(event.key_code);
+            front.physical.press(event.key_code);
         }
     }
     for key in &front.blocked {
@@ -156,9 +169,7 @@ fn input(
     if front.screen == Screen::Gameplay {
         ime.clear();
         if keys.just_pressed(KeyCode::Escape) && time.is_none_or(|time| !time.is_paused()) {
-            *game = Game::default();
-            crate::sound::reset(&mut commands);
-            welcome(&mut front, &mut messages);
+            abandon(&mut front, &mut game, &mut messages, &mut commands);
         } else if game.status != Status::GameOver || !confirm(&keys) {
             return;
         } else if front.eligible && store.data.rank(*difficulty, game.score).is_some() {
@@ -279,7 +290,7 @@ fn input(
         }
     }
     if old_screen != front.screen {
-        front.blocked.extend(physical.get_pressed().copied());
+        front.blocked = front.physical.get_pressed().copied().collect();
         for mut window in &mut windows {
             window.ime_enabled = front.screen == Screen::Initials;
             window.ime_position = Vec2::new(window.width() / 2., window.height() * 0.3);

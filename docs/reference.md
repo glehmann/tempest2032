@@ -55,6 +55,7 @@ the original-style red-and-gold PAUSED lettering over the frozen scene.
 The pause menu offers Resume, Restart, and Exit, with Resume selected each time
 it opens. Use up/down arrows or W/S to choose, then Enter or Space to confirm.
 Restart returns to level one with a fresh score and lives.
+Exit abandons the current run without saving its score and returns to Welcome.
 Press `P` or `Pause` again to resume.
 `Esc` resumes while paused and returns to Welcome during gameplay, abandoning
 the run without saving its score. Press Esc on Welcome to quit.

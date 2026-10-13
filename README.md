@@ -90,8 +90,8 @@ Controller buttons use Xbox names.
 | Superzapper | C | X, right trigger, or right bumper |
 | Pause/resume | P or Pause | Start |
 | Restart | Restart in the pause menu | Restart in the pause menu |
-| Return to Welcome | Esc during gameplay | Keyboard only |
-| Quit | Esc on Welcome | B on Welcome or Exit in the pause menu |
+| Return to Welcome | Esc during gameplay or Exit in the pause menu | Exit in the pause menu |
+| Quit | Esc on Welcome | B on Welcome |
 
 Use up/down and confirm with Enter, Space, or controller A in the pause menu.
 Esc resumes when paused. In warp stages, steer with the arrows, W/A/S/D, D-pad,

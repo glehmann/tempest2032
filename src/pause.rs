@@ -46,8 +46,9 @@ pub(crate) fn input(
     mut menu: ResMut<Menu>,
     mut time: ResMut<Time<Virtual>>,
     mut upgrades: Option<ResMut<crate::powerups::Upgrades>>,
-    mut exit: MessageWriter<AppExit>,
-    front: Option<Res<crate::menu::FrontEnd>>,
+    mut front: Option<ResMut<crate::menu::FrontEnd>>,
+    mut messages: Option<ResMut<crate::messages::Messages>>,
+    mut commands: Commands,
 ) {
     if front
         .as_ref()
@@ -85,7 +86,13 @@ pub(crate) fn input(
                 time.unpause();
             }
             _ => {
-                exit.write(AppExit::Success);
+                if let (Some(front), Some(messages)) =
+                    (front.as_deref_mut(), messages.as_deref_mut())
+                {
+                    crate::menu::abandon(front, &mut game, messages, &mut commands);
+                    time.unpause();
+                    keys.reset_all();
+                }
             }
         }
     } else {
