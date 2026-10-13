@@ -90,7 +90,7 @@ jobs:
           python tools/package.py "$PACKAGE_PLATFORM" --target "$BUILD_TARGET" \
             --binary "target/$BUILD_TARGET/release/$EXECUTABLE" --output target/packages
       - name: Upload application package
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: tempest2032-${{ matrix.name }}
           path: |
@@ -148,7 +148,7 @@ jobs:
           flatpak --user install --noninteractive "target/flatpak-package/tempest2032-linux-$FLATPAK_ARCH.flatpak"
           dbus-run-session -- flatpak run io.github.glehmann.Tempest2032 --version
       - name: Upload Flatpak and Flathub submission files
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: tempest2032-flatpak-${{ matrix.arch }}
           path: |
