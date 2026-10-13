@@ -109,13 +109,36 @@ and do not persist checkout credentials.
 
 ## Application packages
 
-`.github/workflows/packages.yml` runs on pushes, pull requests, and manual
+`.github/workflows/packages.yml` runs on branch pushes, pull requests, and manual
 dispatches. It builds optimized packages on native runners for Windows x86_64,
 macOS arm64, and Linux x86_64/arm64. Each job uploads its packages as an Actions
-artifact with a three-day retention period. It does not publish GitHub Releases.
+artifact with a three-day retention period. It is also a reusable workflow called
+by the release workflow for tag builds.
 Windows shortcuts and the installer's Play action pass `--fullscreen`. The macOS
 app and Flatpak use a small launcher that passes `--fullscreen` and forwards any
 additional arguments to the game executable.
+
+### Tagged releases
+
+Pushing a tag triggers `.github/workflows/release.yml`. The tagged commit must
+contain the release workflow. Before tagging a version such as `v0.1.0`, update
+the version in `Cargo.toml` and the AppStream release metadata so the package
+filenames and application metadata match the release.
+
+The release workflow first runs the four-platform build/test workflow, then
+calls the package workflow. Once all checks and package builds pass, it creates
+a GitHub release for the tag with generated release notes and attaches:
+
+- The Windows installer and macOS DMG.
+- Linux tarballs and Flatpak bundles for x86_64 and arm64.
+- One architecture-independent Flathub submission archive.
+
+The release is prepared as a draft and published after all uploads succeed.
+Rerunning the workflow updates the assets of the existing release. Only the
+publishing job has repository write permission. Release assets remain available
+beyond the three-day expiry of the intermediate Actions artifacts.
+
+### Native packages
 
 `tools/package.py` packages the standalone binary:
 

@@ -2,13 +2,15 @@ name: Application packages
 
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: packages-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

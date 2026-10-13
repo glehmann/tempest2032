@@ -10,10 +10,11 @@ high-resolution displays.
 
 ## Install and play
 
-Download a package from a successful [Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
-run. Expand **Artifacts** at the bottom of the run page; downloads require a GitHub
-account and remain available for three days. Extract the downloaded artifact ZIP,
-then:
+Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
+Development builds are available under **Artifacts** in successful
+[Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
+runs for three days. Artifact downloads require a GitHub account; extract their
+outer ZIP first. Then:
 
 - **Windows:** run the setup `.exe`. It installs for your account and adds a Start
   menu shortcut. No administrator access is required.
