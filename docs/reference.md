@@ -241,8 +241,8 @@ extract these files into the proposed Flathub application repository and follow
 [Flathub's submission process](https://docs.flathub.org/docs/for-app-authors/submission/).
 Use a commit available in the upstream repository, rather than a pull-request
 merge commit. Flathub publication is separate from building bundles in Actions.
-The metadata uses `LicenseRef-proprietary` because the repository has no
-application license declaration; update it if an application license is added.
+Cargo and AppStream declare `GPL-3.0-only`. Packages include `LICENSE` and
+`NOTICE`, which record third-party attribution and original-material provenance.
 Update the AppStream release metadata when changing the Cargo package version.
 
 To build a bundle locally, install Flatpak, flatpak-builder, and the matching
@@ -1503,8 +1503,9 @@ showing entry, the starburst, camera retreat, and re-entry.
 
 ## Original geometry references
 
-The source references used for this prototype are in the original game's
-`src/yak.s` and `src/obj2d.s`:
+The original Tempest 2000 sources are available at
+[mwenge/tempest2k](https://github.com/mwenge/tempest2k). The geometry references
+used for this prototype are in `src/yak.s` and `src/obj2d.s`:
 
 - `raw_webs` selects `web5` for the first level.
 - `web5` defines the 16 ring vertices on a 2-to-14 coordinate grid.
@@ -1547,6 +1548,7 @@ at full intensity. The colour sweep is the whole of the apparent fade.
 
 The CRY hue-to-RGB lookup used to check those colors comes from
 [Virtual Jaguar's TOM implementation](https://github.com/libretro/virtualjaguar-libretro/blob/master/src/tom/tom.c).
+The tables are adapted under GPLv3; upstream credits are preserved in [NOTICE](../NOTICE).
 It decodes `F4` to a red-orange, but the reference screenshot shows no green on
 a Flipper at all, which is why this prototype does not use that value.
 

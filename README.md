@@ -133,6 +133,13 @@ tools, asset generation, and gameplay and rendering details.
 
 ## About this project
 
+Project-authored code, documentation, and artwork are licensed under
+[GNU GPLv3](LICENSE). Imported Tempest 2000 assets are excluded from that grant;
+their redistribution permission has not been established. See [NOTICE](NOTICE)
+for the affected files, third-party attribution, and mixed or derived material
+that still needs review.
+Original source reference: [mwenge/tempest2k](https://github.com/mwenge/tempest2k).
+
 Built mostly with OpenAI's Sol 6.1 at medium reasoning effort, with some work
 by Space Bunny at high reasoning effort.
 

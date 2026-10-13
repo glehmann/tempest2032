@@ -30,7 +30,9 @@
         "install -Dm755 target/tempest2032-fullscreen /app/bin/tempest2032-fullscreen",
         "install -Dm644 assets/steam/icon.png /app/share/icons/hicolor/256x256/apps/io.github.glehmann.Tempest2032.png",
         "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.desktop /app/share/applications/io.github.glehmann.Tempest2032.desktop",
-        "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.metainfo.xml /app/share/metainfo/io.github.glehmann.Tempest2032.metainfo.xml"
+        "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.metainfo.xml /app/share/metainfo/io.github.glehmann.Tempest2032.metainfo.xml",
+        "install -Dm644 LICENSE /app/share/licenses/tempest2032/LICENSE",
+        "install -Dm644 NOTICE /app/share/licenses/tempest2032/NOTICE"
       ],
       "sources": []
     }

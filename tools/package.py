@@ -59,6 +59,8 @@ def native(platform, target, binary, output):
             resources = contents / "Resources"
             resources.mkdir()
             shutil.copyfile(ROOT / "packaging/macos/icon.icns", resources / "icon.icns")
+            for name in ["LICENSE", "NOTICE"]:
+                shutil.copyfile(ROOT / name, resources / name)
             with (contents / "Info.plist").open("wb") as file:
                 plistlib.dump({
                     "CFBundleIdentifier": APP_ID,
@@ -88,12 +90,16 @@ def native(platform, target, binary, output):
             folder = stage / name
             copy_binary(binary, folder / "tempest2032")
             shutil.copyfile(ROOT / "assets/steam/icon.png", folder / "icon.png")
+            for filename in ["LICENSE", "NOTICE"]:
+                shutil.copyfile(ROOT / filename, folder / filename)
             (folder / "README.txt").write_text(
                 "Tempest 2032\n\nCopy this folder anywhere and run ./tempest2032.\n"
                 "All game assets and levels are included in the executable.\n"
                 "Requires glibc 2.39 or newer, a graphical desktop, a Vulkan-capable\n"
                 "graphics driver, and the system ALSA, udev, X11/Wayland libraries.\n"
-                "Arrow keys or A/D move; Space fires; P pauses; Escape quits.\n"
+                "Arrow keys or WASD move; Z/Space fires; X jumps; C zaps; P pauses.\n"
+                "Escape returns to Welcome during play, and quits on Welcome.\n"
+                "Licensed under GPLv3; see LICENSE and NOTICE.\n"
                 "Run ./tempest2032 --help for options.\n"
             )
             with tarfile.open(output / f"{name}.tar.gz", "w:gz") as archive:
@@ -143,7 +149,7 @@ def flatpak(output, revision):
     source.mkdir()
     for name in ["src", "assets", "levels", "packaging"]:
         shutil.copytree(ROOT / name, source / name)
-    for name in ["Cargo.toml", "Cargo.lock", "build.rs"]:
+    for name in ["Cargo.toml", "Cargo.lock", "build.rs", "LICENSE", "NOTICE"]:
         shutil.copyfile(ROOT / name, source / name)
     manifest["modules"][0]["sources"][0] = {"type": "dir", "path": "source"}
     (output / "local.json").write_text(json.dumps(manifest, indent=2) + "\n")

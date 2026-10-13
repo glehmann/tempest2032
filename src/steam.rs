@@ -441,6 +441,8 @@ fn install(
 }
 
 fn install_artwork(config: &Path, app_id: u32, directory: &Path) -> Result<()> {
+    write_missing_artwork(&directory.join("LICENSE"), include_bytes!("../LICENSE"))?;
+    write_missing_artwork(&directory.join("NOTICE"), include_bytes!("../NOTICE"))?;
     let grid = config.join("grid");
     fs::create_dir_all(&grid)?;
     let icon = directory.join("icon.png");

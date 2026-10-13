@@ -2,7 +2,8 @@
 
 use bevy::prelude::*;
 
-// Jaguar TOM chroma tables, also used by Virtual Jaguar's tom.c.
+// Adapted from Virtual Jaguar's tom.c under GPLv3.
+// (C) 2010 Underground Software; upstream authors and source are listed in NOTICE.
 #[rustfmt::skip]
 pub(crate) const RED: [[u8; 16]; 16] = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],

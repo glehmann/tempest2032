@@ -274,7 +274,7 @@ fn install_copies_the_binary_and_preserves_all_existing_shortcut_fields() {
 }
 
 #[test]
-fn installation_embeds_artwork_for_every_library_view() {
+fn installation_embeds_artwork_for_every_library_view_and_license_notices() {
     let fixture = Fixture::new(&[42]);
     let installed = install(
         &fixture.root,
@@ -323,6 +323,15 @@ fn installation_embeds_artwork_for_every_library_view() {
         fs::read(fixture.destination().join("icon.png")).unwrap(),
         include_bytes!("../../assets/steam/icon.png")
     );
+    for (name, expected) in [
+        ("LICENSE", include_bytes!("../../LICENSE").as_slice()),
+        ("NOTICE", include_bytes!("../../NOTICE").as_slice()),
+    ] {
+        assert_eq!(
+            fs::read(fixture.destination().join(name)).unwrap(),
+            expected
+        );
+    }
 }
 
 #[test]

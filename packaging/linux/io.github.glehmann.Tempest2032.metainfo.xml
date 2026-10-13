@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>io.github.glehmann.Tempest2032</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>LicenseRef-proprietary</project_license>
+  <project_license>GPL-3.0-only</project_license>
   <name>Tempest 2032</name>
   <summary>An arcade tube shooter with graphics for modern hardware</summary>
   <developer id="io.github.glehmann">

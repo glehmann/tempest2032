@@ -1,0 +1,78 @@
+Tempest 2032
+Copyright (C) 2026 Tempest 2032 contributors
+
+This project's original code, documentation, and artwork are licensed under
+the GNU General Public License, version 3 only (SPDX: GPL-3.0-only).
+The full license is in LICENSE. This software comes without any warranty.
+This grant does not relicense imported third-party material. The known
+exceptions and material requiring review are identified below.
+Source code and build instructions: https://github.com/glehmann/tempest2032
+For release binaries, use the source at the matching release tag.
+
+Virtual Jaguar
+--------------
+The CRY-to-RGB lookup tables in src/cry.rs are adapted from redcv, greencv,
+and bluecv in Virtual Jaguar's TOM implementation, distributed under GPLv3:
+https://github.com/libretro/virtualjaguar-libretro/blob/master/src/tom/tom.c
+
+The source file credits:
+  Originally by David Raingeard (cal2)
+  GCC/SDL port by Niels Wagenaar (Linux/WIN32) and Caz (BeOS)
+  Cleanups and endian wrongness amelioration by James Hammons
+  (C) 2010 Underground Software
+
+The tables have been converted from C arrays to Rust constants.
+
+Original Tempest 2000 materials
+------------------------------
+Original source reference: https://github.com/mwenge/tempest2k
+
+The original source repository does not provide a license granting reuse
+or redistribution of the original game material. The following imported
+or extracted files are not covered by this project's GPLv3 grant. No
+redistribution license has been established for them in this project:
+
+  assets/sounds.bin                     Original sound effects
+
+  assets/music/rave4.mod                Original music
+  assets/music/tune1.mod
+  assets/music/tune3.mod
+  assets/music/tune5.mod
+  assets/music/tune7.mod
+  assets/music/tune12.mod
+  assets/music/tune13.mod
+
+  assets/messages/afont.bin             Extracted lettering contours/shading
+  assets/messages/hud.bin               Extracted score numerals/life icon
+  assets/messages/wordart.bin           Extracted artwork contours/pixels
+  assets/messages/game-over.cry         Original game-over bitmap
+
+  assets/warp/beasty6.cry               Original texture
+  assets/warp/crosshair.cry              Extracted original sprite
+
+Conversion into a different file format or embedding in an executable
+does not grant a new license to the imported material. Original rights
+remain with their respective owners. Provenance and extraction procedures
+are documented in docs/reference.md, assets/messages/README.md, and
+assets/warp/README.md.
+
+Mixed and derived material requiring review
+------------------------------------------
+The SINES constant in src/sines.rs is copied from the original game's
+dat/sines.dat. The project's license grant for surrounding Rust code does
+not grant rights in that imported table.
+
+assets/steam/gameplay.png is a screenshot of this game's rendering, and
+assets/steam/hero.png is derived from that screenshot. Their content
+includes geometry based on original game definitions. They require review
+and are not represented as wholly project-authored GPLv3 artwork.
+
+Other source-derived geometry, lettering, and level data also require a
+provenance and rights review. The file list above identifies known imports;
+it is not an exhaustive determination of the rights in all derived material.
+
+Dependencies and separately licensed metadata
+--------------------------------------------
+Third-party dependencies retain their respective licenses; dependency
+versions are recorded in Cargo.lock. AppStream metadata is CC0-1.0, as
+declared in packaging/linux/io.github.glehmann.Tempest2032.metainfo.xml.
