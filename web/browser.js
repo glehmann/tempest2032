@@ -4,13 +4,14 @@ const overlay = document.querySelector('#overlay');
 const status = document.querySelector('#status');
 const play = document.querySelector('#play');
 const fullscreen = document.querySelector('#fullscreen');
-const controls = '\n\nMove: arrows / A D · Fire: Space / Z\nJump: X · Superzapper: C\nPause / configuration: P · FPS: F3\nConfirm: Enter · Back: Esc\n\nControllers supported. Press a controller button to connect.';
+const controls = '\n\nMove: arrows / A D · Fire: Space / Z\nJump: X · Superzapper: C\nPause / configuration: P · FPS: F3 · Fullscreen: F\nConfirm: Enter · Back: Esc\n\nControllers supported. Press a controller button to connect.';
 const audioContexts = new Set();
 let loaded = false;
 let engaged = false;
 let started = false;
 let failed = false;
 let pendingSuspension = false;
+let typingInitials = false;
 
 // CPAL owns the audio context. Retain it so a user gesture can resume it.
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -47,6 +48,9 @@ window.tempestBrowser = {
     status.textContent = `Click Play to enable sound and focus the game.${controls}`;
     play.disabled = false;
     fullscreen.disabled = false;
+  },
+  typingInitials: active => {
+    typingInitials = active;
   },
 };
 
@@ -92,11 +96,18 @@ document.addEventListener('keydown', event => {
   }
 }, true);
 canvas.addEventListener('keydown', event => {
+  if (event.code === 'KeyF' && started && !typingInitials
+      && !event.repeat && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    toggleFullscreen();
+    return;
+  }
   if (['F3', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.code)) {
     event.preventDefault();
   }
 });
-fullscreen.addEventListener('click', async () => {
+async function toggleFullscreen() {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await player.requestFullscreen();
@@ -106,7 +117,8 @@ fullscreen.addEventListener('click', async () => {
     status.textContent = `Fullscreen is unavailable: ${error.message}`;
     console.warn(error);
   }
-});
+}
+fullscreen.addEventListener('click', toggleFullscreen);
 document.addEventListener('fullscreenchange', () => {
   fullscreen.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
 });

@@ -8,6 +8,8 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     fn active() -> bool;
     fn ready();
+    #[wasm_bindgen(js_name = typingInitials)]
+    fn typing_initials(active: bool);
 }
 
 pub(crate) fn options() -> crate::cli::Cli {
@@ -33,13 +35,23 @@ pub(crate) fn options() -> crate::cli::Cli {
 }
 
 pub(crate) fn add_systems(app: &mut App) {
-    app.add_systems(PostStartup, ready).add_systems(
-        PreUpdate,
-        suspend
-            .after(crate::gamepad::map_controllers)
-            .before(crate::menu::input)
-            .before(crate::pause::input),
-    );
+    app.add_systems(PostStartup, ready)
+        .add_systems(Update, input_context)
+        .add_systems(
+            PreUpdate,
+            suspend
+                .after(crate::gamepad::map_controllers)
+                .before(crate::menu::input)
+                .before(crate::pause::input),
+        );
+}
+
+fn input_context(front: Res<crate::menu::FrontEnd>, mut previous: Local<Option<bool>>) {
+    let typing = front.screen == crate::menu::Screen::Initials;
+    if *previous != Some(typing) {
+        typing_initials(typing);
+        *previous = Some(typing);
+    }
 }
 
 #[derive(Default)]

@@ -66,7 +66,10 @@ Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
 Pass `--fullscreen` to start borderless fullscreen on the primary monitor
-instead of a window, and `--fps` to start with the frame rate in the top-right corner.
+instead of a window. Press F to switch between a window and borderless fullscreen
+on the current monitor. This shortcut is keyboard-only and works in menus and
+while paused; during initials entry, F remains a letter input.
+Pass `--fps` to start with the frame rate in the top-right corner.
 Press F3 to show or hide the display at any time, including menus and while paused.
 The label refreshes every 0.5 seconds and shows the
 fastest and slowest frame times in milliseconds over the last two seconds.
@@ -114,7 +117,8 @@ Open <http://127.0.0.1:8000> and click Play to enable audio and focus the canvas
 The canvas fills the window above a small fullscreen/GitHub bar. Controls appear
 in the Play/Resume prompt.
 Enter / controller A then starts a run from Welcome. The Fullscreen button uses
-the browser's fullscreen API. Press a controller button to let the browser detect
+the browser's fullscreen API, as does F while the game canvas has focus. F types
+the letter during initials entry. Press a controller button to let the browser detect
 it. Esc on Welcome leaves the game running; close the tab to quit.
 
 The build uses the `web-release` Cargo profile, with optimization level 2 and the

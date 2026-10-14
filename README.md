@@ -95,6 +95,7 @@ Controller buttons use Xbox names.
 | Jump, once unlocked | X | B, left trigger, or left bumper |
 | Superzapper | C | X, right trigger, or right bumper |
 | Pause/resume | P or Pause | Start |
+| Toggle fullscreen | F | Keyboard only |
 | Show/hide FPS | F3 | — |
 | Restart | Restart in the pause menu | Restart in the pause menu |
 | Return to Welcome | Esc during gameplay or Exit in the pause menu | Exit in the pause menu |
@@ -112,6 +113,7 @@ For high-score initials, type three letters or use left/right to select a slot
 and up/down to change its letter. Enter / A saves; Backspace / B erases.
 On Steam Deck, open the virtual keyboard with Steam + X.
 Initials follow your OS keyboard layout; gameplay bindings use physical key positions.
+While entering initials, F types the letter instead of toggling fullscreen.
 
 ## Options
 

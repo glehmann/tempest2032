@@ -56,6 +56,41 @@ fn normal_scene(game: Res<Game>) -> bool {
     game.status != Status::Bonus
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn toggle_fullscreen(
+    mut input: MessageReader<bevy::input::keyboard::KeyboardInput>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+    front: Option<Res<crate::menu::FrontEnd>>,
+    mut window: Single<(Entity, &mut Window), With<bevy::window::PrimaryWindow>>,
+) {
+    for event in input.read() {
+        if event.key_code != KeyCode::KeyF
+            || event.state != bevy::input::ButtonState::Pressed
+            || event.repeat
+            || event.window != window.0
+            || front
+                .as_ref()
+                .is_some_and(|front| front.screen == crate::menu::Screen::Initials)
+            || keys.any_pressed([
+                KeyCode::ControlLeft,
+                KeyCode::ControlRight,
+                KeyCode::AltLeft,
+                KeyCode::AltRight,
+                KeyCode::SuperLeft,
+                KeyCode::SuperRight,
+            ])
+        {
+            continue;
+        }
+        window.1.mode = if window.1.mode == WindowMode::Windowed {
+            WindowMode::BorderlessFullscreen(MonitorSelection::Current)
+        } else {
+            WindowMode::Windowed
+        };
+        keys.reset(KeyCode::KeyF);
+    }
+}
+
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
     let direct = args.direct_start();
@@ -89,6 +124,14 @@ pub(crate) fn run(args: cli::Cli) {
                 .before(crate::pause::input),
         )
         .add_systems(Update, update_fps);
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(
+        PreUpdate,
+        toggle_fullscreen
+            .after(bevy::input::InputSystems)
+            .before(crate::menu::input)
+            .before(crate::pause::input),
+    );
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(path) = args.screenshot {
         app.insert_resource(CapturePath(path))
@@ -242,6 +285,10 @@ pub(crate) fn run(args: cli::Cli) {
     stars::add_systems(&mut app);
     app.run();
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "tests/window.rs"]
+mod tests;
 
 fn add_systems(app: &mut App) {
     let initial = app
