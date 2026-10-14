@@ -256,9 +256,9 @@ it misses the top ten. If both qualify, one initials submission saves both.
 A Key-started run automatically credits its score and updates its checkpoint
 under the selected initials, with a confirmation on Welcome.
 
-Fresh runs begin with four lives and receive the original one-life bonus when
-the selected wave begins. Key-started runs begin with three lives, and the same
-start bonus grants the wave-entry life. Web 1 has no starting score bonus.
+Web 1 begins with four lives, including three spares, and grants no starting
+score bonus or entry 1UP. Starts on later webs begin with three lives and grant
+the original one-life bonus when the selected wave begins.
 
 Key starts use the original starting score from `slebon`: with zero-based web
 index `n`, the bonus is `n * (2600 + 200 * n)` (`yak.s:9072-9079`). `sweb0` adds

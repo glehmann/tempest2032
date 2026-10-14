@@ -51,6 +51,34 @@ fn keys_use_completed_webs_not_the_starting_web_and_cap_at_the_original_last_key
 }
 
 #[test]
+fn level_one_starts_with_three_spare_lives_and_no_entry_one_up() {
+    for initials in [None, Some(*b"ABC")] {
+        let mut app = app();
+        app.add_systems(
+            FixedUpdate,
+            crate::game::award_start_bonus.before(check_game),
+        );
+        app.world_mut().resource_mut::<Game>().load =
+            Some(LoadReason::StartLevel { index: 0, initials });
+        ticks(&mut app, 1);
+        let game = app.world().resource::<Game>();
+        assert_eq!(game.lives, 4);
+        assert_eq!(game.score, 0);
+        assert!(!game.start_bonus_pending);
+        ticks(&mut app, 262);
+        let game = app.world().resource::<Game>();
+        assert!(game.status == Status::Playing);
+        assert_eq!(game.lives, 4);
+        assert_eq!(game.key_initials, initials);
+        assert!(
+            game.announcements
+                .iter()
+                .all(|event| event.id != crate::messages::Id::OneUp)
+        );
+    }
+}
+
+#[test]
 fn key_start_has_the_original_score_and_single_life_bonus_and_retries_preserve_identity() {
     let mut app = app();
     app.world_mut().resource_mut::<Levels>().0 = (1..=100)
