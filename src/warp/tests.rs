@@ -575,6 +575,7 @@ fn ready_tokens_wait_until_the_exit_flash_finishes() {
         ticks(&mut app, 1);
         assert!(app.world().resource::<Game>().status == Status::Exiting);
         assert_eq!(app.world().resource::<Upgrades>().warp_tokens(), 3);
+        assert_eq!(app.world().resource::<Game>().completed_level, 0);
     }
     assert!(app.world().resource::<Game>().status == Status::Exiting);
     assert_eq!(app.world().resource::<Game>().exit.unwrap().flash, 1);
@@ -582,6 +583,7 @@ fn ready_tokens_wait_until_the_exit_flash_finishes() {
     ticks(&mut app, 1);
     assert!(app.world().resource::<Game>().status == Status::Bonus);
     assert_eq!(app.world().resource::<Upgrades>().warp_tokens(), 0);
+    assert_eq!(app.world().resource::<Game>().completed_level, 1);
     assert_eq!(
         app.world().resource::<Game>().bonus.as_ref().unwrap().tick,
         0
@@ -614,6 +616,7 @@ fn spike_death_during_exit_does_not_spend_ready_tokens() {
     ticks(&mut app, 150);
     assert!(app.world().resource::<Game>().bonus.is_none());
     assert_eq!(app.world().resource::<Upgrades>().warp_tokens(), 3);
+    assert_eq!(app.world().resource::<Game>().completed_level, 0);
 }
 #[test]
 fn warp_announcements_follow_original_triggers_without_repeated_frame_messages() {

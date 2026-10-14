@@ -500,6 +500,10 @@ impl Levels {
 #[derive(Clone, Copy)]
 pub(crate) enum LoadReason {
     Restart,
+    StartLevel {
+        index: usize,
+        initials: Option<[u8; 3]>,
+    },
     Retry,
     Advance,
     Warp {

@@ -27,8 +27,14 @@ struct Graphics {
 
 #[derive(PartialEq)]
 enum Frame {
-    Welcome(Difficulty, Vec<Entry>, Option<usize>),
-    Initials(Difficulty, u32, [u8; 3], usize),
+    Welcome(
+        Difficulty,
+        Vec<Entry>,
+        Option<usize>,
+        Option<(String, u8)>,
+        bool,
+    ),
+    Initials(Difficulty, u32, [u8; 3], usize, bool, Option<u8>),
 }
 
 pub(super) fn add_systems(app: &mut App) {
@@ -109,14 +115,29 @@ fn draw(
         .filter(|(level, _)| *level == *difficulty)
         .map(|(_, rank)| rank);
     let frame = if front.screen == Screen::Welcome {
-        if matches!(&graphics.previous, Some(Frame::Welcome(level, scores, marked))
-            if *level == *difficulty && scores == entries && *marked == highlight)
+        let start = front
+            .selected_key(&store.data, *difficulty)
+            .map(|key| (key.initials.clone(), key.levels[difficulty.index()]));
+        let has_keys = front
+            .available_keys(&store.data, *difficulty)
+            .next()
+            .is_some();
+        if matches!(&graphics.previous, Some(Frame::Welcome(level, scores, marked, selected, available))
+            if *level == *difficulty && scores == entries && *marked == highlight
+                && *selected == start && *available == has_keys)
         {
             return;
         }
-        Frame::Welcome(*difficulty, entries.clone(), highlight)
+        Frame::Welcome(*difficulty, entries.clone(), highlight, start, has_keys)
     } else {
-        let frame = Frame::Initials(*difficulty, front.score, front.initials, front.cursor);
+        let frame = Frame::Initials(
+            *difficulty,
+            front.score,
+            front.initials,
+            front.cursor,
+            front.high_score,
+            front.key_level,
+        );
         if graphics.previous.as_ref() == Some(&frame) {
             return;
         }
@@ -154,7 +175,7 @@ fn draw(
             Style::Chrome,
         );
         for rank in 0..crate::scores::LIMIT {
-            let y = 102. - rank as f32 * 29.;
+            let y = 102. - rank as f32 * 25.;
             text(&format!("{:2}", rank + 1), -235., y, Style::Chrome);
             let entry = entries.get(rank);
             text(
@@ -171,8 +192,40 @@ fn draw(
                 Style::Rainbow,
             );
         }
+        let (prefix, number) = front.selected_key(&store.data, *difficulty).map_or_else(
+            || ("START AT LEVEL ".into(), "1".into()),
+            |key| {
+                (
+                    format!("START {} - LEVEL ", key.initials),
+                    key.levels[difficulty.index()].to_string(),
+                )
+            },
+        );
+        let width = (prefix.len() + number.len()) as f32 * ADVANCE * 1.2;
+        text(&prefix, -width / 2., -160., Style::Chrome);
+        text(
+            &number,
+            -width / 2. + prefix.len() as f32 * ADVANCE * 1.2,
+            -160.,
+            Style::Rainbow,
+        );
+        if front
+            .available_keys(&store.data, *difficulty)
+            .next()
+            .is_some()
+        {
+            for direction in [-1., 1.] {
+                let x = direction * (width / 2. + 18.);
+                let color = Color::srgb(1., 0.88, 0.48);
+                triangles.push([
+                    (Vec3::new(x, -171., 1.), color),
+                    (Vec3::new(x - direction * 9., -164., 1.), color),
+                    (Vec3::new(x - direction * 9., -178., 1.), color),
+                ]);
+            }
+        }
         if let Some(rank) = highlight {
-            let y = 91. - rank as f32 * 29.;
+            let y = 91. - rank as f32 * 25.;
             triangles.push([
                 (Vec3::new(-269., y + 8., 1.), Color::srgb(1., 0.88, 0.48)),
                 (Vec3::new(-258., y, 1.), Color::srgb(1., 0.88, 0.48)),
@@ -180,11 +233,27 @@ fn draw(
             ]);
         }
     } else {
-        text("NEW HIGH SCORE", -14. * ADVANCE * 0.6, 181., Style::Chrome);
-        text(&front.score.to_string(), -235., 148., Style::Rainbow);
+        let heading = if front.high_score {
+            "NEW HIGH SCORE"
+        } else {
+            "KEY EARNED"
+        };
+        text(
+            heading,
+            -(heading.len() as f32) * ADVANCE * 0.6,
+            181.,
+            Style::Chrome,
+        );
+        if front.high_score {
+            text(&front.score.to_string(), -235., 148., Style::Rainbow);
+        }
         text(
             difficulty.label(),
-            235. - difficulty.label().len() as f32 * ADVANCE * 1.2,
+            if front.high_score {
+                235. - difficulty.label().len() as f32 * ADVANCE * 1.2
+            } else {
+                -(difficulty.label().len() as f32) * ADVANCE * 0.6
+            },
             148.,
             Style::Chrome,
         );
@@ -205,6 +274,18 @@ fn draw(
                 } else {
                     Style::Chrome
                 },
+            );
+        }
+        if let Some(level) = front.key_level {
+            let prefix = "KEY LEVEL ";
+            let number = level.to_string();
+            let x = -((prefix.len() + number.len()) as f32) * ADVANCE * 0.6;
+            text(prefix, x, 25., Style::Chrome);
+            text(
+                &number,
+                x + prefix.len() as f32 * ADVANCE * 1.2,
+                25.,
+                Style::Rainbow,
             );
         }
         let x = front.cursor as f32 * 80. - 80.;

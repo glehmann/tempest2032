@@ -24,7 +24,13 @@ pub(crate) fn add_systems(app: &mut App) {
                 .run_if(running)
                 .run_if(crate::menu::playing)
                 .run_if(|game: Res<crate::game::Game>| {
-                    !matches!(game.load, Some(crate::level::LoadReason::Restart))
+                    !matches!(
+                        game.load,
+                        Some(
+                            crate::level::LoadReason::Restart
+                                | crate::level::LoadReason::StartLevel { .. }
+                        )
+                    )
                 }),
         )
         .add_systems(

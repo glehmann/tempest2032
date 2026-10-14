@@ -37,8 +37,10 @@ pub(crate) enum Screen {
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub(crate) enum Preview {
     Welcome,
+    WelcomeKey,
     Configuration,
     Initials,
+    KeyInitials,
 }
 
 #[derive(Resource)]
@@ -47,10 +49,14 @@ pub(crate) struct FrontEnd {
     pub(crate) eligible: bool,
     pub(crate) originals: Vec<crate::level::Level>,
     selected: usize,
+    start_selected: usize,
+    start_level: usize,
     initials: [u8; 3],
     cursor: usize,
     typed: usize,
     score: u32,
+    high_score: bool,
+    key_level: Option<u8>,
     highlight: Option<(Difficulty, usize)>,
     #[cfg(not(target_arch = "wasm32"))]
     install: Option<std::sync::Mutex<Receiver<Result<String, String>>>>,
@@ -64,16 +70,38 @@ impl FrontEnd {
         self.enter_initials(12345, "AAA");
     }
 
+    pub(crate) fn preview_key_initials(&mut self) {
+        self.preview_initials();
+        self.high_score = false;
+        self.key_level = Some(31);
+    }
+
+    pub(crate) fn preview_key_start(&mut self, store: &mut Store, difficulty: Difficulty) {
+        if self
+            .available_keys(&store.data, difficulty)
+            .next()
+            .is_none()
+        {
+            store.data.save_key(difficulty, 31, "AAA");
+        }
+        self.start_selected = 1;
+        self.start_level = self.maximum_start_level(&store.data, difficulty);
+    }
+
     pub(crate) fn new(screen: Screen, eligible: bool, originals: Vec<crate::level::Level>) -> Self {
         Self {
             screen,
             eligible,
             originals,
             selected: 0,
+            start_selected: 0,
+            start_level: 1,
             initials: *b"AAA",
             cursor: 0,
             typed: 0,
             score: 0,
+            high_score: true,
+            key_level: None,
             highlight: None,
             #[cfg(not(target_arch = "wasm32"))]
             install: None,
@@ -86,9 +114,60 @@ impl FrontEnd {
     fn enter_initials(&mut self, score: u32, previous: &str) {
         self.screen = Screen::Initials;
         self.score = score;
+        self.high_score = true;
+        self.key_level = None;
         self.initials.copy_from_slice(previous.as_bytes());
         self.cursor = 0;
         self.typed = 0;
+    }
+
+    fn available_keys<'a>(
+        &self,
+        data: &'a crate::scores::Data,
+        difficulty: Difficulty,
+    ) -> impl Iterator<Item = &'a crate::scores::PlayerKey> {
+        let maximum = self.originals.len();
+        data.keys.iter().filter(move |key| {
+            let level = key.levels[difficulty.index()];
+            level != 0 && usize::from(level) <= maximum
+        })
+    }
+
+    fn selected_key<'a>(
+        &self,
+        data: &'a crate::scores::Data,
+        difficulty: Difficulty,
+    ) -> Option<&'a crate::scores::PlayerKey> {
+        self.start_selected
+            .checked_sub(1)
+            .and_then(|index| self.available_keys(data, difficulty).nth(index))
+    }
+
+    fn maximum_start_level(&self, data: &crate::scores::Data, difficulty: Difficulty) -> usize {
+        self.selected_key(data, difficulty)
+            .map_or(15.min(self.originals.len() | 1), |key| {
+                usize::from(key.levels[difficulty.index()])
+            })
+            .min(self.originals.len())
+    }
+
+    pub(crate) fn preview_level(&self) -> usize {
+        self.start_level
+    }
+
+    fn save_result(&mut self, store: &mut Store, difficulty: Difficulty, initials: String) {
+        store.data.initials.clone_from(&initials);
+        self.highlight = store
+            .data
+            .insert(difficulty, self.score, initials.clone())
+            .map(|rank| (difficulty, rank));
+        self.notice.clear();
+        if let Some(level) = self.key_level
+            && store.data.save_key(difficulty, level, &initials)
+        {
+            self.notice = format!("{initials} KEY SAVED AT LEVEL {level}");
+        }
+        store.save();
     }
 
     fn type_letters(&mut self, text: &str) {
@@ -129,6 +208,9 @@ fn confirm(keys: &ButtonInput<KeyCode>) -> bool {
 
 fn welcome(front: &mut FrontEnd, messages: &mut crate::messages::Messages) {
     front.screen = Screen::Welcome;
+    front.start_selected = 0;
+    front.start_level = 15.min(front.originals.len() | 1).min(front.originals.len());
+    front.key_level = None;
     *messages = default();
 }
 
@@ -184,10 +266,29 @@ pub(crate) fn input(
             abandon(&mut front, &mut game, &mut messages, &mut commands);
         } else if game.status != Status::GameOver || !confirm(&keys) {
             return;
-        } else if front.eligible && store.data.rank(*difficulty, game.score).is_some() {
-            front.enter_initials(game.score, &store.data.initials);
         } else {
-            welcome(&mut front, &mut messages);
+            let high_score = front.eligible && store.data.rank(*difficulty, game.score).is_some();
+            let checkpoint = game
+                .key_level()
+                .filter(|&level| front.eligible && store.data.key_qualifies(*difficulty, level));
+            if front.eligible
+                && let Some(initials) = game.key_initials
+            {
+                front.score = game.score;
+                front.key_level = checkpoint;
+                front.save_result(
+                    &mut store,
+                    *difficulty,
+                    String::from_utf8(initials.to_vec()).unwrap(),
+                );
+                welcome(&mut front, &mut messages);
+            } else if high_score || checkpoint.is_some() {
+                front.enter_initials(game.score, &store.data.initials);
+                front.high_score = high_score;
+                front.key_level = checkpoint;
+            } else {
+                welcome(&mut front, &mut messages);
+            }
         }
     } else {
         let typed: String = events
@@ -218,17 +319,46 @@ pub(crate) fn input(
                     for level in &mut levels.0 {
                         level.scale_difficulty(difficulty.scale());
                     }
-                    game.load = Some(LoadReason::Restart);
+                    let initials = front.selected_key(&store.data, *difficulty)
+                        .map(|key| key.initials.as_bytes().try_into().unwrap());
+                    game.load = if front.start_level == 1 && initials.is_none() {
+                        Some(LoadReason::Restart)
+                    } else {
+                        Some(LoadReason::StartLevel {
+                            index: front.start_level - 1,
+                            initials,
+                        })
+                    };
                     front.screen = Screen::Gameplay;
                     front.highlight = None;
+                    front.notice.clear();
                 } else if keys.just_pressed(KeyCode::Escape) {
                     #[cfg(not(target_arch = "wasm32"))]
                     exit.write(AppExit::Success);
+                } else {
+                    let left = keys.just_pressed(KeyCode::ArrowLeft);
+                    let right = keys.just_pressed(KeyCode::ArrowRight);
+                    if left != right {
+                        let choices = 1 + front.available_keys(&store.data, *difficulty).count();
+                        front.start_selected =
+                            (front.start_selected + if left { choices - 1 } else { 1 }) % choices;
+                        front.start_level = front.maximum_start_level(&store.data, *difficulty);
+                    }
+                    let up = keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]);
+                    let down = keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS]);
+                    if up != down {
+                        let maximum = front.maximum_start_level(&store.data, *difficulty);
+                        front.start_level = if up {
+                            (front.start_level + 2).min(maximum)
+                        } else {
+                            front.start_level.saturating_sub(2).max(1)
+                        };
+                    }
                 }
             }
             Screen::Configuration => {
                 if keys.any_just_pressed([KeyCode::Escape, KeyCode::KeyP, KeyCode::Pause]) {
-                    front.screen = Screen::Welcome;
+                    welcome(&mut front, &mut messages);
                 } else {
                     let up = keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]);
                     let down = keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS]);
@@ -243,11 +373,13 @@ pub(crate) fn input(
                             *difficulty = Difficulty::ALL
                                 [(difficulty.index() + if left { 2 } else { 1 }) % 3];
                             store.data.difficulty = *difficulty;
+                            front.start_selected = 0;
+                            front.start_level = front.maximum_start_level(&store.data, *difficulty);
                             store.save();
                         }
                     } else if confirm(&keys) {
                         if front.selected == CONFIG_CHOICES - 1 {
-                            front.screen = Screen::Welcome;
+                            welcome(&mut front, &mut messages);
                         }
                         #[cfg(not(target_arch = "wasm32"))]
                         if front.selected == 1 && front.install.is_none() {
@@ -297,11 +429,9 @@ pub(crate) fn input(
                 }
                 if keys.any_just_pressed([KeyCode::Enter, KeyCode::NumpadEnter]) {
                     let initials = String::from_utf8(front.initials.to_vec()).unwrap();
-                    front.highlight = store
-                        .data
-                        .insert(*difficulty, front.score, initials)
-                        .map(|rank| (*difficulty, rank));
-                    store.save();
+                    if front.eligible {
+                        front.save_result(&mut store, *difficulty, initials);
+                    }
                     welcome(&mut front, &mut messages);
                 }
             }
@@ -481,8 +611,15 @@ fn draw_game_over_hint(
     } else {
         Visibility::Hidden
     };
-    let value = if front.eligible && store.data.rank(*difficulty, game.score).is_some() {
+    let value = if front.eligible && game.key_initials.is_some() {
+        "ENTER / A  SAVE RESULTS"
+    } else if front.eligible && store.data.rank(*difficulty, game.score).is_some() {
         "ENTER / A  ENTER HIGH-SCORE INITIALS"
+    } else if game
+        .key_level()
+        .is_some_and(|level| front.eligible && store.data.key_qualifies(*difficulty, level))
+    {
+        "ENTER / A  SAVE A PLAYER KEY"
     } else {
         "ENTER / A  RETURN TO WELCOME"
     };
@@ -541,15 +678,28 @@ fn draw(
         };
     }
     let (title, body, footer) = match screen {
-        Screen::Welcome => (
-            String::new(),
-            String::new(),
-            if cfg!(target_arch = "wasm32") {
-                "ENTER / A  PLAY\nP / START  CONFIGURATION".into()
+        Screen::Welcome => {
+            let has_keys = front
+                .available_keys(&store.data, *difficulty)
+                .next()
+                .is_some();
+            let detail = if has_keys { "LEFT / RIGHT  PLAYER     " } else { "" };
+            let select = if has_keys {
+                "UP / DOWN  WEB     "
             } else {
-                "ENTER / A  PLAY\nP / START  CONFIGURATION     ESC / B  EXIT".into()
-            },
-        ),
+                "UP / DOWN  WEB 1-15     "
+            };
+            let exit = if cfg!(target_arch = "wasm32") {
+                ""
+            } else {
+                "     ESC / B  EXIT"
+            };
+            (
+                String::new(),
+                String::new(),
+                format!("{detail}{select}ENTER / A  PLAY\nP / START  CONFIGURATION{exit}"),
+            )
+        }
         Screen::Configuration => {
             let choices = [
                 format!("DIFFICULTY     < {} >", difficulty.label()),

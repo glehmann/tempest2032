@@ -32,6 +32,222 @@ fn key(app: &mut App, key: KeyCode) {
     app.update();
 }
 
+fn key_catalog(app: &mut App) {
+    app.world_mut().resource_mut::<FrontEnd>().originals = (1..=100)
+        .map(|number| crate::level::Level {
+            number,
+            ..default()
+        })
+        .collect();
+}
+
+#[test]
+fn welcome_cycles_six_keys_defaults_to_level_one_and_filters_by_difficulty() {
+    let (mut app, _directory) = app(true);
+    key_catalog(&mut app);
+    for (initials, level) in [
+        ("AAA", 17),
+        ("BBB", 19),
+        ("CCC", 21),
+        ("DDD", 23),
+        ("EEE", 25),
+        ("FFF", 27),
+    ] {
+        app.world_mut()
+            .resource_mut::<Store>()
+            .data
+            .save_key(Difficulty::Normal, level, initials);
+    }
+    app.world_mut()
+        .resource_mut::<Store>()
+        .data
+        .save_key(Difficulty::Low, 61, "AAA");
+    for selected in 1..=6 {
+        key(&mut app, KeyCode::ArrowRight);
+        assert_eq!(app.world().resource::<FrontEnd>().start_selected, selected);
+    }
+    key(&mut app, KeyCode::ArrowRight);
+    assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
+    key(&mut app, KeyCode::ArrowLeft);
+    key(&mut app, KeyCode::KeyP);
+    key(&mut app, KeyCode::Escape);
+    assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
+    key(&mut app, KeyCode::ArrowLeft);
+    key(&mut app, KeyCode::Enter);
+    assert!(matches!(app.world().resource::<Game>().load,
+        Some(LoadReason::StartKey { index: 26, initials }) if initials == *b"FFF"));
+    assert!(app.world().resource::<FrontEnd>().eligible);
+    app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Welcome;
+    key(&mut app, KeyCode::KeyP);
+    key(&mut app, KeyCode::ArrowLeft);
+    key(&mut app, KeyCode::Escape);
+    assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
+    key(&mut app, KeyCode::ArrowRight);
+    key(&mut app, KeyCode::Enter);
+    assert!(matches!(app.world().resource::<Game>().load,
+        Some(LoadReason::StartKey { index: 60, initials }) if initials == *b"AAA"));
+}
+
+#[test]
+fn key_only_game_over_reuses_initials_entry_without_inserting_a_nonqualifying_score() {
+    let (mut app, directory) = app(true);
+    for score in 10_000..10_010 {
+        app.world_mut().resource_mut::<Store>().data.insert(
+            Difficulty::Normal,
+            score,
+            "AAA".into(),
+        );
+    }
+    app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Gameplay;
+    let mut game = app.world_mut().resource_mut::<Game>();
+    game.status = Status::GameOver;
+    game.score = 1234;
+    game.completed_level = 24;
+    key(&mut app, KeyCode::Enter);
+    let front = app.world().resource::<FrontEnd>();
+    assert_eq!(front.screen, Screen::Initials);
+    assert!(!front.high_score);
+    assert_eq!(front.key_level, Some(23));
+    app.world_mut()
+        .resource_mut::<FrontEnd>()
+        .type_letters("xyz");
+    key(&mut app, KeyCode::Enter);
+    app.update();
+    let store = app.world().resource::<Store>();
+    assert_eq!(store.data.tables[1].len(), 10);
+    assert!(
+        store.data.tables[1]
+            .iter()
+            .all(|entry| entry.score >= 10_000)
+    );
+    assert_eq!(store.data.keys.len(), 1);
+    assert_eq!(store.data.keys[0].initials, "XYZ");
+    assert_eq!(store.data.keys[0].levels, [0, 23, 0]);
+    assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
+    assert_eq!(
+        Store::open(Some(directory.path().join("player.toml")))
+            .data
+            .keys[0]
+            .levels,
+        [0, 23, 0]
+    );
+}
+
+#[test]
+fn one_initials_submission_saves_both_a_score_and_key_only_for_eligible_runs() {
+    for eligible in [false, true] {
+        let (mut app, _directory) = app(eligible);
+        app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Gameplay;
+        let mut game = app.world_mut().resource_mut::<Game>();
+        game.status = Status::GameOver;
+        game.score = 1234;
+        game.completed_level = 19;
+        key(&mut app, KeyCode::Enter);
+        if eligible {
+            let front = app.world().resource::<FrontEnd>();
+            assert!(front.high_score);
+            assert_eq!(front.key_level, Some(19));
+            app.world_mut()
+                .resource_mut::<FrontEnd>()
+                .type_letters("xyz");
+            key(&mut app, KeyCode::Enter);
+        }
+        app.update();
+        let store = app.world().resource::<Store>();
+        assert_eq!(store.data.keys.len(), usize::from(eligible));
+        assert_eq!(store.data.tables[1].len(), usize::from(eligible));
+        if eligible {
+            assert_eq!(
+                store.data.keys[0].initials,
+                store.data.tables[1][0].initials
+            );
+        }
+    }
+}
+
+#[test]
+fn ineligible_key_runs_and_initials_previews_cannot_save_progress() {
+    let (mut app, directory) = app(false);
+    app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Gameplay;
+    let mut game = app.world_mut().resource_mut::<Game>();
+    game.status = Status::GameOver;
+    game.score = 258_000;
+    game.completed_level = 32;
+    game.key_initials = Some(*b"XYZ");
+    key(&mut app, KeyCode::Enter);
+    assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
+    app.world_mut()
+        .resource_mut::<FrontEnd>()
+        .preview_key_initials();
+    key(&mut app, KeyCode::Enter);
+    let store = app.world().resource::<Store>();
+    assert!(store.data.keys.is_empty());
+    assert!(store.data.tables.iter().all(Vec::is_empty));
+    assert!(!directory.path().join("player.toml").exists());
+}
+
+#[test]
+fn key_started_runs_save_under_their_identity_without_another_prompt_or_held_confirm_restart() {
+    let (mut app, _directory) = app(true);
+    key_catalog(&mut app);
+    app.world_mut()
+        .resource_mut::<Store>()
+        .data
+        .save_key(Difficulty::Normal, 21, "XYZ");
+    app.add_systems(Update, crate::gamepad::map_controllers.before(input));
+    let mut pad = Gamepad::default();
+    pad.digital_mut().press(GamepadButton::DPadRight);
+    let pad = app.world_mut().spawn(pad).id();
+    app.update();
+    app.world_mut()
+        .get_mut::<Gamepad>(pad)
+        .unwrap()
+        .digital_mut()
+        .release(GamepadButton::DPadRight);
+    app.world_mut()
+        .get_mut::<Gamepad>(pad)
+        .unwrap()
+        .digital_mut()
+        .press(GamepadButton::South);
+    app.update();
+    assert!(matches!(app.world().resource::<Game>().load,
+        Some(LoadReason::StartKey { index: 20, initials }) if initials == *b"XYZ"));
+    app.update();
+    assert!(
+        !app.world()
+            .resource::<ButtonInput<KeyCode>>()
+            .pressed(KeyCode::KeyZ)
+    );
+    app.world_mut()
+        .get_mut::<Gamepad>(pad)
+        .unwrap()
+        .digital_mut()
+        .release(GamepadButton::South);
+    app.update();
+    let mut game = app.world_mut().resource_mut::<Game>();
+    game.load = None;
+    game.key_initials = Some(*b"XYZ");
+    game.status = Status::GameOver;
+    game.completed_level = 32;
+    game.score = 12_345;
+    app.world_mut()
+        .get_mut::<Gamepad>(pad)
+        .unwrap()
+        .digital_mut()
+        .press(GamepadButton::South);
+    app.update();
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
+    assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
+    let store = app.world().resource::<Store>();
+    assert_eq!(store.data.keys[0].levels, [0, 31, 0]);
+    assert_eq!(store.data.tables[1].len(), 1);
+    assert_eq!(store.data.tables[1][0].initials, "XYZ");
+    assert!(app.world().resource::<Game>().load.is_none());
+}
+
 #[test]
 fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens() {
     let (mut app, _directory) = app(true);
@@ -83,6 +299,36 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
             .iter()
             .all(|p| p[0].abs() <= 280. && p[1].abs() <= 195.)
     );
+    let original = points.clone();
+    key_catalog(&mut app);
+    app.world_mut()
+        .resource_mut::<Store>()
+        .data
+        .save_key(Difficulty::Normal, 97, "MAX");
+    key(&mut app, KeyCode::ArrowRight);
+    let mesh = app
+        .world_mut()
+        .query::<&Mesh3d>()
+        .single(app.world())
+        .unwrap()
+        .0
+        .clone();
+    let bevy::mesh::VertexAttributeValues::Float32x3(selected) = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&mesh)
+        .unwrap()
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .unwrap()
+    else {
+        panic!("Key selector has no positions");
+    };
+    assert_ne!(selected, &original);
+    assert!(
+        selected
+            .iter()
+            .all(|p| p[0].abs() <= 280. && p[1].abs() <= 195.)
+    );
     for (width, height, scale) in [(1280., 800., 1.), (2560., 1600., 2.)] {
         app.world_mut()
             .get_mut::<Window>(window)
@@ -122,6 +368,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
     app.world_mut()
         .resource_mut::<FrontEnd>()
         .enter_initials(u32::MAX, "AAA");
+    app.world_mut().resource_mut::<FrontEnd>().key_level = Some(97);
     app.update();
     let node = app
         .world_mut()
@@ -200,6 +447,7 @@ fn escape_abandons_gameplay_without_saving_or_exiting_but_resumes_when_paused() 
             .add_systems(Update, crate::pause::input.after(input));
         app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Gameplay;
         app.world_mut().resource_mut::<Game>().score = 1234;
+        app.world_mut().resource_mut::<Game>().completed_level = 32;
         app.world_mut().resource_mut::<Time<Virtual>>().pause();
         key(&mut app, KeyCode::Escape);
         assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Gameplay);
@@ -209,6 +457,7 @@ fn escape_abandons_gameplay_without_saving_or_exiting_but_resumes_when_paused() 
         assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
         assert_eq!(app.world().resource::<Game>().score, 0);
         assert!(app.world().resource::<Game>().load.is_none());
+        assert!(app.world().resource::<Store>().data.keys.is_empty());
         assert!(
             app.world()
                 .resource::<Store>()

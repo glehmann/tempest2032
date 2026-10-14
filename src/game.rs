@@ -44,6 +44,9 @@ pub(crate) struct Game {
     pub(crate) exit: Option<exit::Exit>,
     pub(crate) death: Option<shot_death::Death>,
     pub(crate) level_index: usize,
+    pub(crate) completed_level: usize,
+    pub(crate) key_initials: Option<[u8; 3]>,
+    pub(crate) start_bonus_pending: bool,
     pub(crate) load: Option<LoadReason>,
     pub(crate) tanker_timer: u16,
     pub(crate) fuse_tanker_timer: u16,
@@ -81,6 +84,9 @@ impl Default for Game {
             exit: None,
             death: None,
             level_index: 0,
+            completed_level: 0,
+            key_initials: None,
+            start_bonus_pending: false,
             load: None,
             tanker_timer: 0,
             fuse_tanker_timer: 0,
@@ -104,13 +110,27 @@ impl Default for Game {
 }
 
 impl Game {
+    pub(crate) fn key_level(&self) -> Option<u8> {
+        (self.completed_level >= 17).then(|| ((self.completed_level.min(97) - 1) | 1) as u8)
+    }
+
+    pub(crate) fn starting_bonus(number: usize) -> u32 {
+        // slebon uses the zero-based web index, not its outdated formula comment.
+        let index = (number - 1) as u32;
+        index * (2600 + 200 * index)
+    }
+
+    fn one_up(&mut self) {
+        self.lives = self.lives.saturating_add(1);
+        self.announce(crate::messages::Id::OneUp);
+    }
+
     pub(crate) fn add_score(&mut self, points: u32) {
         let previous = self.score / 20_000;
         self.score += points;
         // doscore awards a life when the ten-thousands digit goes odd to even.
         for _ in previous..self.score / 20_000 {
-            self.lives = self.lives.saturating_add(1);
-            self.announce(crate::messages::Id::OneUp);
+            self.one_up();
         }
     }
 
@@ -130,6 +150,14 @@ impl Game {
             id,
             origin: Some(origin),
         });
+    }
+}
+
+pub(crate) fn award_start_bonus(mut game: ResMut<Game>) {
+    if game.status == Status::Playing && std::mem::take(&mut game.start_bonus_pending) {
+        // sweb0 adds the starting score directly; newgen grants one 1UP,
+        // independently of how many 20,000-point boundaries that score crosses.
+        game.one_up();
     }
 }
 
@@ -336,6 +364,9 @@ pub(crate) fn load_level(
     let Some(reason) = game.load.take() else {
         return;
     };
+    if matches!(reason, LoadReason::Advance) {
+        game.completed_level = game.completed_level.max(level.number);
+    }
     crate::sound::reset(&mut commands);
     let bonus = match reason {
         LoadReason::Warp {
@@ -405,11 +436,19 @@ pub(crate) fn load_level(
         return;
     }
     match reason {
-        LoadReason::Restart => {
+        LoadReason::Restart | LoadReason::StartLevel { .. } => {
             let epoch = game.message_epoch.wrapping_add(1);
             *game = Game::default();
             game.message_epoch = epoch;
             *upgrades = powerups::Upgrades::default();
+            if let LoadReason::StartLevel { index, initials } = reason {
+                game.level_index = index;
+                game.key_initials = initials;
+                if levels.0[index].number > 1 {
+                    game.score = Game::starting_bonus(levels.0[index].number);
+                    game.start_bonus_pending = true;
+                }
+            }
         }
         LoadReason::Retry => {
             upgrades.lose_life();
@@ -422,6 +461,11 @@ pub(crate) fn load_level(
         }
         LoadReason::ReturnWarp { destination } => {
             game.level_index = destination % levels.0.len();
+            // Successful warps also unlock the webs they skipped. Failure
+            // returns to the ordinary next web and cannot increase this bound.
+            game.completed_level = game
+                .completed_level
+                .max(levels.0[game.level_index].number.saturating_sub(1));
             game.invulnerable = 0;
         }
         LoadReason::Warp { .. } => unreachable!("warp entry handled above"),

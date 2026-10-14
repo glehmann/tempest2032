@@ -94,7 +94,7 @@ fn toggle_fullscreen(
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
     let direct = args.direct_start();
-    let store = crate::scores::Store::load();
+    let mut store = crate::scores::Store::load();
     let difficulty = args.difficulty.unwrap_or(store.data.difficulty);
     if let Some(pattern) = args.starfield {
         app.insert_resource(stars::Animation::new(pattern));
@@ -184,9 +184,13 @@ pub(crate) fn run(args: cli::Cli) {
     let mut front = crate::menu::FrontEnd::new(
         if let Some(preview) = args.menu_preview {
             match preview {
-                crate::menu::Preview::Welcome => crate::menu::Screen::Welcome,
+                crate::menu::Preview::Welcome | crate::menu::Preview::WelcomeKey => {
+                    crate::menu::Screen::Welcome
+                }
                 crate::menu::Preview::Configuration => crate::menu::Screen::Configuration,
-                crate::menu::Preview::Initials => crate::menu::Screen::Initials,
+                crate::menu::Preview::Initials | crate::menu::Preview::KeyInitials => {
+                    crate::menu::Screen::Initials
+                }
             }
         } else if direct {
             crate::menu::Screen::Gameplay
@@ -196,8 +200,11 @@ pub(crate) fn run(args: cli::Cli) {
         eligible,
         levels.0.clone(),
     );
-    if matches!(args.menu_preview, Some(crate::menu::Preview::Initials)) {
-        front.preview_initials();
+    match args.menu_preview {
+        Some(crate::menu::Preview::Initials) => front.preview_initials(),
+        Some(crate::menu::Preview::KeyInitials) => front.preview_key_initials(),
+        Some(crate::menu::Preview::WelcomeKey) => front.preview_key_start(&mut store, difficulty),
+        _ => {}
     }
     app.insert_resource(front).insert_resource(store);
     let scale = difficulty.scale();
@@ -397,6 +404,7 @@ fn add_systems(app: &mut App) {
                                 | Status::Bonus
                         )
                     }),
+                    crate::game::award_start_bonus,
                     move_bullets,
                     fire_bullets.run_if(controlling),
                     pulsars::pulse,

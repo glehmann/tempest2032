@@ -31,6 +31,123 @@ use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn keys_use_completed_webs_not_the_starting_web_and_cap_at_the_original_last_key() {
+    let mut game = Game {
+        level_index: 30,
+        ..default()
+    };
+    assert_eq!(game.key_level(), None);
+    for (completed, expected) in [
+        (16, None),
+        (17, Some(17)),
+        (18, Some(17)),
+        (24, Some(23)),
+        (31, Some(31)),
+        (100, Some(97)),
+    ] {
+        game.completed_level = completed;
+        assert_eq!(game.key_level(), expected);
+    }
+}
+
+#[test]
+fn key_start_has_the_original_score_and_single_life_bonus_and_retries_preserve_identity() {
+    let mut app = app();
+    app.world_mut().resource_mut::<Levels>().0 = (1..=100)
+        .map(|number| Level {
+            number,
+            ..default()
+        })
+        .collect();
+    app.add_systems(
+        FixedUpdate,
+        crate::game::award_start_bonus.before(check_game),
+    );
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::StartKey {
+        index: 30,
+        initials: *b"ABC",
+    });
+    ticks(&mut app, 1);
+    let game = app.world().resource::<Game>();
+    assert_eq!(game.level_index, 30);
+    assert_eq!(game.score, 258_000);
+    assert_eq!(game.lives, 4);
+    assert_eq!(game.key_initials, Some(*b"ABC"));
+    assert_eq!(game.key_level(), None);
+    ticks(&mut app, 256);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
+    ticks(&mut app, 1);
+    assert_eq!(app.world().resource::<Game>().lives, 5);
+    assert_eq!(app.world().resource::<Game>().score, 258_000);
+    ticks(&mut app, 5);
+    assert_eq!(app.world().resource::<Game>().lives, 5);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
+    ticks(&mut app, 258);
+    assert_eq!(app.world().resource::<Game>().key_initials, Some(*b"ABC"));
+    assert_eq!(app.world().resource::<Game>().lives, 5);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
+    ticks(&mut app, 1);
+    let game = app.world().resource::<Game>();
+    assert_eq!(game.key_initials, None);
+    assert_eq!(
+        (
+            game.level_index,
+            game.completed_level,
+            game.score,
+            game.lives
+        ),
+        (0, 0, 0, 4)
+    );
+}
+
+#[test]
+fn keys_record_survived_exits_and_successful_warps_but_not_retries_or_failed_warps() {
+    let mut app = app();
+    let levels = (1..=100)
+        .map(|number| Level {
+            number,
+            ..default()
+        })
+        .collect::<Vec<_>>();
+    app.insert_resource(levels[16].clone())
+        .insert_resource(Levels(levels));
+    app.world_mut().resource_mut::<Game>().level_index = 16;
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
+    ticks(&mut app, 1);
+    assert_eq!(app.world().resource::<Game>().key_level(), None);
+    app.world_mut()
+        .resource_mut::<powerups::Upgrades>()
+        .seed_warp_tokens(3);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Advance);
+    ticks(&mut app, 1);
+    assert!(app.world().resource::<Game>().status == Status::Bonus);
+    assert_eq!(app.world().resource::<Game>().key_level(), Some(17));
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::ReturnWarp { destination: 17 });
+    ticks(&mut app, 1);
+    assert_eq!(app.world().resource::<Level>().number, 18);
+    assert_eq!(app.world().resource::<Game>().key_level(), Some(17));
+    app.add_systems(
+        FixedUpdate,
+        crate::warp::advance.before(crate::game::load_level),
+    );
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+        kind: crate::warp::ZoneKind::Tunnel,
+        course: None,
+        destination: 17,
+    });
+    ticks(&mut app, 1);
+    app.world_mut()
+        .resource_mut::<Game>()
+        .bonus
+        .as_mut()
+        .unwrap()
+        .phase = crate::warp::Phase::Success(1);
+    ticks(&mut app, 302);
+    assert_eq!(app.world().resource::<Level>().number, 22);
+    assert_eq!(app.world().resource::<Game>().key_level(), Some(21));
+}
+
+#[test]
 fn score_awards_every_twenty_thousand_boundary_including_multiple_lives_at_once() {
     let mut game = Game::default();
     game.add_score(19_999);

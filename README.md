@@ -33,8 +33,10 @@ All game assets and levels are included. Linux needs a graphical desktop and a
 Vulkan-capable graphics driver.
 
 The welcome screen shows the top ten scores for your selected difficulty.
-Press Enter or controller A to play, or P / Start to configure difficulty and
-install in Steam. Difficulty and three-letter high-score initials are saved.
+Use left/right to choose level one or a saved player Key, then Enter / A to play.
+Completing web 17 unlocks Keys. Six initials slots save separate progress for
+Low, Normal, and High. Press P / Start to configure difficulty and install in
+Steam. Difficulty, high scores, and Keys are saved between sessions.
 
 Note: Development builds are available under **Artifacts** in successful
 [Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)

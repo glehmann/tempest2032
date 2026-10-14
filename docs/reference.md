@@ -61,7 +61,9 @@ Press `P` or `Pause` again to resume.
 the run without saving its score. Press Esc on Welcome to quit.
 On the game-over panel, press Enter, Space, or controller A to continue. A
 qualifying standard run asks for three-letter initials before returning to
-Welcome; other runs return directly. Held buttons do not dismiss the panel.
+Welcome, whether it earned a high score or a player Key. Key-started runs save
+under their existing initials; other runs return directly. Held buttons do not
+dismiss the panel.
 Run `cargo run -- --help` to list command-line options, or `--version` to show
 the version. Screenshot and recording modes are mutually exclusive; recordings
 accept an optional positive duration in whole seconds after the directory.
@@ -165,12 +167,14 @@ software renderer was too slow for smooth playback on the test machine. Safari a
 physical controller compatibility still need manual testing; standard controller
 input has been checked through a simulated browser Gamepad API.
 
-## Welcome, settings, and high scores
+## Welcome, settings, high scores, and Keys
 
 Normal launches open Welcome with level two's colored star field drifting outward
 behind the menu panel. Welcome, Configuration, and initials entry share this
-real-time background, independent of the gameplay stars. Enter / A starts at
-level one; P, Pause, or controller
+real-time background, independent of the gameplay stars. Left/right arrows,
+D-pad, or left stick select level one or a player Key earned at the current
+difficulty; Enter / A starts the selected run. Every return to Welcome selects
+level one, including a difficulty change. P, Pause, or controller
 Start opens Configuration. Use up/down to select, left/right to change
 difficulty, and Enter / A to confirm. P / Start or Esc / B returns to Welcome.
 Esc / B on Welcome quits.
@@ -195,8 +199,45 @@ started from Welcome with definitions matching the entire bundled catalog can
 save scores. Identical external definitions count as standard; modified or
 additional levels do not. Explicit `--level`, including `--level 1`, direct
 `--warp-zone`, screenshots, recordings, and message previews bypass Welcome
-and disable score saving for the entire session, including after restarting.
-Abandoned runs do not submit scores.
+and disable score and Key saving for the entire session, including after
+restarting. Abandoned runs do not submit scores or Keys. Key starts selected on
+Welcome remain eligible for both.
+
+### Player Keys
+
+Six three-letter identities each store independent Low, Normal, and High
+checkpoints. This extends the original four-Key limit and keeps progress earned
+on Low from unlocking starts on Normal or High. The Welcome selector displays
+only Keys with a checkpoint for the current difficulty. Entering the same
+initials updates that identity without reducing any saved level. At capacity,
+new initials replace the Key with the lowest checkpoint at the selected
+difficulty, only when the new checkpoint is higher. Replacement removes that
+identity's checkpoints on all three difficulties; a missing checkpoint counts
+as zero when selecting the lowest slot.
+
+A run records the highest web whose exit it survives. Game over rounds this
+down to an odd starting web from 17 through 97. Dying on web 23 after finishing
+22 therefore saves web 21; failing the exit through spikes does not complete
+the web. Successful warps also unlock the webs they skip; a failed warp adds
+no progress. Checkpoints survive retries and the existing level-100 loop;
+Restart starts a fresh run on web one.
+The 97 cap follows `gameover`'s maximum `cwave = 98` and `setkey`'s subtract-one,
+clear-low-bit encoding (`yak.s:2779-2791`, `yak.s:5743-5751`).
+
+On game over, a fresh run that qualifies for a Key can enter initials even when
+it misses the top ten. If both qualify, one initials submission saves both.
+A Key-started run automatically credits its score and updates its checkpoint
+under the selected initials, with a confirmation on Welcome.
+
+Key starts use the original starting score from `slebon`: with zero-based web
+index `n`, the bonus is `n * (2600 + 200 * n)` (`yak.s:9072-9079`). `sweb0` adds
+it directly, bypassing score-based life awards (`yak.s:8941-8962`); `newgen`
+then grants exactly one extra life when the wave begins (`yak.s:17807-17812`).
+For example, web 31 starts with 258,000 points and receives one 1UP after entry.
+Retries neither repeat that bonus nor lose the Key's identity. Acquired upgrades
+and warp tokens start empty.
+
+### Initials and storage
 
 Initials entry accepts A-Z from OS-translated logical keyboard characters,
 falling back to text events, and also accepts IME commits. It follows the active
@@ -206,24 +247,33 @@ up/down cycles its letter, A saves, and B erases. Physical keyboards use
 Backspace and Enter. Steam Deck's manually opened Steam + X keyboard uses the
 same field. The last submitted initials are reused as the next default.
 
-Difficulty, initials, and tables are stored in `tempest2032/player.toml` under
-`dirs::data_local_dir()`: `$XDG_DATA_HOME` or `~/.local/share` on Linux,
+Difficulty, initials, score tables, and Keys are stored in `tempest2032/player.toml`
+under `dirs::data_local_dir()`: `$XDG_DATA_HOME` or `~/.local/share` on Linux,
 `%LOCALAPPDATA%` on Windows, and `~/Library/Application Support` on macOS.
 This path does not depend on the executable's location. Writes use a temporary
 file in the same directory and atomic replacement. Failed writes keep scores
 in memory and display an error. An unreadable, invalid, or unsupported-version
-file is preserved, with saving disabled for that session.
+file is preserved, with saving disabled for that session. Version-one files
+migrate in memory to version two, retaining scores, difficulty, and initials;
+the next save writes the new format. Key levels are stored in Low/Normal/High
+order, using zero for an unearned checkpoint. Invalid levels, duplicate Key
+initials, and more than six identities disable saving rather than being discarded.
 
 Capture front-end screens without playing a run:
 
 ```sh
 cargo run -- --menu-preview welcome --message-size 1280x800 --screenshot target/welcome.png
+cargo run -- --menu-preview welcome-key --screenshot target/welcome-key.png
 cargo run -- --menu-preview configuration --screenshot target/configuration.png
 cargo run -- --menu-preview initials --screenshot target/initials.png
+cargo run -- --menu-preview key-initials --screenshot target/key-initials.png
 ```
 
 `--menu-preview` requires `--screenshot` and cannot combine with level, warp,
 or message previews. `--message-size` accepts either kind of preview.
+`welcome-key` selects the first available Key, supplying an in-memory web-31
+example if needed; `key-initials` previews earning a Key without a high score.
+Neither preview writes player data.
 
 ## Continuous integration
 
