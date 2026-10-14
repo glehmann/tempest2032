@@ -171,21 +171,48 @@ input has been checked through a simulated browser Gamepad API.
 
 Normal launches open Welcome with level two's colored star field drifting outward
 behind the menu panel. Welcome, Configuration, and initials entry share this
-real-time background, independent of the gameplay stars. Left/right arrows,
-D-pad, or left stick select level one or a player Key earned at the current
-difficulty; Enter / A starts the selected run. Every return to Welcome selects
-level one, including a difficulty change. P, Pause, or controller
-Start opens Configuration. Use up/down to select, left/right to change
+real-time background, independent of the gameplay stars. Welcome places the
+centered high-score table over a large rotating wireframe of the selected web,
+directly over the stars without a separate box or a dimming overlay.
+Left/right arrows, D-pad, or left stick select a player Key or a fresh run.
+Up/down arrows, W/S, D-pad, or left stick select an odd-numbered starting web.
+Fresh runs can start on webs 1 through 15; a Key starts at its saved maximum
+and can select any earlier odd web. Selection defaults to web 1 for a fresh
+run or the selected Key's maximum, and resets to web 1 when returning from a
+run or changing difficulty. P, Pause, or controller Start opens Configuration.
+Use up/down to select, left/right to change
 difficulty, and Enter / A to confirm. P / Start or Esc / B returns to Welcome.
 Esc / B on Welcome quits.
 
 Welcome and initials entry share the embedded spectrum-portal logo, the
 announcements' beveled lettering, and the HUD's rainbow score digits.
-Both render at the UI's native resolution. Their centered panels occupy
-70% of the window width and 86% of its height; lettering, padding, and spacing
-scale with the window without a pixel-size cap. Initials entry highlights the
+Both render at the UI's native resolution. Welcome's transparent layout occupies
+90% of the window width; the centered initials panel occupies 70%. Both use
+86% of the height, with lettering, padding, and spacing scaled to the window.
+Initials entry highlights the
 selected letter with rainbow shading and a gold underline, keeping the fields
 above the Steam Deck keyboard's lower-half overlay.
+
+The web preview uses the original vertices, lane connections, open ends, and
+straight extrusion from `Web::vertex`, including the configured tunnel depth.
+Its front rim uses `appearance.lines`, exactly as gameplay does; rails fade
+toward a darker rear rim without changing hue or blending the whole web into
+the background. Thus repeated shapes remain distinguishable by level color.
+A stationary perspective camera fits the wireframe's complete rotational sweep
+to a full-window viewport, using up to 90% of the shorter window axis. It looks
+parallel to the tunnel, aligning its vanishing point with the screen-centered
+starfield. For flat webs, it moves slightly above the plane to reveal the depth
+without tilting the view. The score lettering renders above the web. Preview
+framing may recenter the mesh for this purpose; gameplay retains its original
+web origin and tracking camera.
+The viewport renders at its actual displayed resolution and aspect ratio.
+The preview camera carries `OverlayCamera` and its own render layer, so playing,
+retrying, warping, or returning to Welcome cannot move it. Geometry is rebuilt
+only when the selected web or viewport size changes. The web makes one full
+turn every twenty seconds around its own depth axis, without orbiting or moving
+the camera. Rotation follows real time, continues smoothly across level choices,
+and stops outside Welcome. Long frame gaps are capped at 0.1 seconds, matching
+the menu stars. The level-two starfield stays independent of selection.
 
 Gameplay fixed updates stop on front-end screens, while real-time star
 animation, input, and title music remain live. Gameplay pause still freezes
@@ -228,6 +255,10 @@ On game over, a fresh run that qualifies for a Key can enter initials even when
 it misses the top ten. If both qualify, one initials submission saves both.
 A Key-started run automatically credits its score and updates its checkpoint
 under the selected initials, with a confirmation on Welcome.
+
+Fresh runs begin with four lives and receive the original one-life bonus when
+the selected wave begins. Key-started runs begin with three lives, and the same
+start bonus grants the wave-entry life. Web 1 has no starting score bonus.
 
 Key starts use the original starting score from `slebon`: with zero-based web
 index `n`, the bonus is `n * (2600 + 200 * n)` (`yak.s:9072-9079`). `sweb0` adds

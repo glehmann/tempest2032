@@ -33,16 +33,18 @@ fn key(app: &mut App, key: KeyCode) {
 }
 
 fn key_catalog(app: &mut App) {
-    app.world_mut().resource_mut::<FrontEnd>().originals = (1..=100)
+    let mut front = app.world_mut().resource_mut::<FrontEnd>();
+    front.originals = (1..=100)
         .map(|number| crate::level::Level {
             number,
             ..default()
         })
         .collect();
+    front.start_level = 1;
 }
 
 #[test]
-fn welcome_cycles_six_keys_defaults_to_level_one_and_filters_by_difficulty() {
+fn welcome_selects_odd_starting_webs_within_fresh_and_key_ranges() {
     let (mut app, _directory) = app(true);
     key_catalog(&mut app);
     for (initials, level) in [
@@ -62,6 +64,11 @@ fn welcome_cycles_six_keys_defaults_to_level_one_and_filters_by_difficulty() {
         .resource_mut::<Store>()
         .data
         .save_key(Difficulty::Low, 61, "AAA");
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 1);
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 1);
+    key(&mut app, KeyCode::ArrowUp);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 3);
     for selected in 1..=6 {
         key(&mut app, KeyCode::ArrowRight);
         assert_eq!(app.world().resource::<FrontEnd>().start_selected, selected);
@@ -73,9 +80,13 @@ fn welcome_cycles_six_keys_defaults_to_level_one_and_filters_by_difficulty() {
     key(&mut app, KeyCode::Escape);
     assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
     key(&mut app, KeyCode::ArrowLeft);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 27);
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 25);
+    key(&mut app, KeyCode::ArrowUp);
     key(&mut app, KeyCode::Enter);
     assert!(matches!(app.world().resource::<Game>().load,
-        Some(LoadReason::StartKey { index: 26, initials }) if initials == *b"FFF"));
+        Some(LoadReason::StartLevel { index: 26, initials: Some(initials) }) if initials == *b"FFF"));
     assert!(app.world().resource::<FrontEnd>().eligible);
     app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Welcome;
     key(&mut app, KeyCode::KeyP);
@@ -83,9 +94,66 @@ fn welcome_cycles_six_keys_defaults_to_level_one_and_filters_by_difficulty() {
     key(&mut app, KeyCode::Escape);
     assert_eq!(app.world().resource::<FrontEnd>().start_selected, 0);
     key(&mut app, KeyCode::ArrowRight);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 61);
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 59);
     key(&mut app, KeyCode::Enter);
     assert!(matches!(app.world().resource::<Game>().load,
-        Some(LoadReason::StartKey { index: 60, initials }) if initials == *b"AAA"));
+        Some(LoadReason::StartLevel { index: 58, initials: Some(initials) }) if initials == *b"AAA"));
+}
+
+#[test]
+fn fresh_run_can_choose_an_odd_starting_web_up_to_fifteen() {
+    let (mut app, _) = app(true);
+    key_catalog(&mut app);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 1);
+    key(&mut app, KeyCode::ArrowDown);
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 1);
+    for _ in 0..7 {
+        key(&mut app, KeyCode::ArrowUp);
+    }
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 15);
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 13);
+    key(&mut app, KeyCode::Enter);
+    assert!(matches!(
+        app.world().resource::<Game>().load,
+        Some(LoadReason::StartLevel {
+            index: 12,
+            initials: None
+        })
+    ));
+}
+
+#[test]
+fn an_odd_key_checkpoint_is_selectable_and_the_fresh_web_range_is_not_advertised() {
+    let (mut app, _) = app(true);
+    key_catalog(&mut app);
+    app.world_mut()
+        .resource_mut::<Store>()
+        .data
+        .save_key(Difficulty::Normal, 31, "ABC");
+    app.add_systems(Update, draw);
+    app.init_resource::<Assets<Image>>()
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .add_systems(Startup, setup);
+    app.update();
+    let footer = app
+        .world_mut()
+        .query::<(&Label, &Text)>()
+        .iter(app.world())
+        .find_map(|(label, text)| matches!(label, Label::Footer).then_some(text.0.clone()))
+        .unwrap();
+    assert!(!footer.contains("1-15"));
+    key(&mut app, KeyCode::ArrowRight);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 31);
+    key(&mut app, KeyCode::ArrowDown);
+    assert_eq!(app.world().resource::<FrontEnd>().preview_level(), 29);
+    key(&mut app, KeyCode::Enter);
+    assert!(matches!(app.world().resource::<Game>().load,
+        Some(LoadReason::StartLevel { index: 28, initials: Some(initials) }) if initials == *b"ABC"));
 }
 
 #[test]
@@ -211,7 +279,7 @@ fn key_started_runs_save_under_their_identity_without_another_prompt_or_held_con
         .press(GamepadButton::South);
     app.update();
     assert!(matches!(app.world().resource::<Game>().load,
-        Some(LoadReason::StartKey { index: 20, initials }) if initials == *b"XYZ"));
+        Some(LoadReason::StartLevel { index: 20, initials: Some(initials) }) if initials == *b"XYZ"));
     app.update();
     assert!(
         !app.world()
@@ -284,7 +352,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
     assert!(app.world().get::<Camera>(camera).unwrap().is_active);
     let mesh = app
         .world_mut()
-        .query::<&Mesh3d>()
+        .query_filtered::<&Mesh3d, With<lettering::LetteringMesh>>()
         .single(app.world())
         .unwrap();
     let mesh = app.world().resource::<Assets<Mesh>>().get(&mesh.0).unwrap();
@@ -308,7 +376,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
     key(&mut app, KeyCode::ArrowRight);
     let mesh = app
         .world_mut()
-        .query::<&Mesh3d>()
+        .query_filtered::<&Mesh3d, With<lettering::LetteringMesh>>()
         .single(app.world())
         .unwrap()
         .0
@@ -341,7 +409,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
             .query_filtered::<&Node, With<Panel>>()
             .single(app.world())
             .unwrap();
-        assert_eq!((node.width, node.height), (percent(70), percent(86)));
+        assert_eq!((node.width, node.height), (percent(90), percent(86)));
         assert_eq!(node.padding, UiRect::all(px(20. * scale)));
         for (label, font) in app
             .world_mut()
@@ -379,7 +447,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
     assert!(app.world().get::<Camera>(camera).unwrap().is_active);
     let mesh = app
         .world_mut()
-        .query::<&Mesh3d>()
+        .query_filtered::<&Mesh3d, With<lettering::LetteringMesh>>()
         .single(app.world())
         .unwrap()
         .0

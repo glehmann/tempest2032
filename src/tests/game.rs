@@ -63,28 +63,28 @@ fn key_start_has_the_original_score_and_single_life_bonus_and_retries_preserve_i
         FixedUpdate,
         crate::game::award_start_bonus.before(check_game),
     );
-    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::StartKey {
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::StartLevel {
         index: 30,
-        initials: *b"ABC",
+        initials: Some(*b"ABC"),
     });
     ticks(&mut app, 1);
     let game = app.world().resource::<Game>();
     assert_eq!(game.level_index, 30);
     assert_eq!(game.score, 258_000);
-    assert_eq!(game.lives, 4);
+    assert_eq!(game.lives, 3);
     assert_eq!(game.key_initials, Some(*b"ABC"));
     assert_eq!(game.key_level(), None);
     ticks(&mut app, 256);
-    assert_eq!(app.world().resource::<Game>().lives, 4);
+    assert_eq!(app.world().resource::<Game>().lives, 3);
     ticks(&mut app, 1);
-    assert_eq!(app.world().resource::<Game>().lives, 5);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     assert_eq!(app.world().resource::<Game>().score, 258_000);
     ticks(&mut app, 5);
-    assert_eq!(app.world().resource::<Game>().lives, 5);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
     ticks(&mut app, 258);
     assert_eq!(app.world().resource::<Game>().key_initials, Some(*b"ABC"));
-    assert_eq!(app.world().resource::<Game>().lives, 5);
+    assert_eq!(app.world().resource::<Game>().lives, 4);
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
     ticks(&mut app, 1);
     let game = app.world().resource::<Game>();

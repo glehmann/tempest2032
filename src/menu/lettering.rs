@@ -19,6 +19,9 @@ pub(super) struct Canvas;
 #[derive(Component)]
 struct PanelCamera;
 
+#[derive(Component)]
+pub(super) struct LetteringMesh;
+
 #[derive(Resource)]
 struct Graphics {
     mesh: Handle<Mesh>,
@@ -32,6 +35,7 @@ enum Frame {
         Vec<Entry>,
         Option<usize>,
         Option<(String, u8)>,
+        usize,
         bool,
     ),
     Initials(Difficulty, u32, [u8; 3], usize, bool, Option<u8>),
@@ -80,6 +84,7 @@ pub(super) fn setup(
         .id();
     let mesh = meshes.add(geometry::mesh(Vec::new()));
     commands.spawn((
+        LetteringMesh,
         Mesh3d(mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             unlit: true,
@@ -122,13 +127,21 @@ fn draw(
             .available_keys(&store.data, *difficulty)
             .next()
             .is_some();
-        if matches!(&graphics.previous, Some(Frame::Welcome(level, scores, marked, selected, available))
+        let selected_level = front.preview_level();
+        if matches!(&graphics.previous, Some(Frame::Welcome(level, scores, marked, selected, old_level, available))
             if *level == *difficulty && scores == entries && *marked == highlight
-                && *selected == start && *available == has_keys)
+                && *selected == start && *old_level == selected_level && *available == has_keys)
         {
             return;
         }
-        Frame::Welcome(*difficulty, entries.clone(), highlight, start, has_keys)
+        Frame::Welcome(
+            *difficulty,
+            entries.clone(),
+            highlight,
+            start,
+            selected_level,
+            has_keys,
+        )
     } else {
         let frame = Frame::Initials(
             *difficulty,
@@ -192,23 +205,12 @@ fn draw(
                 Style::Rainbow,
             );
         }
-        let (prefix, number) = front.selected_key(&store.data, *difficulty).map_or_else(
-            || ("START AT LEVEL ".into(), "1".into()),
-            |key| {
-                (
-                    format!("START {} - LEVEL ", key.initials),
-                    key.levels[difficulty.index()].to_string(),
-                )
-            },
+        let selection = front.selected_key(&store.data, *difficulty).map_or_else(
+            || format!("LEVEL {}", front.preview_level()),
+            |key| format!("{} - LEVEL {}", key.initials, front.preview_level()),
         );
-        let width = (prefix.len() + number.len()) as f32 * ADVANCE * 1.2;
-        text(&prefix, -width / 2., -160., Style::Chrome);
-        text(
-            &number,
-            -width / 2. + prefix.len() as f32 * ADVANCE * 1.2,
-            -160.,
-            Style::Rainbow,
-        );
+        let width = selection.len() as f32 * ADVANCE * 1.2;
+        text(&selection, -width / 2., -160., Style::Chrome);
         if front
             .available_keys(&store.data, *difficulty)
             .next()

@@ -444,10 +444,11 @@ pub(crate) fn load_level(
             if let LoadReason::StartLevel { index, initials } = reason {
                 game.level_index = index;
                 game.key_initials = initials;
+                game.lives = 3;
                 if levels.0[index].number > 1 {
                     game.score = Game::starting_bonus(levels.0[index].number);
-                    game.start_bonus_pending = true;
                 }
+                game.start_bonus_pending = true;
             }
         }
         LoadReason::Retry => {

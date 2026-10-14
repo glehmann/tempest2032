@@ -144,11 +144,13 @@ impl FrontEnd {
     }
 
     fn maximum_start_level(&self, data: &crate::scores::Data, difficulty: Difficulty) -> usize {
-        self.selected_key(data, difficulty)
-            .map_or(15.min(self.originals.len() | 1), |key| {
-                usize::from(key.levels[difficulty.index()])
-            })
-            .min(self.originals.len())
+        self.selected_key(data, difficulty).map_or_else(
+            || {
+                let maximum = self.originals.len().clamp(1, 15);
+                maximum - usize::from(maximum.is_multiple_of(2))
+            },
+            |key| usize::from(key.levels[difficulty.index()]),
+        )
     }
 
     pub(crate) fn preview_level(&self) -> usize {
@@ -209,7 +211,7 @@ fn confirm(keys: &ButtonInput<KeyCode>) -> bool {
 fn welcome(front: &mut FrontEnd, messages: &mut crate::messages::Messages) {
     front.screen = Screen::Welcome;
     front.start_selected = 0;
-    front.start_level = 15.min(front.originals.len() | 1).min(front.originals.len());
+    front.start_level = 1;
     front.key_level = None;
     *messages = default();
 }
@@ -319,16 +321,13 @@ pub(crate) fn input(
                     for level in &mut levels.0 {
                         level.scale_difficulty(difficulty.scale());
                     }
-                    let initials = front.selected_key(&store.data, *difficulty)
+                    let initials = front
+                        .selected_key(&store.data, *difficulty)
                         .map(|key| key.initials.as_bytes().try_into().unwrap());
-                    game.load = if front.start_level == 1 && initials.is_none() {
-                        Some(LoadReason::Restart)
-                    } else {
-                        Some(LoadReason::StartLevel {
-                            index: front.start_level - 1,
-                            initials,
-                        })
-                    };
+                    game.load = Some(LoadReason::StartLevel {
+                        index: front.start_level - 1,
+                        initials,
+                    });
                     front.screen = Screen::Gameplay;
                     front.highlight = None;
                     front.notice.clear();
@@ -340,9 +339,14 @@ pub(crate) fn input(
                     let right = keys.just_pressed(KeyCode::ArrowRight);
                     if left != right {
                         let choices = 1 + front.available_keys(&store.data, *difficulty).count();
+                        let previous = front.start_selected;
                         front.start_selected =
                             (front.start_selected + if left { choices - 1 } else { 1 }) % choices;
-                        front.start_level = front.maximum_start_level(&store.data, *difficulty);
+                        if front.start_selected != previous {
+                            front.start_level = front
+                                .selected_key(&store.data, *difficulty)
+                                .map_or(1, |key| usize::from(key.levels[difficulty.index()]));
+                        }
                     }
                     let up = keys.any_just_pressed([KeyCode::ArrowUp, KeyCode::KeyW]);
                     let down = keys.any_just_pressed([KeyCode::ArrowDown, KeyCode::KeyS]);
@@ -374,7 +378,7 @@ pub(crate) fn input(
                                 [(difficulty.index() + if left { 2 } else { 1 }) % 3];
                             store.data.difficulty = *difficulty;
                             front.start_selected = 0;
-                            front.start_level = front.maximum_start_level(&store.data, *difficulty);
+                            front.start_level = 1;
                             store.save();
                         }
                     } else if confirm(&keys) {
@@ -474,6 +478,8 @@ struct Root;
 #[derive(Component)]
 struct Panel;
 #[derive(Component)]
+struct Body;
+#[derive(Component)]
 struct Logo;
 #[derive(Component)]
 struct GameOverHint;
@@ -503,6 +509,8 @@ fn setup(
         .unwrap(),
     );
     let lettering = lettering::setup(&mut commands, &mut images, &mut meshes, &mut materials);
+    let preview =
+        background::setup_preview(&mut commands, &mut images, &mut meshes, &mut materials);
     commands.spawn((
         GameOverHint,
         Text::default(),
@@ -547,6 +555,16 @@ fn setup(
                 },
             ));
             root.spawn((
+                background::PreviewCanvas,
+                ViewportNode::new(preview),
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
+            ));
+            root.spawn((
                 Panel,
                 Node {
                     width: percent(70),
@@ -570,16 +588,28 @@ fn setup(
                         ..default()
                     },
                 ));
-                panel.spawn((
-                    lettering::Canvas,
-                    ViewportNode::new(lettering),
-                    Node {
-                        width: percent(100),
-                        height: percent(62),
-                        flex_shrink: 0.,
-                        ..default()
-                    },
-                ));
+                panel
+                    .spawn((
+                        Body,
+                        Node {
+                            width: percent(100),
+                            height: percent(62),
+                            flex_shrink: 0.,
+                            ..default()
+                        },
+                    ))
+                    .with_children(|body| {
+                        body.spawn((
+                            lettering::Canvas,
+                            ViewportNode::new(lettering),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: percent(100),
+                                height: percent(100),
+                                ..default()
+                            },
+                        ));
+                    });
                 for (label, color) in [
                     (Label::Title, Color::srgb(0.4, 0.9, 1.)),
                     (Label::Body, Color::srgb(1., 0.88, 0.48)),
@@ -635,16 +665,22 @@ fn draw(
     difficulty: Res<Difficulty>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut root: Query<&mut Node, With<Root>>,
-    mut panels: Query<&mut Node, (With<Panel>, Without<Root>)>,
+    mut panels: Query<(&mut Node, &mut BackgroundColor), (With<Panel>, Without<Root>)>,
     mut illustrated_nodes: Query<
         &mut Node,
         (
-            Or<(With<Logo>, With<lettering::Canvas>)>,
+            Or<(
+                With<Logo>,
+                With<Body>,
+                With<lettering::Canvas>,
+                With<background::PreviewCanvas>,
+            )>,
             Without<Root>,
             Without<Panel>,
             Without<Label>,
         ),
     >,
+    preview_nodes: Query<Entity, With<background::PreviewCanvas>>,
     mut labels: Query<
         (&Label, &mut Text, &mut TextFont, &mut Node),
         (Without<Root>, Without<Panel>),
@@ -665,10 +701,16 @@ fn draw(
     if screen == Screen::Gameplay {
         return;
     }
-    for mut panel in &mut panels {
+    for (mut panel, mut background) in &mut panels {
+        panel.width = percent(if screen == Screen::Welcome { 90 } else { 70 });
         panel.height = if illustrated { percent(86) } else { Val::Auto };
         panel.padding = UiRect::all(px(20. * scale));
         panel.row_gap = px(16. * scale);
+        background.0 = if screen == Screen::Welcome {
+            Color::NONE
+        } else {
+            Color::srgba(0.01, 0.015, 0.035, 0.78)
+        };
     }
     for mut node in &mut illustrated_nodes {
         node.display = if illustrated {
@@ -677,18 +719,27 @@ fn draw(
             Display::None
         };
     }
+    for entity in &preview_nodes {
+        if let Ok(mut node) = illustrated_nodes.get_mut(entity) {
+            node.display = if screen == Screen::Welcome {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        }
+    }
     let (title, body, footer) = match screen {
         Screen::Welcome => {
             let has_keys = front
                 .available_keys(&store.data, *difficulty)
                 .next()
                 .is_some();
-            let detail = if has_keys { "LEFT / RIGHT  PLAYER     " } else { "" };
-            let select = if has_keys {
-                "UP / DOWN  WEB     "
+            let detail = if has_keys {
+                "LEFT / RIGHT  PLAYER     "
             } else {
-                "UP / DOWN  WEB 1-15     "
+                ""
             };
+            let select = "UP / DOWN  WEB     ";
             let exit = if cfg!(target_arch = "wasm32") {
                 ""
             } else {

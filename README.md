@@ -32,11 +32,12 @@ Windows shortcuts, the macOS app, and Flatpak start in fullscreen.
 All game assets and levels are included. Linux needs a graphical desktop and a
 Vulkan-capable graphics driver.
 
-The welcome screen shows the top ten scores for your selected difficulty.
-Use left/right to choose level one or a saved player Key, then Enter / A to play.
-Completing web 17 unlocks Keys. Six initials slots save separate progress for
-Low, Normal, and High. Press P / Start to configure difficulty and install in
-Steam. Difficulty, high scores, and Keys are saved between sessions.
+The welcome screen shows high scores beside a wireframe in the selected web's color.
+Use left/right to choose a player Key, up/down to choose an odd-numbered start,
+then Enter / A to play. Fresh runs default to web 1; Keys can unlock later webs.
+Six initials slots save separate progress for Low, Normal, and High. Press
+P / Start to configure difficulty and install in Steam. Difficulty, high scores,
+and Keys are saved between sessions.
 
 Note: Development builds are available under **Artifacts** in successful
 [Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)

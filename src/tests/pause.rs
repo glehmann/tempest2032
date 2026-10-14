@@ -146,6 +146,8 @@ fn menu_wraps_exits_and_resets_on_reopening() {
         true,
         Vec::new(),
     ))
+    .insert_resource(crate::scores::Store::open(None))
+    .init_resource::<crate::difficulty::Difficulty>()
     .init_resource::<crate::messages::Messages>();
     app.world_mut().resource_mut::<crate::game::Game>().score = 1234;
     key(&mut app, KeyCode::KeyP);
