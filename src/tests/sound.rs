@@ -15,7 +15,7 @@ fn app() -> App {
         .init_resource::<Time>()
         .insert_resource(GlobalVolume::new(Volume::Linear(0.6)))
         .add_systems(Startup, setup)
-        .add_systems(Update, update);
+        .add_systems(Update, (update_yes_pitch, update).chain());
     app
 }
 
@@ -136,7 +136,7 @@ fn yes_sequence_repeats_the_original_loop_twice_then_finishes() {
 }
 
 #[test]
-fn yes_yes_yes_playback_keeps_all_three_repetitions_at_voice_pitch() {
+fn yes_yes_yes_playback_keeps_all_three_repetitions_and_rises_in_previews() {
     for (id, repeats) in [
         (crate::messages::Id::YesYesYes, 2),
         (crate::messages::Id::WarpEnabled, 0),
@@ -168,6 +168,17 @@ fn yes_yes_yes_playback_keeps_all_three_repetitions_at_voice_pitch() {
             app.world_mut().query::<&Voice>().iter(app.world()).count(),
             usize::from(repeats > 0)
         );
+        if repeats > 0 {
+            let settings = app
+                .world_mut()
+                .query_filtered::<&PlaybackSettings, With<Voice>>()
+                .single(app.world())
+                .unwrap();
+            assert_eq!(
+                settings.speed,
+                rate_for_increment(333 + 90) as f32 / playback_rate(512) as f32
+            );
+        }
         app.world_mut()
             .resource_mut::<Time>()
             .advance_by(Duration::from_secs(3));
@@ -177,6 +188,58 @@ fn yes_yes_yes_playback_keeps_all_three_repetitions_at_voice_pitch() {
             0
         );
     }
+}
+
+#[test]
+fn exit_yes_pitch_adds_one_dsp_increment_per_simulation_tick() {
+    let mut app = app();
+    app.insert_resource(EffectsPitch(3.));
+    let level = crate::level::Level::default();
+    let mut exit = crate::animations::level_exit::Exit::new(
+        level.web.glider_transform(level.web.start()).translation,
+        &level.web,
+    );
+    exit.ticks = 73;
+    app.world_mut().resource_mut::<Game>().exit = Some(exit);
+    announcement(
+        &mut app.world_mut().commands(),
+        crate::messages::Id::YesYesYes,
+    );
+    app.world_mut().flush();
+    app.update();
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_secs(1));
+    app.update();
+    let mut settings = app
+        .world_mut()
+        .query_filtered::<&PlaybackSettings, With<Voice>>();
+    assert_eq!(settings.single(app.world()).unwrap().speed, 1.);
+    app.world_mut()
+        .resource_mut::<Game>()
+        .exit
+        .as_mut()
+        .unwrap()
+        .ticks += 60;
+    app.update();
+    let speed = rate_for_increment(333 + 60) as f32 / playback_rate(512) as f32;
+    assert_eq!(settings.single(app.world()).unwrap().speed, speed);
+    assert!(speed > 1.17 && speed < 1.19);
+    for _ in 0..100 {
+        app.update();
+    }
+    assert_eq!(settings.single(app.world()).unwrap().speed, speed);
+    app.world_mut()
+        .resource_mut::<Game>()
+        .exit
+        .as_mut()
+        .unwrap()
+        .ticks += 1;
+    app.update();
+    assert_eq!(
+        settings.single(app.world()).unwrap().speed,
+        rate_for_increment(394) as f32 / playback_rate(512) as f32
+    );
 }
 
 #[test]

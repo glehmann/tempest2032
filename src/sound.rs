@@ -12,7 +12,11 @@ const MAX_VOICES: usize = 16;
 fn playback_rate(pitch: u16) -> u32 {
     // moomoo.dat PLAYFX2 at $4440 scales pitch by 28/43. The DSP adds
     // that increment to an 8:8 sample position per SSI tick, with SCLK = 27.
-    (DSP_RATE * (u32::from(pitch) * 28 / 43).max(1) as f64 / 256.).round() as u32
+    rate_for_increment(u32::from(pitch) * 28 / 43)
+}
+
+fn rate_for_increment(increment: u32) -> u32 {
+    (DSP_RATE * f64::from(increment.max(1)) / 256.).round() as u32
 }
 
 fn playback_speed(base: u16, pitch: u16) -> f32 {
@@ -247,6 +251,14 @@ struct Voice {
 #[derive(Component)]
 struct Engine(usize);
 
+#[derive(Component)]
+struct PitchRise {
+    increment: u32,
+    rate: u32,
+    started: f64,
+    exit_tick: Option<u16>,
+}
+
 pub(crate) fn add_systems(app: &mut App) {
     app.add_audio_source::<Sample>()
         .init_resource::<Sounds>()
@@ -254,8 +266,12 @@ pub(crate) fn add_systems(app: &mut App) {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            update
-                .after(crate::game::load_level)
+            (
+                update_yes_pitch
+                    .after(crate::game::load_level)
+                    .before(update),
+                update.after(crate::game::load_level),
+            )
                 .run_if(crate::pause::running),
         );
 }
@@ -279,6 +295,28 @@ fn engine_period(game: &crate::game::Game) -> Option<u16> {
     game.exit
         .filter(|exit| exit.flash == 0)
         .map(|exit| 10 + exit.ticks)
+}
+
+fn update_yes_pitch(
+    time: Res<Time>,
+    game: Res<crate::game::Game>,
+    mut voices: Query<(&PitchRise, &mut PlaybackSettings, Option<&AudioSink>)>,
+) {
+    for (rise, mut settings, sink) in &mut voices {
+        let ticks = match (rise.exit_tick, game.exit) {
+            (Some(start), Some(exit)) if exit.flash == 0 => {
+                u32::from(exit.ticks.saturating_sub(start))
+            }
+            (Some(_), _) => continue,
+            (None, _) => ((time.elapsed_secs_f64() - rise.started) * 60.).round() as u32,
+        };
+        // CHANGEFX adds directly to the DSP increment after PLAYFX2's 28/43 conversion.
+        let speed = rate_for_increment(rise.increment + ticks) as f32 / rise.rate as f32;
+        settings.speed = speed;
+        if let Some(sink) = sink {
+            sink.set_speed(speed);
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -388,6 +426,14 @@ fn update(
                     )),
             ))
             .id();
+        if request.effect == Effect::Yes && request.repeats > 0 {
+            commands.entity(entity).insert(PitchRise {
+                increment: u32::from(period) * 28 / 43,
+                rate: playback_rate(catalog.samples[index].period),
+                started: now,
+                exit_tick: game.exit.map(|exit| exit.ticks),
+            });
+        }
         active.push((entity, priority));
     }
 }

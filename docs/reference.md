@@ -426,12 +426,18 @@ executable, so playback needs no original source tree or ROM at runtime.
 Gameplay effects, including engine loops, play one octave higher by default.
 Use `--effects-pitch 1.5` for a smaller increase or `--effects-pitch 1` for the
 unscaled driver rate. The multiplier must be greater than zero and at most four.
-Voices keep their driver rate regardless of this setting.
+Voices ignore this setting and start at their driver rate.
 
 YES! YES! YES! plays the original `yes` sample once, then repeats its stored loop
 region twice, producing three spoken repetitions. Playback and voice cleanup
 include the complete sequence. The original `yeson` uses this looping sample
 (`yak.s:16332-16338`, sample-table entry 23).
+Its pitch rises during exit: `czoom1` and `czoom2` call `zoomup`, which adds one
+to each YES voice's DSP playback increment per 60 Hz tick
+(`yak.s:13919`, `yak.s:13952`, `yak.s:14010-14047`). `CHANGEFX` applies the increment
+after `PLAYFX2`'s 28/43 conversion, so the initial step 333 becomes 393 after a
+second, increasing playback speed by about 18%. Frozen simulation holds the
+pitch steady; standalone message previews use the same 60 Hz rise in virtual time.
 
 To regenerate `assets/sounds.bin` from the original source tree:
 
