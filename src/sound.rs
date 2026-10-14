@@ -92,7 +92,7 @@ impl Effect {
 struct Request {
     effect: Effect,
     period: Option<u16>,
-    repeats: u8,
+    exit_yes: bool,
 }
 
 #[derive(Resource, Default)]
@@ -100,17 +100,18 @@ pub(crate) struct Sounds {
     pending: Vec<Request>,
     generation: u32,
     random: u32,
+    exit_yes: bool,
 }
 
 pub(crate) fn play(commands: &mut Commands, effect: Effect) {
-    request(commands, effect, None, 0);
+    request(commands, effect, None, false);
 }
 
 pub(crate) fn pitched(commands: &mut Commands, effect: Effect, period: u16) {
-    request(commands, effect, Some(period), 0);
+    request(commands, effect, Some(period), false);
 }
 
-fn request(commands: &mut Commands, effect: Effect, period: Option<u16>, repeats: u8) {
+fn request(commands: &mut Commands, effect: Effect, period: Option<u16>, exit_yes: bool) {
     commands.queue(move |world: &mut World| {
         if let Some(mut sounds) = world.get_resource_mut::<Sounds>()
             && sounds.pending.len() < 128
@@ -118,7 +119,7 @@ fn request(commands: &mut Commands, effect: Effect, period: Option<u16>, repeats
             sounds.pending.push(Request {
                 effect,
                 period,
-                repeats,
+                exit_yes,
             });
         }
     });
@@ -129,6 +130,7 @@ pub(crate) fn reset(commands: &mut Commands) {
         if let Some(mut sounds) = world.get_resource_mut::<Sounds>() {
             sounds.pending.clear();
             sounds.generation = sounds.generation.wrapping_add(1);
+            sounds.exit_yes = false;
         }
     });
 }
@@ -139,31 +141,20 @@ pub(crate) struct Sample {
     period: u16,
     repeat: usize,
     repeat_length: usize,
-    repeats: u8,
     looping: bool,
-}
-
-impl Sample {
-    fn frames(&self) -> usize {
-        self.data.len() + self.repeat_length * usize::from(self.repeats)
-    }
 }
 
 pub(crate) struct Decoder {
     sample: Sample,
     position: usize,
-    repeats: u8,
 }
 
 impl Iterator for Decoder {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
-        if (self.sample.looping || self.repeats > 0)
-            && self.position == self.sample.repeat + self.sample.repeat_length
-        {
+        if self.sample.looping && self.position == self.sample.repeat + self.sample.repeat_length {
             self.position = self.sample.repeat;
-            self.repeats = self.repeats.saturating_sub(1);
         }
         let value = *self.sample.data.get(self.position)? as i8;
         self.position += 1;
@@ -183,7 +174,7 @@ impl Source for Decoder {
     }
     fn total_duration(&self) -> Option<Duration> {
         (!self.sample.looping).then(|| {
-            Duration::from_secs_f64(self.sample.frames() as f64 / f64::from(self.sample_rate()))
+            Duration::from_secs_f64(self.sample.data.len() as f64 / f64::from(self.sample_rate()))
         })
     }
 }
@@ -195,7 +186,6 @@ impl Decodable for Sample {
         Decoder {
             sample: self.clone(),
             position: 0,
-            repeats: self.repeats,
         }
     }
 }
@@ -219,7 +209,6 @@ fn samples() -> [Sample; 30] {
             period,
             repeat: fields[1],
             repeat_length: fields[2],
-            repeats: 0,
             looping: false,
         }
     })
@@ -238,6 +227,7 @@ impl Default for EffectsPitch {
 struct Catalog {
     shots: [Handle<Sample>; 30],
     engines: [Handle<Sample>; 2],
+    yes: Handle<Sample>,
     samples: [Sample; 30],
 }
 
@@ -253,6 +243,7 @@ struct Engine(usize);
 
 #[derive(Component)]
 struct PitchRise {
+    generation: u32,
     increment: u32,
     rate: u32,
     started: f64,
@@ -284,9 +275,12 @@ fn setup(mut commands: Commands, mut assets: ResMut<Assets<Sample>>) {
         sample.looping = true;
         assets.add(sample)
     });
+    let mut yes = samples[Effect::Yes as usize].clone();
+    yes.looping = true;
     commands.insert_resource(Catalog {
         shots,
         engines,
+        yes: assets.add(yes),
         samples,
     });
 }
@@ -298,17 +292,39 @@ fn engine_period(game: &crate::game::Game) -> Option<u16> {
 }
 
 fn update_yes_pitch(
+    mut commands: Commands,
+    sounds: Res<Sounds>,
     time: Res<Time>,
     game: Res<crate::game::Game>,
-    mut voices: Query<(&PitchRise, &mut PlaybackSettings, Option<&AudioSink>)>,
+    preview: Option<Res<crate::messages::Preview>>,
+    volume: Res<GlobalVolume>,
+    mut voices: Query<(
+        Entity,
+        &PitchRise,
+        &mut PlaybackSettings,
+        Option<&AudioSink>,
+    )>,
 ) {
-    for (rise, mut settings, sink) in &mut voices {
+    for (entity, rise, mut settings, sink) in &mut voices {
+        if rise.generation != sounds.generation || volume.volume == Volume::Linear(0.) {
+            commands.entity(entity).despawn();
+            continue;
+        }
         let ticks = match (rise.exit_tick, game.exit) {
             (Some(start), Some(exit)) if exit.flash == 0 => {
                 u32::from(exit.ticks.saturating_sub(start))
             }
-            (Some(_), _) => continue,
-            (None, _) => ((time.elapsed_secs_f64() - rise.started) * 60.).round() as u32,
+            (None, _)
+                if preview
+                    .as_ref()
+                    .is_some_and(|preview| preview.id == crate::messages::Id::YesYesYes) =>
+            {
+                ((time.elapsed_secs_f64() - rise.started) * 60.).round() as u32
+            }
+            _ => {
+                commands.entity(entity).despawn();
+                continue;
+            }
         };
         // CHANGEFX adds directly to the DSP increment after PLAYFX2's 28/43 conversion.
         let speed = rate_for_increment(rise.increment + ticks) as f32 / rise.rate as f32;
@@ -324,12 +340,12 @@ fn update(
     mut commands: Commands,
     mut sounds: ResMut<Sounds>,
     catalog: Res<Catalog>,
-    mut assets: ResMut<Assets<Sample>>,
     time: Res<Time>,
     game: Res<crate::game::Game>,
     volume: Res<GlobalVolume>,
     effects_pitch: Res<EffectsPitch>,
     voices: Query<(Entity, &Voice)>,
+    yes: Query<Entity, With<PitchRise>>,
     mut engines: Query<(Entity, &Engine, &mut PlaybackSettings, Option<&AudioSink>)>,
 ) {
     let now = time.elapsed_secs_f64();
@@ -341,7 +357,13 @@ fn update(
             active.push((entity, voice.priority));
         }
     }
-    let period = engine_period(&game).filter(|_| volume.volume != Volume::Linear(0.));
+    if engine_period(&game).is_none() {
+        sounds.exit_yes = false;
+    } else if sounds.pending.iter().any(|request| request.exit_yes) {
+        sounds.exit_yes = true;
+    }
+    let period =
+        engine_period(&game).filter(|_| !sounds.exit_yes && volume.volume != Volume::Linear(0.));
     let mut running = [false; 2];
     for (entity, engine, mut settings, sink) in &mut engines {
         if let Some(period) = period {
@@ -371,12 +393,13 @@ fn update(
         }
     }
     let pending = std::mem::take(&mut sounds.pending);
+    let mut yes_voice = yes.iter().next();
     for request in pending {
         if volume.volume == Volume::Linear(0.) {
             continue;
         }
         let priority = request.effect.priority();
-        if active.len() == MAX_VOICES {
+        if !request.exit_yes && active.len() == MAX_VOICES {
             let (index, &(_, lowest)) = active.iter().enumerate().min_by_key(|(_, v)| v.1).unwrap();
             if priority < lowest {
                 continue;
@@ -384,8 +407,7 @@ fn update(
             commands.entity(active.remove(index).0).despawn();
         }
         let index = request.effect as usize;
-        let mut sample = catalog.samples[index].clone();
-        sample.repeats = request.repeats;
+        let sample = &catalog.samples[index];
         let period = request
             .period
             .unwrap_or_else(|| {
@@ -403,38 +425,42 @@ fn update(
             effects_pitch.0
         };
         let speed = playback_speed(sample.period, period) * scale;
-        let deadline = now
-            + sample.frames() as f64 / (f64::from(playback_rate(period)) * f64::from(scale))
-            + 0.25;
-        let audio = if request.repeats == 0 {
-            catalog.shots[index].clone()
+        let (audio, settings) = if request.exit_yes {
+            if let Some(entity) = yes_voice.take() {
+                commands.entity(entity).despawn();
+            }
+            (catalog.yes.clone(), PlaybackSettings::ONCE)
         } else {
-            assets.add(sample)
+            (catalog.shots[index].clone(), PlaybackSettings::DESPAWN)
         };
         let entity = commands
             .spawn((
-                Voice {
-                    priority,
-                    generation: sounds.generation,
-                    deadline,
-                },
                 AudioPlayer(audio),
-                PlaybackSettings::DESPAWN
-                    .with_speed(speed)
-                    .with_volume(Volume::Linear(
-                        if priority >= 100 { 0.7 } else { 0.4 } * request.effect.gain(),
-                    )),
+                settings.with_speed(speed).with_volume(Volume::Linear(
+                    if priority >= 100 { 0.7 } else { 0.4 } * request.effect.gain(),
+                )),
             ))
             .id();
-        if request.effect == Effect::Yes && request.repeats > 0 {
+        if request.exit_yes {
             commands.entity(entity).insert(PitchRise {
+                generation: sounds.generation,
                 increment: u32::from(period) * 28 / 43,
                 rate: playback_rate(catalog.samples[index].period),
                 started: now,
                 exit_tick: game.exit.map(|exit| exit.ticks),
             });
+            yes_voice = Some(entity);
+        } else {
+            commands.entity(entity).insert(Voice {
+                priority,
+                generation: sounds.generation,
+                deadline: now
+                    + sample.data.len() as f64
+                        / (f64::from(playback_rate(period)) * f64::from(scale))
+                    + 0.25,
+            });
+            active.push((entity, priority));
         }
-        active.push((entity, priority));
     }
 }
 
@@ -455,7 +481,7 @@ pub(crate) fn announcement(commands: &mut Commands, id: crate::messages::Id) {
             return;
         }
         Id::YesYesYes => {
-            request(commands, Effect::Yes, None, 2);
+            request(commands, Effect::Yes, None, true);
             return;
         }
         Id::WarpEnabled => Effect::Yes,

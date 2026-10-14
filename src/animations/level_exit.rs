@@ -178,6 +178,7 @@ pub(crate) fn animate(
         }
     }
     if exit.flash > 0 && was_flash == 0 {
+        crate::sound::reset(&mut commands);
         crate::sound::play(&mut commands, crate::sound::Effect::Warp);
     }
     transform.translation.z = 0.12 - exit.depth as f32 / LANE_UNIT as f32 * WORLD_UNIT;

@@ -19,6 +19,10 @@ fn app() -> App {
     app
 }
 
+fn count<T: Component>(app: &mut App) -> usize {
+    app.world_mut().query::<&T>().iter(app.world()).count()
+}
+
 #[test]
 fn gameplay_pitch_scales_effects_and_cleanup_without_changing_voices() {
     for multiplier in [1.0, 1.5, 2.0] {
@@ -28,12 +32,12 @@ fn gameplay_pitch_scales_effects_and_cleanup_without_changing_voices() {
             Request {
                 effect: Effect::Shot,
                 period: None,
-                repeats: 0,
+                exit_yes: false,
             },
             Request {
                 effect: Effect::Recharge,
                 period: None,
-                repeats: 0,
+                exit_yes: false,
             },
         ]);
         app.update();
@@ -101,15 +105,15 @@ fn all_effects_decode_as_finite_signed_pcm_at_their_original_periods() {
 }
 
 #[test]
-fn engine_loops_play_the_intro_once_then_repeat_only_the_original_loop_region() {
-    for index in [0, 2] {
+fn engine_and_yes_loops_play_the_intro_once_then_repeat_the_original_region() {
+    for index in [0, 2, Effect::Yes as usize] {
         let mut sample = samples()[index].clone();
         sample.looping = true;
         let mut decoder = sample.decoder();
         assert_eq!(decoder.total_duration(), None);
         let end = sample.repeat + sample.repeat_length;
         let initial: Vec<_> = decoder.by_ref().take(end).collect();
-        for _ in 0..3 {
+        for _ in 0..8 {
             let repeat: Vec<_> = decoder.by_ref().take(sample.repeat_length).collect();
             assert_eq!(repeat, initial[sample.repeat..end]);
         }
@@ -117,38 +121,24 @@ fn engine_loops_play_the_intro_once_then_repeat_only_the_original_loop_region() 
 }
 
 #[test]
-fn yes_sequence_repeats_the_original_loop_twice_then_finishes() {
-    let mut sample = samples()[Effect::Yes as usize].clone();
-    sample.repeats = 2;
-    let mut decoder = sample.decoder();
-    let duration = decoder.total_duration().unwrap().as_secs_f64();
-    assert!(duration > 3.5 && duration < 3.7);
-    let initial: Vec<_> = decoder.by_ref().take(sample.data.len()).collect();
-    assert_eq!(initial.len(), sample.data.len());
-    for _ in 0..2 {
-        let repeat: Vec<_> = decoder.by_ref().take(sample.repeat_length).collect();
-        assert_eq!(
-            repeat,
-            initial[sample.repeat..sample.repeat + sample.repeat_length]
-        );
-    }
-    assert_eq!(decoder.next(), None);
-}
-
-#[test]
-fn yes_yes_yes_playback_keeps_all_three_repetitions_and_rises_in_previews() {
-    for (id, repeats) in [
-        (crate::messages::Id::YesYesYes, 2),
-        (crate::messages::Id::WarpEnabled, 0),
+fn yes_preview_loops_without_stacking_and_stops_when_closed() {
+    for (id, looping) in [
+        (crate::messages::Id::YesYesYes, true),
+        (crate::messages::Id::WarpEnabled, false),
     ] {
         let mut app = app();
         app.insert_resource(EffectsPitch(3.));
+        app.insert_resource(crate::messages::Preview {
+            id,
+            capture_tick: None,
+            elapsed: 0,
+        });
         announcement(&mut app.world_mut().commands(), id);
         app.world_mut().flush();
         app.update();
-        let (player, settings, voice) = app
+        let (player, settings) = app
             .world_mut()
-            .query::<(&AudioPlayer<Sample>, &PlaybackSettings, &Voice)>()
+            .query::<(&AudioPlayer<Sample>, &PlaybackSettings)>()
             .single(app.world())
             .unwrap();
         let sample = app
@@ -156,22 +146,18 @@ fn yes_yes_yes_playback_keeps_all_three_repetitions_and_rises_in_previews() {
             .resource::<Assets<Sample>>()
             .get(&player.0)
             .unwrap();
-        assert_eq!(sample.repeats, repeats);
+        assert_eq!(sample.looping, looping);
+        assert_eq!(sample.decoder().total_duration().is_none(), looping);
         assert_eq!(settings.speed, 1.);
-        let duration = sample.decoder().total_duration().unwrap().as_secs_f64();
-        assert!((voice.deadline - duration - 0.25).abs() < 0.001);
         app.world_mut()
             .resource_mut::<Time>()
             .advance_by(Duration::from_secs_f64(1.5));
         app.update();
-        assert_eq!(
-            app.world_mut().query::<&Voice>().iter(app.world()).count(),
-            usize::from(repeats > 0)
-        );
-        if repeats > 0 {
+        assert_eq!(count::<AudioPlayer<Sample>>(&mut app), usize::from(looping));
+        if looping {
             let settings = app
                 .world_mut()
-                .query_filtered::<&PlaybackSettings, With<Voice>>()
+                .query_filtered::<&PlaybackSettings, With<PitchRise>>()
                 .single(app.world())
                 .unwrap();
             assert_eq!(
@@ -181,12 +167,26 @@ fn yes_yes_yes_playback_keeps_all_three_repetitions_and_rises_in_previews() {
         }
         app.world_mut()
             .resource_mut::<Time>()
-            .advance_by(Duration::from_secs(3));
+            .advance_by(Duration::from_secs(10));
         app.update();
-        assert_eq!(
-            app.world_mut().query::<&Voice>().iter(app.world()).count(),
-            0
-        );
+        assert_eq!(count::<AudioPlayer<Sample>>(&mut app), usize::from(looping));
+        if looping {
+            announcement(&mut app.world_mut().commands(), id);
+            app.world_mut().flush();
+            app.update();
+            assert_eq!(count::<PitchRise>(&mut app), 1);
+            reset(&mut app.world_mut().commands());
+            app.world_mut().flush();
+            app.update();
+            assert_eq!(count::<PitchRise>(&mut app), 0);
+            announcement(&mut app.world_mut().commands(), id);
+            app.world_mut().flush();
+            app.update();
+            app.world_mut()
+                .remove_resource::<crate::messages::Preview>();
+            app.update();
+            assert_eq!(count::<AudioPlayer<Sample>>(&mut app), 0);
+        }
     }
 }
 
@@ -213,7 +213,7 @@ fn exit_yes_pitch_adds_one_dsp_increment_per_simulation_tick() {
     app.update();
     let mut settings = app
         .world_mut()
-        .query_filtered::<&PlaybackSettings, With<Voice>>();
+        .query_filtered::<&PlaybackSettings, With<PitchRise>>();
     assert_eq!(settings.single(app.world()).unwrap().speed, 1.);
     app.world_mut()
         .resource_mut::<Game>()
@@ -240,6 +240,92 @@ fn exit_yes_pitch_adds_one_dsp_increment_per_simulation_tick() {
         settings.single(app.world()).unwrap().speed,
         rate_for_increment(394) as f32 / playback_rate(512) as f32
     );
+    app.world_mut().resource_mut::<Game>().exit = None;
+    app.update();
+    assert_eq!(count::<PitchRise>(&mut app), 0);
+}
+
+#[test]
+fn yes_replaces_engines_and_loops_until_the_flash_clears_effects_and_plays_warp() {
+    use crate::animations::level_exit;
+    let mut app = crate::test_support::app();
+    app.init_resource::<Sounds>()
+        .init_resource::<EffectsPitch>()
+        .init_resource::<Assets<Sample>>()
+        .init_resource::<Time>()
+        .insert_resource(GlobalVolume::new(Volume::Linear(0.6)))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (update_yes_pitch, update).chain())
+        .add_systems(
+            FixedUpdate,
+            level_exit::animate.before(crate::game::load_level),
+        );
+    let level = crate::level::Level::default();
+    let mut game = app.world_mut().resource_mut::<Game>();
+    game.status = crate::game::Status::Exiting;
+    game.exit = Some(level_exit::Exit::new(
+        level.web.glider_transform(level.web.start()).translation,
+        &level.web,
+    ));
+    app.update();
+    assert_eq!(count::<Engine>(&mut app), 2);
+    announcement(
+        &mut app.world_mut().commands(),
+        crate::messages::Id::YesYesYes,
+    );
+    app.world_mut().flush();
+    app.update();
+    assert_eq!(count::<Engine>(&mut app), 0);
+    for frame in 0..500 {
+        if frame == 300 {
+            app.world_mut()
+                .resource_mut::<Sounds>()
+                .pending
+                .extend((0..MAX_VOICES).map(|_| Request {
+                    effect: Effect::Recharge,
+                    period: None,
+                    exit_yes: false,
+                }));
+            app.update();
+            assert_eq!(count::<Voice>(&mut app), MAX_VOICES);
+        }
+        ticks(&mut app, 1);
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs_f64(1. / 60.));
+        app.update();
+        if app.world().resource::<Game>().exit.unwrap().flash > 0 {
+            assert!(
+                frame > 216,
+                "the voice must outlast the old three-repeat deadline"
+            );
+            break;
+        }
+        assert_eq!(count::<PitchRise>(&mut app), 1);
+        assert_eq!(count::<Engine>(&mut app), 0);
+    }
+    assert!(app.world().resource::<Game>().exit.unwrap().flash > 0);
+    assert_eq!(count::<PitchRise>(&mut app), 0);
+    let player = app
+        .world_mut()
+        .query::<&AudioPlayer<Sample>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(
+        player.0,
+        app.world().resource::<Catalog>().shots[Effect::Warp as usize]
+    );
+    for _ in 0..level_exit::FLASH_TICKS {
+        ticks(&mut app, 1);
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs_f64(1. / 60.));
+        app.update();
+    }
+    assert!(app.world().resource::<Game>().exit.is_none());
+    assert!(!app.world().resource::<Sounds>().exit_yes);
+    assert_eq!(count::<PitchRise>(&mut app), 0);
+    assert_eq!(count::<Engine>(&mut app), 0);
 }
 
 #[test]
@@ -272,7 +358,7 @@ fn sustained_fire_is_bounded_and_high_priority_voices_replace_shots() {
             .extend((0..10).map(|_| Request {
                 effect: Effect::Shot,
                 period: None,
-                repeats: 0,
+                exit_yes: false,
             }));
         app.update();
         assert_eq!(
@@ -286,7 +372,7 @@ fn sustained_fire_is_bounded_and_high_priority_voices_replace_shots() {
         .push(Request {
             effect: Effect::Recharge,
             period: None,
-            repeats: 0,
+            exit_yes: false,
         });
     app.update();
     assert!(
@@ -342,7 +428,7 @@ fn reset_stops_old_voices_and_muting_drops_new_requests() {
         .push(Request {
             effect: Effect::Recharge,
             period: None,
-            repeats: 0,
+            exit_yes: false,
         });
     app.update();
     assert_eq!(
@@ -366,7 +452,7 @@ fn reset_stops_old_voices_and_muting_drops_new_requests() {
         .push(Request {
             effect: Effect::Shot,
             period: None,
-            repeats: 0,
+            exit_yes: false,
         });
     app.update();
     assert!(app.world().resource::<Sounds>().pending.is_empty());

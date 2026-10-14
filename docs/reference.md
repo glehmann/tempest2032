@@ -428,10 +428,13 @@ Use `--effects-pitch 1.5` for a smaller increase or `--effects-pitch 1` for the
 unscaled driver rate. The multiplier must be greater than zero and at most four.
 Voices ignore this setting and start at their driver rate.
 
-YES! YES! YES! plays the original `yes` sample once, then repeats its stored loop
-region twice, producing three spoken repetitions. Playback and voice cleanup
-include the complete sequence. The original `yeson` uses this looping sample
-(`yak.s:16332-16338`, sample-table entry 23).
+YES! YES! YES! replaces the exit-engine sounds with the original looping `yes`
+sample. It plays its intro once, then repeats the stored loop region continuously
+until the exit flash starts, following `yeson` and `zoo2off`
+(`yak.s:16332-16338`, `yak.s:13972-13981`, sample-table entry 23).
+The flash stops the loop and clears old effects before playing the warp sound;
+restarts and interrupted exits also stop it. Its lifetime follows the exit,
+independently of the text animation or a fixed repetition count.
 Its pitch rises during exit: `czoom1` and `czoom2` call `zoomup`, which adds one
 to each YES voice's DSP playback increment per 60 Hz tick
 (`yak.s:13919`, `yak.s:13952`, `yak.s:14010-14047`). `CHANGEFX` applies the increment
