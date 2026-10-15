@@ -10,6 +10,35 @@ extern "C" {
     fn ready();
     #[wasm_bindgen(js_name = typingInitials)]
     fn typing_initials(active: bool);
+    #[wasm_bindgen(js_name = capabilities)]
+    fn capabilities() -> JsValue;
+}
+
+/// Picks the first antialiasing step. Browsers reduce the user agent, so the
+/// renderer string and the pointer type are the only host signals available.
+pub(crate) fn start_quality() -> crate::antialiasing::Quality {
+    use crate::antialiasing::Quality;
+    let capabilities = capabilities();
+    let field = |name: &str| js_sys::Reflect::get(&capabilities, &name.into()).ok();
+    let renderer = field("renderer")
+        .and_then(|value| value.as_string())
+        .unwrap_or_default()
+        .to_lowercase();
+    console_log(&format!("Browser renderer: {renderer:?}"));
+    let software = ["swiftshader", "llvmpipe", "lavapipe", "software", "warp"]
+        .iter()
+        .any(|name| renderer.contains(name));
+    if software {
+        Quality::Off
+    } else if field("coarse").and_then(|value| value.as_bool()) == Some(true) {
+        Quality::Fxaa
+    } else {
+        Quality::Full
+    }
+}
+
+fn console_log(message: &str) {
+    web_sys::console::log_1(&message.into());
 }
 
 pub(crate) fn options() -> crate::cli::Cli {
@@ -26,6 +55,9 @@ pub(crate) fn options() -> crate::cli::Cli {
         if let Some(value) = query.get(name) {
             args.extend([format!("--{name}"), value]);
         }
+    }
+    if let Some(value) = query.get("aa").filter(|value| value != "auto") {
+        args.extend(["--antialiasing".into(), value]);
     }
     if query.has("fps") {
         args.push("--fps".into());

@@ -80,8 +80,8 @@ fastest and slowest frame times in milliseconds over the last two seconds.
 Every frame counts, so a single hitch appears at the next refresh and stays
 in the range until it ages out. The same line reports this process's average
 CPU usage as a percentage of total CPU capacity and its resident memory in
-MiB, once their first readings arrive. It also reports whether antialiasing is
-still active as `AA on` or `AA off`, which reflects the slow-frame fallback.
+MiB, once their first readings arrive. It also reports the current antialiasing
+step as `AA 4x`, `AA fxaa`, or `AA off`.
 
 Presentation uses FIFO VSync to avoid tearing. With `--fps`, late application
 updates also produce warnings when their interval exceeds 1.5 display refresh
@@ -170,16 +170,18 @@ python3 tools/web.py serve --port 8000
 ```
 
 For development, `python3 tools/web.py build --profile dev` uses the normal Cargo
-development profile. The page accepts `fps`, `level`, `warp-zone`, `warp-course`,
-`volume`, and `music-volume` URL parameters, for example:
+development profile. The page accepts `fps`, `aa`, `level`, `warp-zone`,
+`warp-course`, `volume`, and `music-volume` URL parameters, for example:
 
 ```text
 http://127.0.0.1:8000/?fps
 http://127.0.0.1:8000/?level=80&fps
 http://127.0.0.1:8000/?warp-zone=tunnel&warp-course=2
+http://127.0.0.1:8000/?aa=fxaa&fps
 ```
 
 F3 toggles the FPS display in the browser too; `?fps` makes it visible at launch.
+`?aa=auto`, `full`, `fxaa`, or `off` overrides the starting antialiasing step.
 Explicit level and warp starts bypass Welcome and disable score submission, as
 their native command-line counterparts do. The browser FPS display retains frame
 timing but omits desktop process CPU/memory readings and monitor-refresh warnings.
@@ -1292,15 +1294,29 @@ FXAA pass on the final 3D overlay camera smooths remaining high-contrast edges
 after the scene layers are combined. UI text uses Bevy's font antialiasing;
 original bitmap feedback and particle effects retain their original resolution.
 
-Antialiasing starts enabled on every launch. After a five-second warmup,
-three consecutive one-second windows below 58 rendered updates per second
-disable both MSAA and FXAA for the rest of the session. The tolerance accepts
-59.94 Hz displays and small scheduling variations; isolated stalls do not
-trigger the fallback. Unfocused or hidden windows reset the measurement and
-warmup. Measurements use real time, including in browser builds, and do not
-alter the fixed 60 Hz gameplay simulation. This measures application updates,
-not GPU timings or confirmed display presentations, and reducing antialiasing
-cannot fix every cause of slow rendering.
+Antialiasing starts at a step chosen per launch and only ever steps down:
+4× MSAA with FXAA, then FXAA alone, then nothing, for the rest of the session.
+After a 1.5-second warmup, two consecutive half-second windows below 58
+rendered updates per second lower the step, and each step-down starts a fresh
+warmup, so a session needs roughly 2.5 seconds to reach FXAA and 5 seconds to
+reach no filtering. Each window drops its slowest tenth before averaging, so a
+single stall cannot lower the step and a mixture of met and missed refresh
+lengths still counts as slow; the tolerance accepts 59.94 Hz displays and small
+scheduling variations. Unfocused or hidden windows reset the measurement,
+warmup, and step to the launch state. `--antialiasing full`, `--antialiasing
+fxaa`, and `--antialiasing off` skip the measurement and start at that step,
+and the browser accepts the same values as `?aa=`, where `auto` is the default.
+
+The starting step comes from the host. Browsers report their unmasked WebGL
+renderer string and a coarse pointer, which the site reads before the game
+starts: a software renderer such as SwiftShader or llvmpipe starts with no
+filtering, a touch device starts at FXAA alone, and everything else starts at
+4× MSAA. Desktop builds start at 4× MSAA. Browsers reduce the user agent, so
+the device model is not identifiable and no device list is used. Measurements
+use real time, including in browser builds, and do not alter the fixed 60 Hz
+gameplay simulation. This measures application updates, not GPU timings or
+confirmed display presentations, and reducing antialiasing cannot fix every
+cause of slow rendering.
 
 ## HUD
 

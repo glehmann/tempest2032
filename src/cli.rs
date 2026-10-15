@@ -9,7 +9,7 @@ use std::path::PathBuf;
 #[command(group(ArgGroup::new("recording").args(["record_motion", "record_exit", "record_shot_hit"])))]
 #[command(group(ArgGroup::new("preview").args(["message_preview", "menu_preview"])))]
 #[command(group(ArgGroup::new("game_options").multiple(true).args([
-    "level", "levels", "fullscreen", "fps", "volume", "music_volume",
+    "level", "levels", "fullscreen", "fps", "antialiasing", "volume", "music_volume",
     "difficulty", "starfield", "warp_zone", "warp_course", "message_preview", "message_tick",
     "message_size", "menu_preview", "screenshot", "record_motion", "record_exit", "record_shot_hit", "seconds",
 ])))]
@@ -41,6 +41,10 @@ pub(crate) struct Cli {
     /// Show the frame rate, processor load, and memory use in the top-right corner
     #[arg(long)]
     pub(crate) fps: bool,
+
+    /// Antialiasing step to start with, instead of following the frame rate
+    #[arg(long, value_enum, value_name = "QUALITY")]
+    pub(crate) antialiasing: Option<crate::antialiasing::Quality>,
 
     /// Master audio volume from 0 (silent) to 1 (full volume)
     #[arg(long, default_value_t = 0.6, value_parser = parse_volume)]

@@ -14,8 +14,9 @@ These are the deliberate differences from the original:
 
 - **Resolution.** The game renders at your display's native resolution, in any
   window size and aspect ratio, well beyond 4K. The original drew a 384×240
-  framebuffer. Antialiasing smooths geometry and switches off automatically
-  if frame rates stay below 60 FPS.
+  framebuffer. Antialiasing smooths geometry and steps down automatically if
+  frame rates stay below 60 FPS, and touch devices skip the most expensive
+  setting from the start.
 - **More visible warp gates.** Gate flight shows three solid gates and three
   more that fade with distance, reducing sudden pop-in on high-resolution displays.
 - **Sound effects overlap.** While the music played, the original could mix only

@@ -246,7 +246,7 @@ pub(crate) fn update_fps(
     });
     let text = format!(
         "{fps:.0} FPS  {fastest:.1}-{slowest:.1} ms  AA {}",
-        if antialiasing.enabled { "on" } else { "off" }
+        antialiasing.quality.label()
     );
     #[cfg(not(target_arch = "wasm32"))]
     let text = format!("{text}{cpu}{memory}");

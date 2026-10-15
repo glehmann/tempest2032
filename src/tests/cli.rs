@@ -152,6 +152,42 @@ fn fps_display_combines_with_level_and_capture_options() {
 }
 
 #[test]
+fn antialiasing_steps_are_opt_in() {
+    assert_eq!(
+        Cli::try_parse_from(["tempest2032"]).unwrap().antialiasing,
+        None
+    );
+    for (value, expected) in [
+        ("full", crate::antialiasing::Quality::Full),
+        ("fxaa", crate::antialiasing::Quality::Fxaa),
+        ("off", crate::antialiasing::Quality::Off),
+    ] {
+        assert_eq!(
+            Cli::try_parse_from(["tempest2032", "--antialiasing", value])
+                .unwrap()
+                .antialiasing,
+            Some(expected)
+        );
+    }
+    assert!(
+        Cli::try_parse_from(["tempest2032", "--antialiasing", "auto"]).is_err(),
+        "the frame rate decides when the option is omitted"
+    );
+    assert!(
+        Cli::try_parse_from([
+            "tempest2032",
+            "--fps",
+            "--antialiasing",
+            "off",
+            "--level",
+            "3"
+        ])
+        .unwrap()
+        .fps
+    );
+}
+
+#[test]
 fn fullscreen_combines_with_level_and_capture_options() {
     let cli = Cli::try_parse_from(["tempest2032", "--fullscreen", "--level", "3"]).unwrap();
     assert!(cli.fullscreen);

@@ -52,6 +52,20 @@ window.tempestBrowser = {
   typingInitials: active => {
     typingInitials = active;
   },
+  // Read before the wasm module starts: it decides the first antialiasing step.
+  capabilities: () => {
+    let renderer = '';
+    try {
+      const probe = document.createElement('canvas');
+      probe.width = probe.height = 1;
+      const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+      const info = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      if (info) renderer = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL) || '');
+    } catch (error) {
+      console.warn('Could not read the WebGL renderer:', error);
+    }
+    return { coarse: matchMedia('(pointer: coarse)').matches, renderer };
+  },
 };
 
 function engage() {
