@@ -365,7 +365,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
     assert!(
         points
             .iter()
-            .all(|p| p[0].abs() <= 280. && p[1].abs() <= 195.)
+            .all(|p| p[0].abs() <= 280. && p[1].abs() <= 225.)
     );
     let original = points.clone();
     key_catalog(&mut app);
@@ -395,7 +395,7 @@ fn welcome_and_initials_share_the_scalable_panel_and_restore_other_menu_screens(
     assert!(
         selected
             .iter()
-            .all(|p| p[0].abs() <= 280. && p[1].abs() <= 195.)
+            .all(|p| p[0].abs() <= 280. && p[1].abs() <= 225.)
     );
     for (width, height, scale) in [(1280., 800., 1.), (2560., 1600., 2.)] {
         app.world_mut()

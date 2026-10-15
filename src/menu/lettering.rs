@@ -108,11 +108,21 @@ fn draw(
     glyphs: Res<Glyphs>,
     mut graphics: ResMut<Graphics>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut camera: Single<&mut Camera, With<PanelCamera>>,
+    mut camera: Single<(&mut Camera, &mut Projection), With<PanelCamera>>,
 ) {
-    camera.is_active = matches!(front.screen, Screen::Welcome | Screen::Initials);
-    if !camera.is_active {
+    camera.0.is_active = matches!(front.screen, Screen::Welcome | Screen::Initials);
+    if !camera.0.is_active {
         return;
+    }
+    if let Projection::Orthographic(projection) = &mut *camera.1 {
+        projection.scaling_mode = ScalingMode::AutoMin {
+            min_width: 560.,
+            min_height: if front.screen == Screen::Welcome {
+                450.
+            } else {
+                390.
+            },
+        };
     }
     let entries = &store.data.tables[difficulty.index()];
     let highlight = front
@@ -211,6 +221,16 @@ fn draw(
         );
         let width = selection.len() as f32 * ADVANCE * 1.2;
         text(&selection, -width / 2., -160., Style::Chrome);
+        let bonus = format!(
+            "{} BONUS",
+            crate::game::Game::starting_bonus(front.preview_level())
+        );
+        text(
+            &bonus,
+            -(bonus.len() as f32) * ADVANCE * 0.6,
+            -200.,
+            Style::Rainbow,
+        );
         if front
             .available_keys(&store.data, *difficulty)
             .next()

@@ -35,11 +35,8 @@ pub(crate) enum Contents {
     Pulsars,
 }
 
-#[derive(Component, Default)]
-pub(crate) struct TankerSpin(u8);
-
 #[derive(Component)]
-#[require(LevelActor, Enemy, Contents, TankerSpin)]
+#[require(LevelActor, Enemy, Contents)]
 pub(crate) struct Tanker {
     pub(crate) lane: usize,
     pub(crate) depth: i32,
@@ -56,7 +53,7 @@ pub(crate) struct Released {
 
 #[derive(Resource, Default)]
 pub(crate) struct TankerAssets {
-    pub(crate) body: Handle<Mesh>,
+    pub(crate) frames: Vec<Handle<Mesh>>,
     pub(crate) fast: Handle<Mesh>,
     pub(crate) spiral: Handle<Mesh>,
     pub(crate) point: Handle<Mesh>,
@@ -64,53 +61,50 @@ pub(crate) struct TankerAssets {
     pub(crate) shades: Vec<Handle<StandardMaterial>>,
 }
 
+fn tanker_mesh(phase: u8) -> Mesh {
+    let hue = ((crate::sines::sine(i32::from(phase)) + 128) & 0xf0
+        | ((crate::sines::sine(i32::from(phase) + 64) + 128) >> 4) & 0x0f) as u8;
+    // draw_sfliptank selects s_fliptank2/ft2verts, not the old pink diamond.
+    colored_mesh(super::beasts::part(
+        &[
+            (9., 9.),
+            (5., 9.),
+            (13., 9.),
+            (-7., 5.),
+            (25., 5.),
+            (-7., 13.),
+            (25., 13.),
+            (9., 5.),
+            (9., 13.),
+            (13., 1.),
+            (13., 17.),
+            (5., 1.),
+            (5., 17.),
+        ],
+        &[
+            (hue, [9, 4, 0], [128, 64, 255]),
+            (hue, [6, 10, 0], [64, 96, 255]),
+            (hue, [12, 5, 0], [64, 128, 255]),
+            (hue, [3, 11, 0], [128, 128, 255]),
+            (0xf0, [3, 1, 0], [128, 192, 255]),
+            (0x30, [4, 2, 0], [64, 96, 143]),
+            (0x30, [5, 1, 0], [128, 192, 255]),
+            (0xf0, [6, 2, 0], [64, 96, 143]),
+            (0xf4, [9, 7, 0], [128, 192, 255]),
+            (0x34, [8, 10, 0], [64, 96, 143]),
+            (0x34, [11, 7, 0], [128, 192, 255]),
+            (0xf4, [12, 8, 0], [64, 96, 143]),
+        ],
+        1.,
+        0.,
+    ))
+}
+
 pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
-    let vertices = [
-        (9., 1.),
-        (17., 9.),
-        (9., 17.),
-        (1., 9.),
-        (9., 4.),
-        (14., 9.),
-        (9., 14.),
-        (4., 9.),
-        (6., 7.),
-        (12., 7.),
-        (6., 11.),
-        (12., 11.),
-        (7., 9.),
-        (11., 9.),
-        (9., 9.),
-    ]
-    .map(|(x, y)| Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, 0.0));
-    let mut triangles = Vec::new();
-    for (hue, face) in [
-        (0x92, [3, 0, 7]),
-        (0x93, [7, 4, 0]),
-        (0x92, [0, 1, 4]),
-        (0x93, [4, 5, 1]),
-        (0x92, [1, 2, 5]),
-        (0x93, [5, 6, 2]),
-        (0x92, [2, 3, 6]),
-        (0x93, [6, 7, 3]),
-        (0xf0, [8, 12, 14]),
-        (0x30, [9, 13, 14]),
-        (0x30, [10, 12, 14]),
-        (0xf0, [11, 13, 14]),
-    ] {
-        let intensity = if face[2] == 14 {
-            [128, 192, 255]
-        } else {
-            [240, 128, 64]
-        };
-        triangles.push(std::array::from_fn(|i| {
-            (vertices[face[i]], cry::color(hue, intensity[i]))
-        }));
-    }
     let fast_vertices = [
         (1., 9.),
         (5., 9.),
@@ -156,7 +150,9 @@ pub(crate) fn setup(
                 std::array::from_fn(|i| (points[face[i]], cry::color(hue, intensity[i])))
             }),
         )),
-        body: meshes.add(colored_mesh(triangles)),
+        frames: (0..64)
+            .map(|frame| meshes.add(tanker_mesh(frame * 4)))
+            .collect(),
         fast: meshes.add(fast),
         point: meshes.add(Rectangle::new(1., 1.)),
         material: materials.add(StandardMaterial {
@@ -369,16 +365,17 @@ pub(crate) fn move_tankers(
         Entity,
         &mut Tanker,
         &Contents,
-        &mut TankerSpin,
         &mut Transform,
         &mut Mesh3d,
         &mut MeshMaterial3d<StandardMaterial>,
     )>,
+    mut frame: Local<u8>,
 ) {
     if game.status != Status::Playing {
         return;
     }
-    for (entity, mut tanker, contents, mut spin, mut pose, mut mesh, mut material) in &mut tankers {
+    *frame = frame.wrapping_add(1);
+    for (entity, mut tanker, contents, mut pose, mut mesh, mut material) in &mut tankers {
         let Some(generator) = (match contents {
             Contents::Flippers => level.tankers.as_ref(),
             Contents::Fuseballs => level.fuse_tankers.as_ref(),
@@ -392,7 +389,7 @@ pub(crate) fn move_tankers(
                 tanker.depth = level.web.rear();
                 tanker.approach = false;
                 mesh.0 = match contents {
-                    Contents::Flippers => shells.body.clone(),
+                    Contents::Flippers => shells.frames.first().cloned().unwrap_or_default(),
                     Contents::Fuseballs => fuses.tanker.clone(),
                     Contents::Pulsars => pulsars.tankers[CYCLE[pulse.phase as usize]].clone(),
                 };
@@ -402,9 +399,17 @@ pub(crate) fn move_tankers(
             tanker.depth = (tanker.depth - generator.climb_speed).max(0);
         }
         *pose = transform(&tanker, &level.web);
+        if !tanker.approach && *contents == Contents::Flippers {
+            let phase = frame.wrapping_mul(4);
+            pose.rotate_local_z(-f32::from(phase) * TAU / 256.);
+            mesh.0 = shells
+                .frames
+                .get(usize::from(phase / 4))
+                .cloned()
+                .unwrap_or_default();
+        }
         if !tanker.approach && *contents != Contents::Flippers {
-            spin.0 = spin.0.wrapping_add(1);
-            pose.rotate_local_z(-f32::from(spin.0) * TAU / 256.);
+            pose.rotate_local_z(-f32::from(*frame) * TAU / 256.);
             if *contents == Contents::Pulsars {
                 mesh.0 = pulsars.tankers[CYCLE[pulse.phase as usize]].clone();
             }

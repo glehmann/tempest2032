@@ -176,6 +176,8 @@ centered high-score table over a large rotating wireframe of the selected web,
 directly over the stars without a separate box or a dimming overlay.
 Left/right arrows, D-pad, or left stick select a player Key or a fresh run.
 Up/down arrows, W/S, D-pad, or left stick select an odd-numbered starting web.
+The selected web's deferred score award appears as `6000 BONUS`, for example,
+below the level selector. Web 1 shows `0 BONUS`; the amount updates with the web.
 Fresh runs can start on webs 1 through 15; a Key starts at its saved maximum
 and can select any earlier odd web. Selection defaults to web 1 for a fresh
 run or the selected Key's maximum, and resets to web 1 when returning from a
@@ -1277,6 +1279,30 @@ magentas, and oranges, never the green the original displays. The green is
 therefore matched to the screenshot, not derived from the registers.
 
 ## First-level enemies
+
+### Enemy appearance references
+
+Enemy shapes must follow their active draw routines, not just similarly named
+tables in `obj2d.s`. In particular, `draw_sfliptank` uses `s_fliptank2` and
+`ft2verts` (`yak.s:2692-2704`, `obj2d.s:200-277`). The old `s_fliptank` pink
+diamond is not the Tempest 2000 Flipper Tanker. The active model has thirteen
+vertices and twelve faces, a 32-by-16 outline, red/blue crossed arms, and four
+facets whose CRY hue follows `pulser(frames * 4)`. Its entire body rotates by
+four Jaguar angle units per tick, making a full turn and color cycle in 64
+ticks. The renderer caches those 64 color meshes and shares the phase between
+Flipper Tankers; it does not rebuild meshes each frame.
+
+The other active shape families were checked against their draw paths:
+`draw_sfuseball` and `draw_sfusetank` use the two `fbpiece` leg shapes;
+`draw_spulsar` and `draw_spulstank` use the six `spuls` poses, with an opposing
+copy for Tankers; `draw_beast` layers `hornm1` through `hornm3`; Mirrors use
+`mirr`, Alien Droids use `adroid`, and Spikers use the vector `spiker` spiral.
+Fuseball arms consume `fbcols` backwards, from index four down to zero
+(`yak.s:2596-2613`, `yak.s:2624-2647`), so their first arm is red, followed by
+green, magenta, yellow, and cyan. The measured Flipper proportions and palette
+adjustments described below remain intentional.
+
+### Flippers
 
 Level one uses the original `_nw1` wave of normal Flippers. Their X-shaped
 bodies use `s_flipper`'s seven vertices and four triangular faces. The GPU

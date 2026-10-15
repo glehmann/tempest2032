@@ -1,4 +1,4 @@
-//! Checks mixed enemy spawn budgets and the two Flippers released when a Tanker is shot.
+//! Checks Tanker graphics, mixed spawn budgets, and released enemy behavior.
 
 use crate::collisions::resolve_hits;
 use crate::enemies::flippers::Flipper;
@@ -17,6 +17,101 @@ use crate::powerups;
 use crate::weapons::Bullet;
 use crate::web::LANE_UNIT;
 use bevy::prelude::*;
+
+#[test]
+fn flipper_tanker_uses_the_active_wide_model_and_cycles_only_its_outer_facet_colors() {
+    use bevy::mesh::VertexAttributeValues::{Float32x3, Float32x4};
+    let green = super::tanker_mesh(0);
+    let orange = super::tanker_mesh(64);
+    let Some(Float32x3(points)) = green.attribute(Mesh::ATTRIBUTE_POSITION) else {
+        panic!("missing tanker vertices")
+    };
+    assert_eq!(points.len(), 36);
+    let minimum = points
+        .iter()
+        .copied()
+        .map(Vec3::from_array)
+        .fold(Vec3::INFINITY, Vec3::min);
+    let maximum = points
+        .iter()
+        .copied()
+        .map(Vec3::from_array)
+        .fold(Vec3::NEG_INFINITY, Vec3::max);
+    assert!((maximum - minimum).distance(Vec3::new(2.4, 1.2, 0.)) < 1e-5);
+    let Some(Float32x4(green)) = green.attribute(Mesh::ATTRIBUTE_COLOR) else {
+        panic!("missing tanker colors")
+    };
+    let Some(Float32x4(orange)) = orange.attribute(Mesh::ATTRIBUTE_COLOR) else {
+        panic!("missing tanker colors")
+    };
+    assert_eq!(
+        green[0],
+        crate::cry::color(0x8f, 128).to_linear().to_f32_array()
+    );
+    assert_eq!(
+        orange[0],
+        crate::cry::color(0xf8, 128).to_linear().to_f32_array()
+    );
+    assert_ne!(green[..12], orange[..12]);
+    assert_eq!(green[12..], orange[12..]);
+}
+
+#[test]
+fn flipper_tankers_rotate_and_reuse_their_color_frames_every_sixty_four_ticks() {
+    let mut app = crate::test_support::app();
+    let level = Level::parse(
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/03.toml")),
+        "level3",
+    )
+    .unwrap();
+    let orientation = level.web.orientation(5);
+    app.insert_resource(level)
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .add_systems(
+            Startup,
+            |mut commands: Commands,
+             mut meshes: ResMut<Assets<Mesh>>,
+             mut materials: ResMut<Assets<StandardMaterial>>| {
+                super::setup(&mut commands, &mut meshes, &mut materials);
+            },
+        )
+        .add_systems(FixedUpdate, move_tankers);
+    app.update();
+    let entity = app
+        .world_mut()
+        .spawn((
+            Tanker {
+                lane: 5,
+                depth: 160 * LANE_UNIT,
+                approach: false,
+            },
+            Transform::default(),
+            Mesh3d::default(),
+            MeshMaterial3d::<StandardMaterial>::default(),
+        ))
+        .id();
+    crate::test_support::ticks(&mut app, 1);
+    let assets = app.world().resource::<super::TankerAssets>();
+    assert_eq!(assets.frames.len(), 64);
+    assert_eq!(
+        app.world().get::<Mesh3d>(entity).unwrap().0,
+        assets.frames[1]
+    );
+    let expected = orientation * Quat::from_rotation_z(-std::f32::consts::TAU / 64.);
+    assert!(
+        (app.world().get::<Transform>(entity).unwrap().rotation * Vec3::X)
+            .distance(expected * Vec3::X)
+            < 1e-5
+    );
+    let count = app.world().resource::<Assets<Mesh>>().len();
+    crate::test_support::ticks(&mut app, 63);
+    assert_eq!(
+        app.world().get::<Mesh3d>(entity).unwrap().0,
+        app.world().resource::<super::TankerAssets>().frames[0]
+    );
+    assert_eq!(app.world().resource::<Assets<Mesh>>().len(), count);
+}
 
 #[test]
 fn tanker_children_can_mutate_into_spiral_flippers_without_fast_scatter() {

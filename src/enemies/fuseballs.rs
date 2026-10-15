@@ -90,7 +90,7 @@ pub(crate) fn setup(
     let mut tanker = Vec::new();
     for pattern in 0..32 {
         let mut triangles = Vec::new();
-        for (arm, hue) in [15, 255, 128, 143, 240].into_iter().enumerate() {
+        for (arm, hue) in [240, 143, 128, 255, 15].into_iter().enumerate() {
             let points = if pattern & (1 << arm) == 0 {
                 [(1., 9.), (5., 6.), (5., 8.), (9., 9.)]
             } else {
