@@ -109,10 +109,16 @@ pub(crate) fn particle_shot_mesh(
         (255.0 * (1.0 - depth / 325.0).clamp(0.0, 1.0)) as u8,
     );
     let dot = 4.0 * distance * (projection.fov * 0.5).tan() * projection.aspect_ratio / 384.0;
-    // draw_pring supplies radius 8; pring's sine multiplication halves it.
+    // pring truncates the projected radius before multiplying its byte sines.
+    let pixel = dot * 0.5;
+    let radius = (8.0 * FRONT_RADIUS / 24.0 / pixel).floor();
     colored_mesh((0..4).flat_map(|index| {
-        let angle = (phase as f32 + index as f32 * 64.0) * std::f32::consts::TAU / 256.0;
-        let center = Vec3::new(angle.sin(), angle.cos(), 0.0) * (4.0 * FRONT_RADIUS / 24.0);
+        let angle = phase.wrapping_add(index * 64);
+        let center = Vec3::new(
+            (f32::from(crate::sines::SINES[angle as usize]) * radius / 256.0).floor(),
+            -(f32::from(crate::sines::SINES[angle.wrapping_add(64) as usize]) * radius / 256.0).floor(),
+            0.0,
+        ) * pixel;
         let quad = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].map(|(x, y)| {
             (
                 camera.rotation * (center + Vec3::new(x * dot * 0.5, y * dot * 0.5, 0.0)),

@@ -46,7 +46,10 @@ fn particle_rings_have_four_separate_screen_sized_dots_and_change_color_with_dep
                 / (2.0 * distance * (projection.fov * 0.5).tan() * projection.aspect_ratio);
             assert!((pixels - 2.0).abs() < 1e-4);
             let center = (local(0) + local(2)) * 0.5;
-            assert!((center.length() - 4.0 * FRONT_RADIUS / 24.0).abs() < 1e-5);
+            let pixel = width * 0.5;
+            assert!((center.length() - 4.0 * FRONT_RADIUS / 24.0).abs() < pixel * 2.0);
+            assert!((center.x / pixel - (center.x / pixel).round()).abs() < 1e-4);
+            assert!((center.y / pixel - (center.y / pixel).round()).abs() < 1e-4);
         }
         let Some(bevy::mesh::VertexAttributeValues::Float32x4(colors)) =
             mesh.attribute(Mesh::ATTRIBUTE_COLOR)

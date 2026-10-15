@@ -1514,7 +1514,10 @@ reward sequence unchanged.
 
 The particle laser uses `draw_pring` and the GPU's `pring`, not the four-wing
 `pshot` polygon. Its dots stay two original framebuffer pixels wide, rotate
-with camera-relative depth, and use `pulser` for their color sweep.
+with camera-relative depth, and use `pulser` for their color sweep. Their rotation
+uses the GPU's screen-down Y direction and byte sine table. Projected radii and
+dot offsets truncate to original framebuffer pixels, as in `pring`, rather than
+tracing smooth, oppositely wound spirals between pixels.
 
 Jump presses are buffered between simulation ticks and work while firing.
 The jump uses `sclawr`'s initial velocity of two units per tick and acceleration
