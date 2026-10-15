@@ -112,6 +112,36 @@ fn ticks(app: &mut App, count: usize) {
 }
 
 #[test]
+fn integer_tip_comparison_extends_before_fractional_positions_cross() {
+    let mut app = app();
+    app.add_systems(FixedUpdate, advance);
+    let spike = app
+        .world_mut()
+        .spawn(Spike {
+            lane: 7,
+            length: 30 * LANE_UNIT + 0xc000,
+        })
+        .id();
+    app.world_mut().spawn((
+        Spiker {
+            lane: 7,
+            depth: 130 * LANE_UNIT + 0x8000,
+            motion: Motion::Climb,
+            spike: Some(spike),
+            build: 50,
+            angle: 0,
+            spike_speed: 0xd000,
+        },
+        Transform::default(),
+    ));
+    ticks(&mut app, 1);
+    assert_eq!(
+        app.world().get::<Spike>(spike).unwrap().length,
+        30 * LANE_UNIT + 0xc000 + 0xd000
+    );
+}
+
+#[test]
 fn spiker_builds_fifty_one_extensions_then_returns_to_the_rear() {
     let mut app = app();
     app.add_systems(FixedUpdate, advance);

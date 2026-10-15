@@ -675,7 +675,11 @@ The supplied levels are:
   budget for Flippers, Tankers, and Spikers. A Spiker uses the original rotating
   spiral outline and creates a 30-unit spike in a free lane, or extends the
   shortest existing spike when every lane is occupied. It makes 51 extensions
-  at `0xD000` speed, retreats, and picks another spike. Only one Spiker is
+  at `0xD000` speed, retreats, and picks another spike. Growth starts when the
+  builder passes the tip using `climbspike`'s integer Z-word comparison, which
+  can extend before a full fixed-point comparison would. Visible lengths use
+  `draw_spike`'s two-unit steps rather than smooth fractional growth.
+  Only one Spiker is
   active at a time. Shooting a spike removes three units and scores three
   points; particle shots continue through it. Destroying the final segment
   scores another three points. Spikes remain after their builder dies and do

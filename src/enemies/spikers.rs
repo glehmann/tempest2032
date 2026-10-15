@@ -216,7 +216,9 @@ pub(crate) fn advance(
                 } else if let Some(entity) = spiker.spike
                     && let Ok((_, mut spike)) = spikes.get_mut(entity)
                 {
-                    if level.web.rear() - spiker.depth > spike.length {
+                    // climbspike compares integer Z words, not full fixed-point distances.
+                    let height = (level.web.rear() - spiker.depth + LANE_UNIT - 1) / LANE_UNIT;
+                    if height > spike.length / LANE_UNIT {
                         let length = spike.length + spiker.spike_speed;
                         if length < 150 * LANE_UNIT {
                             spike.length = length;
@@ -265,7 +267,8 @@ pub(crate) fn draw(
         start.z = -level.web.world_depth();
         *pose = segment_transform(
             start,
-            start + Vec3::Z * (spike.length as f32 / LANE_UNIT as f32) * WORLD_UNIT,
+            // draw_spike negates and halves the integer length, then draws at 2× scale.
+            start + Vec3::Z * (((spike.length / LANE_UNIT + 1) & !1) as f32) * WORLD_UNIT,
             0.018,
         );
     }
