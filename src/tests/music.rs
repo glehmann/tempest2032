@@ -10,7 +10,6 @@ fn app() -> App {
         .init_resource::<MusicVolume>()
         .init_resource::<Assets<Track>>()
         .insert_resource(GlobalVolume::new(Volume::Linear(0.6)))
-        .insert_resource(crate::sound::EffectsPitch(4.0))
         .add_systems(Startup, setup)
         .add_systems(Update, update);
     app

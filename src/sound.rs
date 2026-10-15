@@ -48,19 +48,6 @@ pub(crate) enum Effect {
 }
 
 impl Effect {
-    fn voice(self) -> bool {
-        matches!(
-            self,
-            Self::Excellent
-                | Self::Recharge
-                | Self::Yes
-                | Self::OneUp
-                | Self::Scream
-                | Self::YesOne
-                | Self::YesTwo
-        )
-    }
-
     fn priority(self) -> u16 {
         match self {
             Self::Shot | Self::Laser => 1,
@@ -215,15 +202,6 @@ fn samples() -> [Sample; 30] {
 }
 
 #[derive(Resource)]
-pub(crate) struct EffectsPitch(pub(crate) f32);
-
-impl Default for EffectsPitch {
-    fn default() -> Self {
-        Self(2.0)
-    }
-}
-
-#[derive(Resource)]
 struct Catalog {
     shots: [Handle<Sample>; 30],
     engines: [Handle<Sample>; 2],
@@ -253,7 +231,6 @@ struct PitchRise {
 pub(crate) fn add_systems(app: &mut App) {
     app.add_audio_source::<Sample>()
         .init_resource::<Sounds>()
-        .init_resource::<EffectsPitch>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -343,7 +320,6 @@ fn update(
     time: Res<Time>,
     game: Res<crate::game::Game>,
     volume: Res<GlobalVolume>,
-    effects_pitch: Res<EffectsPitch>,
     voices: Query<(Entity, &Voice)>,
     yes: Query<Entity, With<PitchRise>>,
     mut engines: Query<(Entity, &Engine, &mut PlaybackSettings, Option<&AudioSink>)>,
@@ -368,7 +344,7 @@ fn update(
     for (entity, engine, mut settings, sink) in &mut engines {
         if let Some(period) = period {
             running[engine.0] = true;
-            let speed = playback_speed(428, period * (engine.0 + 1) as u16) * effects_pitch.0;
+            let speed = playback_speed(428, period * (engine.0 + 1) as u16);
             settings.speed = speed;
             if let Some(sink) = sink {
                 sink.set_speed(speed);
@@ -385,9 +361,7 @@ fn update(
                     AudioPlayer(catalog.engines[index].clone()),
                     PlaybackSettings::ONCE
                         .with_volume(Volume::Linear(0.18))
-                        .with_speed(
-                            playback_speed(428, period * (index + 1) as u16) * effects_pitch.0,
-                        ),
+                        .with_speed(playback_speed(428, period * (index + 1) as u16)),
                 ));
             }
         }
@@ -419,12 +393,7 @@ fn update(
                 }
             })
             .max(1);
-        let scale = if request.effect.voice() {
-            1.0
-        } else {
-            effects_pitch.0
-        };
-        let speed = playback_speed(sample.period, period) * scale;
+        let speed = playback_speed(sample.period, period);
         let (audio, settings) = if request.exit_yes {
             if let Some(entity) = yes_voice.take() {
                 commands.entity(entity).despawn();
@@ -454,10 +423,7 @@ fn update(
             commands.entity(entity).insert(Voice {
                 priority,
                 generation: sounds.generation,
-                deadline: now
-                    + sample.data.len() as f64
-                        / (f64::from(playback_rate(period)) * f64::from(scale))
-                    + 0.25,
+                deadline: now + sample.data.len() as f64 / f64::from(playback_rate(period)) + 0.25,
             });
             active.push((entity, priority));
         }

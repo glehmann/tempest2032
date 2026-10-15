@@ -9,7 +9,6 @@ use crate::{
 fn app() -> App {
     let mut app = App::new();
     app.init_resource::<Sounds>()
-        .init_resource::<EffectsPitch>()
         .init_resource::<Assets<Sample>>()
         .init_resource::<Game>()
         .init_resource::<Time>()
@@ -24,42 +23,35 @@ fn count<T: Component>(app: &mut App) -> usize {
 }
 
 #[test]
-fn gameplay_pitch_scales_effects_and_cleanup_without_changing_voices() {
-    for multiplier in [1.0, 1.5, 2.0] {
-        let mut app = app();
-        app.insert_resource(EffectsPitch(multiplier));
-        app.world_mut().resource_mut::<Sounds>().pending.extend([
-            Request {
-                effect: Effect::Shot,
-                period: None,
-                exit_yes: false,
-            },
-            Request {
-                effect: Effect::Recharge,
-                period: None,
-                exit_yes: false,
-            },
-        ]);
-        app.update();
-        let mut clips = app
-            .world_mut()
-            .query::<(&AudioPlayer<Sample>, &PlaybackSettings, &Voice)>();
-        for (player, settings, voice) in clips.iter(app.world()) {
-            let catalog = app.world().resource::<Catalog>();
-            let is_shot = player.0 == catalog.shots[Effect::Shot as usize];
-            assert_eq!(settings.speed, if is_shot { multiplier } else { 1.0 });
-            let sample = &catalog.samples[if is_shot {
-                Effect::Shot
-            } else {
-                Effect::Recharge
-            } as usize];
-            let expected = sample.decoder().total_duration().unwrap().as_secs_f64()
-                / f64::from(settings.speed)
-                + 0.25;
-            assert!((voice.deadline - expected).abs() < 0.001);
-        }
-        assert_eq!(clips.iter(app.world()).count(), 2);
+fn effects_and_voices_keep_original_rates_and_cleanup_deadlines() {
+    let mut app = app();
+    let effects = [Effect::Shot, Effect::Laser, Effect::Recharge];
+    app.world_mut()
+        .resource_mut::<Sounds>()
+        .pending
+        .extend(effects.map(|effect| Request {
+            effect,
+            period: None,
+            exit_yes: false,
+        }));
+    app.update();
+    let mut clips = app
+        .world_mut()
+        .query::<(&AudioPlayer<Sample>, &PlaybackSettings, &Voice)>();
+    for (player, settings, voice) in clips.iter(app.world()) {
+        let catalog = app.world().resource::<Catalog>();
+        let effect = effects
+            .iter()
+            .find(|&&effect| player.0 == catalog.shots[effect as usize])
+            .unwrap();
+        assert_eq!(settings.speed, 1.0);
+        let sample = &catalog.samples[*effect as usize];
+        let expected = sample.decoder().total_duration().unwrap().as_secs_f64()
+            / f64::from(settings.speed)
+            + 0.25;
+        assert!((voice.deadline - expected).abs() < 0.001);
     }
+    assert_eq!(clips.iter(app.world()).count(), effects.len());
 }
 
 #[test]
@@ -89,7 +81,6 @@ fn spike_hits_use_the_cartridge_sample_and_pretrim_length_pitch() {
     hits.init_resource::<Sounds>()
         .add_systems(FixedUpdate, crate::collisions::resolve_hits);
     let mut playback = app();
-    playback.insert_resource(EffectsPitch(1.));
     playback.update();
     let sample = &playback.world().resource::<Catalog>().samples[Effect::Spike as usize];
     assert_eq!((sample.period, sample.data.len()), (254, 1038));
@@ -185,7 +176,6 @@ fn yes_preview_loops_without_stacking_and_stops_when_closed() {
         (crate::messages::Id::WarpEnabled, false),
     ] {
         let mut app = app();
-        app.insert_resource(EffectsPitch(3.));
         app.insert_resource(crate::messages::Preview {
             id,
             capture_tick: None,
@@ -251,7 +241,6 @@ fn yes_preview_loops_without_stacking_and_stops_when_closed() {
 #[test]
 fn exit_yes_pitch_adds_one_dsp_increment_per_simulation_tick() {
     let mut app = app();
-    app.insert_resource(EffectsPitch(3.));
     let level = crate::level::Level::default();
     let mut exit = crate::animations::level_exit::Exit::new(
         level.web.glider_transform(level.web.start()).translation,
@@ -308,7 +297,6 @@ fn yes_replaces_engines_and_loops_until_the_flash_clears_effects_and_plays_warp(
     use crate::animations::level_exit;
     let mut app = crate::test_support::app();
     app.init_resource::<Sounds>()
-        .init_resource::<EffectsPitch>()
         .init_resource::<Assets<Sample>>()
         .init_resource::<Time>()
         .insert_resource(GlobalVolume::new(Volume::Linear(0.6)))

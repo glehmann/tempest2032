@@ -526,10 +526,9 @@ Use `--volume 0.3` for quieter audio or `--volume 0` for silence. The default
 is `0.6`; values must be between zero and one. The sound pack is embedded in the
 executable, so playback needs no original source tree or ROM at runtime.
 
-Gameplay effects, including engine loops, play one octave higher by default.
-Use `--effects-pitch 1.5` for a smaller increase or `--effects-pitch 1` for the
-unscaled driver rate. The multiplier must be greater than zero and at most four.
-Voices ignore this setting and start at their driver rate.
+Effects, voices, and engine loops use the original driver rates without a
+global pitch multiplier. The former `--effects-pitch` option has been removed.
+Gameplay-controlled pitch changes still apply to individual sounds.
 
 YES! YES! YES! replaces the exit-engine sounds with the original looping `yes`
 sample. It plays its intro once, then repeats the stored loop region continuously
@@ -569,8 +568,7 @@ Both `decspike` (`yak.s:11931–11943`) and the released cartridge at file offse
 `0xb996` confirm this formula. The embedded 1,038-byte sample also matches the
 cartridge exactly. Higher increments play faster, so successive hits lower the
 pitch as the spike shrinks. The earlier observation-based rising-pitch formula
-was incorrect. Like other gameplay effects, spike hits honor `--effects-pitch`;
-use `--effects-pitch 1` for the cartridge's unscaled playback rate.
+was incorrect.
 The upgraded laser fires every three ticks instead of four and its 405 ms sample
 is more than twice as loud as the plain shot, so four copies overlap while the
 trigger is held. It therefore plays at a fifth of the usual effect gain, which
@@ -583,8 +581,8 @@ those entries empty, without affecting gameplay sounds.
 ## Music
 
 The seven original MOD tracks are embedded and decoded in stereo during
-playback. Music plays at normal tracker pitch and tempo, independently of
-`--effects-pitch`. Use `--music-volume 0.5` to lower the music relative to effects
+playback. Music plays at normal tracker pitch and tempo.
+Use `--music-volume 0.5` to lower the music relative to effects
 or `--music-volume 0` to disable music. The default is `1.0`, multiplied by the
 master `--volume` setting.
 

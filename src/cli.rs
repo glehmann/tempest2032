@@ -9,7 +9,7 @@ use std::path::PathBuf;
 #[command(group(ArgGroup::new("recording").args(["record_motion", "record_exit", "record_shot_hit"])))]
 #[command(group(ArgGroup::new("preview").args(["message_preview", "menu_preview"])))]
 #[command(group(ArgGroup::new("game_options").multiple(true).args([
-    "level", "levels", "fullscreen", "fps", "volume", "music_volume", "effects_pitch",
+    "level", "levels", "fullscreen", "fps", "volume", "music_volume",
     "difficulty", "starfield", "warp_zone", "warp_course", "message_preview", "message_tick",
     "message_size", "menu_preview", "screenshot", "record_motion", "record_exit", "record_shot_hit", "seconds",
 ])))]
@@ -49,10 +49,6 @@ pub(crate) struct Cli {
     /// Music volume relative to master audio, from 0 (off) to 1
     #[arg(long, default_value_t = 1.0, value_parser = parse_volume)]
     pub(crate) music_volume: f32,
-
-    /// Gameplay-effect pitch multiplier, leaving voices unchanged (0 < value <= 4)
-    #[arg(long, default_value_t = 2.0, value_parser = parse_effects_pitch)]
-    pub(crate) effects_pitch: f32,
 
     /// Modulate difficulty without changing the level definitions
     #[arg(long, value_enum, value_name = "LEVEL")]
@@ -135,14 +131,6 @@ fn parse_volume(value: &str) -> Result<f32, String> {
         return Err("volume must be from 0 to 1".into());
     }
     Ok(volume)
-}
-
-fn parse_effects_pitch(value: &str) -> Result<f32, String> {
-    let pitch: f32 = value.parse().map_err(|_| "expected a pitch multiplier")?;
-    if !pitch.is_finite() || !(0.0..=4.0).contains(&pitch) || pitch == 0.0 {
-        return Err("effects pitch must be greater than 0 and at most 4".into());
-    }
-    Ok(pitch)
 }
 
 #[cfg(test)]
