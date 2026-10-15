@@ -251,7 +251,7 @@ pub(crate) fn resolve_hits(
                 crate::sound::pitched(
                     &mut commands,
                     crate::sound::Effect::Spike,
-                    524 + ((spike.length / LANE_UNIT) & 511) as u16,
+                    524 + (150 - spike.length / LANE_UNIT).clamp(0, 150) as u16,
                 );
                 game.add_score(3);
                 spike.length -= 3 * LANE_UNIT;

@@ -563,6 +563,10 @@ direct playback increment for effects. Playback follows the Jaguar driver in
 `src/dat/moomoo.dat`: multiply pitch by 28/43, then advance an 8:8 sample position
 at the SSI rate with clock divider 27. Higher pitch values play faster.
 Explosion pitch varies without consuming gameplay random numbers.
+Spike hits play sample 13 with a playback increment of `524 + 150 - length`,
+clamped to the normal 0–150-unit length range. Trimming a spike therefore raises
+its pitch. This follows the reported cartridge playback; the available
+`decspike` assembly instead adds the remaining length, producing a falling pitch.
 The upgraded laser fires every three ticks instead of four and its 405 ms sample
 is more than twice as loud as the plain shot, so four copies overlap while the
 trigger is held. It therefore plays at a fifth of the usual effect gain, which
