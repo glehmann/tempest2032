@@ -7,7 +7,8 @@ use bevy::{
 use std::time::Duration;
 
 const DSP_RATE: f64 = 26_590_906. / (64. * 28.);
-const MAX_VOICES: usize = 2;
+const MAX_VOICES: usize = 16;
+const MAX_SPIKE_VOICES: usize = 2;
 
 fn playback_rate(pitch: u16) -> u32 {
     // moomoo.dat PLAYFX2 at $4440 scales pitch by 28/43. The DSP adds
@@ -64,7 +65,7 @@ impl Effect {
         }
     }
 
-    /// The laser is louder than the plain shot and can occupy both effect voices.
+    /// The laser is louder than the plain shot and overlaps itself during sustained fire.
     /// Lower its gain to keep sustained fire in balance with the normal shot.
     fn gain(self) -> f32 {
         match self {
@@ -142,7 +143,7 @@ impl Iterator for Decoder {
 
     fn next(&mut self) -> Option<f32> {
         if self.step != 0 {
-            // The original mixer advances an 8:8 position before interpolating.
+            // The original mixer advances an 8:8 position before reading the sample.
             self.position += self.step;
             let index = self.position >> 8;
             let first = i32::from(*self.sample.data.get(index)? as i8);
@@ -351,7 +352,7 @@ fn update(
     mut engines: Query<(Entity, &Engine, &mut PlaybackSettings, Option<&AudioSink>)>,
 ) {
     let now = time.elapsed_secs_f64();
-    let mut active = [None; MAX_VOICES];
+    let mut active = [None; MAX_SPIKE_VOICES + MAX_VOICES];
     for (entity, voice, sink) in &voices {
         if voice.generation != sounds.generation
             || sink.map_or(voice.deadline <= now, AudioSink::empty)
@@ -403,11 +404,17 @@ fn update(
         let priority = request.effect.priority();
         let mut slot = None;
         if !request.exit_yes {
-            // PLAYFX2 scans ascending slots, accepting equal priorities, so the last tie wins.
+            let spike = request.effect == Effect::Spike;
+            let slots = if spike {
+                0..MAX_SPIKE_VOICES
+            } else {
+                MAX_SPIKE_VOICES..active.len()
+            };
+            // Spike hits retain PLAYFX2's last-tie rule in their own two-voice pool.
             let mut lowest = i32::from(priority);
-            for (index, voice) in active.iter().enumerate() {
-                let candidate = voice.map_or(-1, |(_, priority)| i32::from(priority));
-                if candidate <= lowest {
+            for index in slots {
+                let candidate = active[index].map_or(-1, |(_, priority)| i32::from(priority));
+                if candidate < lowest || (candidate == lowest && (spike || slot.is_none())) {
                     lowest = candidate;
                     slot = Some(index);
                 }

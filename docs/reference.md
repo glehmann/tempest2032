@@ -530,12 +530,15 @@ Effects, voices, and engine loops use the original driver rates without a
 global pitch multiplier. The former `--effects-pitch` option has been removed.
 Gameplay-controlled pitch changes still apply to individual sounds.
 
-Normal gameplay effects share two voices, as `START_MOD` reserves the first
-four DSP voices for music. `PLAYFX2` (`moomoo.dat:$4370–$446a`) takes a free
-voice or replaces the lowest-priority voice when the new priority is equal
-or higher. The higher-numbered slot wins ties. A lower-priority request is
-dropped; sounds are not queued until a previous hit finishes. Playback completion
-frees a slot immediately, without the former quarter-second bookkeeping delay.
+Spike hits share a dedicated two-voice pool, retaining the original overlap
+limit and higher-slot tie-breaking from `PLAYFX2` (`moomoo.dat:$4370–$446a`).
+Other one-shot effects share a separate sixteen-voice pool so explosions and
+announcements remain audible during busy scenes. This is a deliberate difference
+from the original, where `START_MOD` leaves only two shared effect voices while
+music plays. Each pool takes a free voice or replaces its lowest-priority voice
+when the new priority is equal or higher; lower-priority requests are dropped.
+Spike hits and other effects cannot interrupt each other. Sounds are not queued,
+and playback completion frees a slot immediately.
 
 YES! YES! YES! replaces the exit-engine sounds with the original looping `yes`
 sample. It plays its intro once, then repeats the stored loop region continuously
@@ -589,7 +592,7 @@ a roughly 10 kHz tone with the wrong pitch direction. Earlier inverted or
 offset length curves tried to compensate for that missing output stage and
 have been removed. A spectral regression checks the actual decoded waveform.
 The upgraded laser fires every three ticks instead of four. Its long sample is
-more than twice as loud as the plain shot and can occupy both effect voices.
+more than twice as loud as the plain shot and overlaps itself during sustained fire.
 It plays at a fifth of the usual effect gain to keep sustained fire in balance
 with the normal shot.
 The converter limits the alternate normal-shot sample

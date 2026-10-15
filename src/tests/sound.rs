@@ -181,7 +181,7 @@ fn dominant_spike_frequency(pcm: &[f32], rate: u32) -> f64 {
 }
 
 #[test]
-fn the_laser_is_gained_down_because_it_overlaps_itself_four_times() {
+fn the_laser_is_gained_down_to_balance_sustained_fire() {
     assert!(Effect::Laser.gain() < Effect::Shot.gain());
     assert_eq!(Effect::Shot.gain(), 1.0);
 }
@@ -473,24 +473,6 @@ fn repeated_spike_hits_replace_equal_priority_voices_instead_of_stacking_or_queu
     assert_eq!(voices.iter(app.world()).count(), 2);
     assert!(app.world().get_entity(first).is_err());
     assert!(app.world().get_entity(second).is_ok());
-    let third = voices
-        .iter(app.world())
-        .find(|(_, voice)| voice.slot == 1)
-        .unwrap()
-        .0;
-
-    app.world_mut()
-        .resource_mut::<Sounds>()
-        .pending
-        .push(Request {
-            effect: Effect::Shot,
-            period: None,
-            exit_yes: false,
-        });
-    app.update();
-    assert_eq!(voices.iter(app.world()).count(), 2);
-    assert!(app.world().get_entity(second).is_ok());
-    assert!(app.world().get_entity(third).is_ok());
     assert!(app.world().resource::<Sounds>().pending.is_empty());
 
     app.world_mut()
@@ -500,7 +482,7 @@ fn repeated_spike_hits_replace_equal_priority_voices_instead_of_stacking_or_queu
     assert_eq!(
         voices.iter(app.world()).count(),
         0,
-        "no deferred hit or shot may start later"
+        "no deferred hit may start later"
     );
     app.world_mut()
         .resource_mut::<Sounds>()
@@ -512,6 +494,72 @@ fn repeated_spike_hits_replace_equal_priority_voices_instead_of_stacking_or_queu
         });
     app.update();
     assert_eq!(voices.single(app.world()).unwrap().1.priority, 1);
+}
+
+#[test]
+fn explosions_and_spike_hits_overlap_without_stealing_each_others_voices() {
+    let mut app = app();
+    app.world_mut().resource_mut::<Sounds>().pending.extend(
+        [
+            Effect::Explosion,
+            Effect::LargeExplosion,
+            Effect::Shot,
+            Effect::Recharge,
+        ]
+        .into_iter()
+        .map(|effect| Request {
+            effect,
+            period: None,
+            exit_yes: false,
+        }),
+    );
+    app.update();
+    let mut voices = app.world_mut().query::<(Entity, &Voice)>();
+    let others: Vec<_> = voices.iter(app.world()).map(|(entity, _)| entity).collect();
+    assert_eq!(others.len(), 4);
+
+    for _ in 0..10 {
+        app.world_mut()
+            .resource_mut::<Sounds>()
+            .pending
+            .push(Request {
+                effect: Effect::Spike,
+                period: Some(554),
+                exit_yes: false,
+            });
+        app.update();
+    }
+    assert_eq!(voices.iter(app.world()).count(), 6);
+    assert!(
+        others
+            .iter()
+            .all(|entity| app.world().get_entity(*entity).is_ok())
+    );
+    let spikes: Vec<_> = voices
+        .iter(app.world())
+        .filter(|(_, voice)| voice.slot < MAX_SPIKE_VOICES)
+        .map(|(entity, _)| entity)
+        .collect();
+    assert_eq!(spikes.len(), 2);
+
+    app.world_mut()
+        .resource_mut::<Sounds>()
+        .pending
+        .extend((0..32).map(|_| Request {
+            effect: Effect::Explosion,
+            period: None,
+            exit_yes: false,
+        }));
+    app.update();
+    assert_eq!(
+        voices.iter(app.world()).count(),
+        MAX_VOICES + MAX_SPIKE_VOICES
+    );
+    assert!(
+        spikes
+            .iter()
+            .all(|entity| app.world().get_entity(*entity).is_ok())
+    );
 }
 
 #[test]
