@@ -1234,6 +1234,8 @@ original's more substantial 3D appearance. Their silhouettes and shading are gen
 anti-aliasing and no transparency fringe or low-resolution shading texture.
 Up to eight spare-life icons and three warp pyramids are displayed. The active
 life is excluded, so the last playable life has no life icon in the HUD.
+Score and spare lives use the same 16-unit outer margin on the left as the
+warp pyramids on the right, scaled together in narrow windows.
 New runs start with three spare lives plus the active life, for four lives total.
 
 Scoring grants an extra life at every 20,000-point boundary, including points

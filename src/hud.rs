@@ -100,9 +100,9 @@ pub(crate) fn update_hud(
     }
     let mut triangles = Vec::new();
     let point = |p: Vec2| Vec3::new(p.x - width / 2., 120. - p.y, 20.);
-    // ashowscore/setlives use x=48, y=10/30, with 16/32-unit advances.
+    // Match the warp pyramids' 16-unit outer margin; retain y=10/30 and 16/32-unit advances.
     let fit = (width / 384.).min(1.);
-    let left = 48. * fit;
+    let left = 16. * fit;
     for (i, digit) in game.score.to_string().bytes().enumerate() {
         triangles.extend(
             glyphs
