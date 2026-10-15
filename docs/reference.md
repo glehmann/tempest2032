@@ -256,17 +256,32 @@ it misses the top ten. If both qualify, one initials submission saves both.
 A Key-started run automatically credits its score and updates its checkpoint
 under the selected initials, with a confirmation on Welcome.
 
-Web 1 begins with four lives, including three spares, and grants no starting
-score bonus or entry 1UP. Starts on later webs begin with three lives and grant
-the original one-life bonus when the selected wave begins.
+All new runs initialize zero score and three spare lives (`yak.s:1079-1084`);
+`setlives` draws those spares and `it` ends the game only below zero
+(`yak.s:18319-18328`, `yak.s:8469-8472`). Here, `Game::lives` includes the active
+ship, so that initial state is four total lives. This applies to ordinary starts,
+Key starts, direct `--level` starts, and restarts. None grants score or a 1UP
+during the initial launch animation.
 
-Key starts use the original starting score from `slebon`: with zero-based web
-index `n`, the bonus is `n * (2600 + 200 * n)` (`yak.s:9072-9079`). `sweb0` adds
-it directly, bypassing score-based life awards (`yak.s:8941-8962`); `newgen`
-then grants exactly one extra life when the wave begins (`yak.s:17807-17812`).
-For example, web 31 starts with 258,000 points and receives one 1UP after entry.
-Retries neither repeat that bonus nor lose the Key's identity. Acquired upgrades
-and warp tokens start empty.
+Level-selection confirmation arms `startbonus` with **+1** (`yak.s:1833-1838`).
+Initial startup follows `it` → `setweb`/`sweb` → `stdinit` → `rotate_web`
+(`yak.s:8475-8479`, `yak.s:8533-8563`), bypassing `sweb0`. Both wave generators
+test the flag's sign and skip the 1UP while it is nonnegative
+(`yak.s:17809-17812`, `yak.s:17903-17906`). Arming the flag is therefore not an
+immediate award.
+
+The first completed-web transition schedules `sweb0` (`yak.s:13966-13968`).
+After any intervening bonus stage, it adds the selected starting web's bonus
+directly to the earned score and changes `startbonus` to **-1**
+(`yak.s:8897-8962`). The bonus comes from `slebon`: with zero-based starting-web
+index `n`, it is `n * (2600 + 200 * n)` (`yak.s:9072-9079`). The next wave's
+generator then grants exactly one 1UP and clears the flag. Adding this score
+bypasses score-based life awards. For example, a web-31 start launches with zero
+score and three spares; its first completed-web transition adds 258,000 points
+to the earned score and arms one 1UP for the following web. A web-1 start has a
+zero-point bonus, with the same delayed 1UP. Retries before that transition keep
+the bonus armed; retries and further completions after it do not repeat it.
+Acquired upgrades and warp tokens start empty.
 
 ### Initials and storage
 

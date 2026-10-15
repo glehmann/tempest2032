@@ -46,6 +46,7 @@ pub(crate) struct Game {
     pub(crate) level_index: usize,
     pub(crate) completed_level: usize,
     pub(crate) key_initials: Option<[u8; 3]>,
+    pub(crate) deferred_start_bonus: Option<u32>,
     pub(crate) start_bonus_pending: bool,
     pub(crate) load: Option<LoadReason>,
     pub(crate) tanker_timer: u16,
@@ -86,6 +87,7 @@ impl Default for Game {
             level_index: 0,
             completed_level: 0,
             key_initials: None,
+            deferred_start_bonus: None,
             start_bonus_pending: false,
             load: None,
             tanker_timer: 0,
@@ -444,12 +446,9 @@ pub(crate) fn load_level(
             if let LoadReason::StartLevel { index, initials } = reason {
                 game.level_index = index;
                 game.key_initials = initials;
-                if levels.0[index].number > 1 {
-                    game.lives = 3;
-                    game.score = Game::starting_bonus(levels.0[index].number);
-                    game.start_bonus_pending = true;
-                }
             }
+            game.deferred_start_bonus =
+                Some(Game::starting_bonus(levels.0[game.level_index].number));
         }
         LoadReason::Retry => {
             upgrades.lose_life();
@@ -470,6 +469,14 @@ pub(crate) fn load_level(
             game.invulnerable = 0;
         }
         LoadReason::Warp { .. } => unreachable!("warp entry handled above"),
+    }
+    if matches!(reason, LoadReason::Advance | LoadReason::ReturnWarp { .. })
+        && let Some(bonus) = game.deferred_start_bonus.take()
+    {
+        // Initial startup uses setweb/sweb, bypassing sweb0. Only the first
+        // subsequent sweb0 adds lbonus and changes startbonus from +1 to -1.
+        game.score += bonus;
+        game.start_bonus_pending = true;
     }
     for entity in &actors {
         commands.entity(entity).despawn();

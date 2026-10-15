@@ -5,6 +5,25 @@ use bevy::input::{
     keyboard::{Key, KeyboardInput},
 };
 
+#[test]
+fn direct_level_starts_defer_bonuses_and_display_three_spares() {
+    for (number, bonus) in [(1, 0), (2, 2_800), (31, 258_000)] {
+        let mut app = App::new();
+        app.insert_resource(Level {
+            number,
+            ..default()
+        })
+        .insert_resource(StartingLevel(number - 1));
+        add_systems(&mut app);
+        let game = app.world().resource::<Game>();
+        assert_eq!(game.level_index, number - 1);
+        assert_eq!((game.score, game.lives), (0, 4));
+        assert_eq!(game.deferred_start_bonus, Some(bonus));
+        assert!(!game.start_bonus_pending);
+        assert!(game.status == Status::Entering);
+    }
+}
+
 fn key(app: &mut App, window: Entity, state: ButtonState, repeat: bool) {
     app.world_mut().write_message(KeyboardInput {
         key_code: KeyCode::KeyF,

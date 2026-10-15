@@ -320,6 +320,9 @@ fn add_systems(app: &mut App) {
         .insert_resource(Game {
             status: Status::Entering,
             load: start_warp,
+            deferred_start_bonus: start_warp
+                .is_none()
+                .then(|| Game::starting_bonus(initial.number)),
             pulsar_timer: initial
                 .pulsars
                 .as_ref()

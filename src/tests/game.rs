@@ -51,81 +51,186 @@ fn keys_use_completed_webs_not_the_starting_web_and_cap_at_the_original_last_key
 }
 
 #[test]
-fn level_one_starts_with_three_spare_lives_and_no_entry_one_up() {
-    for initials in [None, Some(*b"ABC")] {
+fn fresh_starts_on_any_web_have_zero_score_three_spares_and_no_launch_one_up() {
+    for number in [1, 2, 3, 15, 17, 31, 97, 100] {
         let mut app = app();
+        app.world_mut().resource_mut::<Levels>().0 = (1..=100)
+            .map(|number| Level {
+                number,
+                ..default()
+            })
+            .collect();
         app.add_systems(
             FixedUpdate,
             crate::game::award_start_bonus.before(check_game),
         );
-        app.world_mut().resource_mut::<Game>().load =
-            Some(LoadReason::StartLevel { index: 0, initials });
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::StartLevel {
+            index: number - 1,
+            initials: None,
+        });
         ticks(&mut app, 1);
         let game = app.world().resource::<Game>();
         assert_eq!(game.lives, 4);
         assert_eq!(game.score, 0);
+        assert_eq!(game.level_index, number - 1);
+        assert_eq!(
+            game.deferred_start_bonus,
+            Some(Game::starting_bonus(number))
+        );
         assert!(!game.start_bonus_pending);
         ticks(&mut app, 262);
         let game = app.world().resource::<Game>();
         assert!(game.status == Status::Playing);
         assert_eq!(game.lives, 4);
-        assert_eq!(game.key_initials, initials);
-        assert!(
+        assert_eq!(game.score, 0);
+        assert_eq!(game.key_initials, None);
+        assert_eq!(
             game.announcements
                 .iter()
-                .all(|event| event.id != crate::messages::Id::OneUp)
+                .filter(|event| event.id == crate::messages::Id::OneUp)
+                .count(),
+            0
         );
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Advance);
+        ticks(&mut app, 1);
+        let game = app.world().resource::<Game>();
+        assert_eq!((game.score, game.lives), (Game::starting_bonus(number), 4));
+        assert!(game.start_bonus_pending);
+        ticks(&mut app, 262);
+        let game = app.world().resource::<Game>();
+        assert_eq!((game.score, game.lives), (Game::starting_bonus(number), 5));
+        assert!(!game.start_bonus_pending);
     }
 }
 
 #[test]
-fn key_start_has_the_original_score_and_single_life_bonus_and_retries_preserve_identity() {
+fn starting_bonus_waits_for_first_completed_web_and_does_not_repeat_on_retries() {
+    for (number, bonus) in [
+        (1, 0),
+        (3, 6_000),
+        (17, 92_800),
+        (31, 258_000),
+        (97, 2_092_800),
+    ] {
+        let mut app = app();
+        app.world_mut().resource_mut::<Levels>().0 = (1..=100)
+            .map(|number| Level {
+                number,
+                ..default()
+            })
+            .collect();
+        app.add_systems(
+            FixedUpdate,
+            crate::game::award_start_bonus.before(check_game),
+        );
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::StartLevel {
+            index: number - 1,
+            initials: Some(*b"ABC"),
+        });
+        ticks(&mut app, 1);
+        let game = app.world().resource::<Game>();
+        assert_eq!(game.level_index, number - 1);
+        assert_eq!(game.score, 0);
+        assert_eq!(game.lives, 4);
+        assert_eq!(game.key_initials, Some(*b"ABC"));
+        assert_eq!(game.key_level(), None);
+        assert_eq!(game.deferred_start_bonus, Some(bonus));
+        assert!(!game.start_bonus_pending);
+        ticks(&mut app, 256);
+        assert_eq!(app.world().resource::<Game>().lives, 4);
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Game>().lives, 4);
+        assert!(!app.world().resource::<Game>().start_bonus_pending);
+        assert_eq!(app.world().resource::<Game>().score, 0);
+        ticks(&mut app, 5);
+        assert_eq!(app.world().resource::<Game>().lives, 4);
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
+        ticks(&mut app, 258);
+        assert_eq!(app.world().resource::<Game>().key_initials, Some(*b"ABC"));
+        assert_eq!(app.world().resource::<Game>().lives, 4);
+        assert_eq!(
+            app.world().resource::<Game>().deferred_start_bonus,
+            Some(bonus)
+        );
+        assert!(!app.world().resource::<Game>().start_bonus_pending);
+        app.world_mut().resource_mut::<Game>().add_score(19_999);
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Advance);
+        ticks(&mut app, 1);
+        let game = app.world().resource::<Game>();
+        assert_eq!((game.score, game.lives), (19_999 + bonus, 4));
+        assert_eq!(game.deferred_start_bonus, None);
+        assert!(game.start_bonus_pending);
+        ticks(&mut app, 262);
+        let game = app.world().resource::<Game>();
+        assert_eq!((game.score, game.lives), (19_999 + bonus, 5));
+        assert!(!game.start_bonus_pending);
+        assert_eq!(
+            game.announcements
+                .iter()
+                .filter(|event| event.id == crate::messages::Id::OneUp)
+                .count(),
+            1
+        );
+        for reason in [LoadReason::Retry, LoadReason::Advance] {
+            app.world_mut().resource_mut::<Game>().load = Some(reason);
+            ticks(&mut app, 263);
+            let game = app.world().resource::<Game>();
+            assert_eq!((game.score, game.lives), (19_999 + bonus, 5));
+            assert!(!game.start_bonus_pending);
+        }
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
+        ticks(&mut app, 1);
+        let game = app.world().resource::<Game>();
+        assert_eq!(game.key_initials, None);
+        assert_eq!(
+            (
+                game.level_index,
+                game.completed_level,
+                game.score,
+                game.lives
+            ),
+            (0, 0, 0, 4)
+        );
+        assert_eq!(game.deferred_start_bonus, Some(0));
+        assert!(!game.start_bonus_pending);
+        ticks(&mut app, 262);
+        let game = app.world().resource::<Game>();
+        assert_eq!((game.score, game.lives), (0, 4));
+        assert!(!game.start_bonus_pending);
+    }
+}
+
+#[test]
+fn deferred_start_bonus_waits_for_an_intervening_warp_to_return() {
     let mut app = app();
-    app.world_mut().resource_mut::<Levels>().0 = (1..=100)
-        .map(|number| Level {
-            number,
-            ..default()
-        })
-        .collect();
     app.add_systems(
         FixedUpdate,
         crate::game::award_start_bonus.before(check_game),
     );
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::StartLevel {
-        index: 30,
-        initials: Some(*b"ABC"),
+        index: 0,
+        initials: None,
     });
+    ticks(&mut app, 263);
+    app.world_mut()
+        .resource_mut::<powerups::Upgrades>()
+        .seed_warp_tokens(3);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Advance);
     ticks(&mut app, 1);
     let game = app.world().resource::<Game>();
-    assert_eq!(game.level_index, 30);
-    assert_eq!(game.score, 258_000);
-    assert_eq!(game.lives, 3);
-    assert_eq!(game.key_initials, Some(*b"ABC"));
-    assert_eq!(game.key_level(), None);
-    ticks(&mut app, 256);
-    assert_eq!(app.world().resource::<Game>().lives, 3);
-    ticks(&mut app, 1);
-    assert_eq!(app.world().resource::<Game>().lives, 4);
-    assert_eq!(app.world().resource::<Game>().score, 258_000);
-    ticks(&mut app, 5);
-    assert_eq!(app.world().resource::<Game>().lives, 4);
-    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
-    ticks(&mut app, 258);
-    assert_eq!(app.world().resource::<Game>().key_initials, Some(*b"ABC"));
-    assert_eq!(app.world().resource::<Game>().lives, 4);
-    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Restart);
+    assert!(game.status == Status::Bonus);
+    assert_eq!(game.deferred_start_bonus, Some(0));
+    assert_eq!((game.score, game.lives), (0, 4));
+    assert!(!game.start_bonus_pending);
+    app.world_mut().resource_mut::<Game>().load = Some(LoadReason::ReturnWarp { destination: 0 });
     ticks(&mut app, 1);
     let game = app.world().resource::<Game>();
-    assert_eq!(game.key_initials, None);
-    assert_eq!(
-        (
-            game.level_index,
-            game.completed_level,
-            game.score,
-            game.lives
-        ),
-        (0, 0, 0, 4)
-    );
+    assert_eq!(game.deferred_start_bonus, None);
+    assert_eq!((game.score, game.lives), (0, 4));
+    assert!(game.start_bonus_pending);
+    ticks(&mut app, 262);
+    assert_eq!(app.world().resource::<Game>().lives, 5);
+    assert!(!app.world().resource::<Game>().start_bonus_pending);
 }
 
 #[test]
