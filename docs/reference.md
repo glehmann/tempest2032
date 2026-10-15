@@ -2,7 +2,8 @@
 
 Implementation details, customization instructions, and research notes about
 the original game. For installation and basic controls, see the
-[README](../README.md). Run commands from the repository root.
+[README](../README.md), which also lists the deliberate differences from the
+original. Run commands from the repository root.
 
 ## Overview
 

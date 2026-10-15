@@ -8,6 +8,28 @@ high-resolution displays.
 
 ![Gameplay on level 9, with a blue web, gold claw, enemies, and explosion rings](assets/steam/gameplay.png)
 
+## Differences from the original
+
+These are the deliberate differences from the original:
+
+- **Resolution.** Everything is drawn at your display's native resolution with
+  anti-aliasing, in any window size and aspect ratio, well beyond 4K. The
+  original drew a 384×240 framebuffer.
+- **Sound effects overlap.** While the music played, the original could mix only
+  two effects, so busy scenes cut each other off. The effect draws from a
+  pool of sixteen voices, so explosions and announcements stay audible.
+  - **One welcome screen.** The original cycled through title, attract, and
+  level-select screens. Here one screen carries the high-score table, the player
+  Key and starting web, and the settings, over a slowly rotating wireframe of
+  the selected web. High scores, Keys, and difficulty are kept separately for
+  Low, Normal, and High, with six initials slots.
+- **Missing modes.** Only Tempest 2000 mode is implemented. Traditional
+  Tempest, Tempest Plus, Tempest Duel, the earned Beastly mode, and the attract
+  demo are not, and neither is rotary controller support.
+
+Anything else that differs from the original is a bug, not a decision. Pull
+requests that restore original behavior are welcome.
+
 ## Install and play
 
 Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
