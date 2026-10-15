@@ -35,7 +35,7 @@ pub(crate) struct Cli {
     pub(crate) levels: PathBuf,
 
     /// Start in borderless fullscreen instead of a window
-    #[arg(long)]
+    #[arg(short = 'f', long)]
     pub(crate) fullscreen: bool,
 
     /// Show the frame rate, processor load, and memory use in the top-right corner
