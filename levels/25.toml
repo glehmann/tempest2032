@@ -1,13 +1,13 @@
-# Original _nw25 on the open curved-L web30; introduces Fuseball Tankers.
+# Retail Tempest 2000 level 25: web32 from the ROM-initialized web table.
 number = 25
 enemy_count = 41
 
 [web]
 closed = false
-start_lane = 4
+start_lane = 7
 depth = 160
-vertices = [[15,13],[13,12],[11,12],[9,13],[7,13],[5,13],[3,13],[1,12],[-1,10],[-2,8],[-2,6],[-2,4],[-2,2],[-2,0]]
-orientations = [112,-128,-112,-128,-128,-128,112,96,80,64,64,64,64]
+vertices = [[9,16],[7,17],[5,17],[3,16],[2,14],[2,12],[3,10],[1,11],[-1,11],[-3,10],[-4,8],[-4,6],[-3,4]]
+orientations = [-112,-128,-144,-176,-192,-208,-112,-128,-144,-176,-192,-208]
 
 [flippers]
 first_spawn_ticks = 43
@@ -51,6 +51,7 @@ spawn_interval_ticks = 701
 climb_speed = 0.6875
 
 [appearance]
+surface_hues = [0x00, 0x00, 0x00, 0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80]
 surface = [1.0, 0.0, 0.0]
 lines = [0.78, 0.01, 0.015]
 flipper = [135, 208, 255]

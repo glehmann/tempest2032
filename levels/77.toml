@@ -1,13 +1,13 @@
-# Original _nw77 on Tempest 2000's open giraffe-neck web20.
+# Retail Tempest 2000 level 77: web17 from the ROM-initialized web table.
 number = 77
 enemy_count = 61
 
 [web]
 closed = false
-start_lane = 6
+start_lane = 5
 depth = 160
-vertices = [[14,-3],[12,-3],[10,-2],[9,0],[8,2],[7,4],[5,6],[3,7],[1,8],[-1,9],[-3,11],[-3,13],[-3,15],[-1,16]]
-orientations = [-128,-112,-80,-80,-80,-96,-112,-112,-112,-96,-64,-64,-16]
+vertices = [[15,1],[14,3],[13,5],[12,7],[11,9],[9,10],[7,10],[5,9],[3,8],[2,6],[3,4],[4,2],[6,1]]
+orientations = [-80,-80,-80,-80,-112,-128,-144,-144,-176,-208,-208,-240]
 
 [flippers]
 enabled = false
@@ -61,6 +61,7 @@ spawn_interval_ticks = 624
 climb_speed = 0.71875
 
 [appearance]
+surface_hues = [0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f]
 surface = [1.0, 0.0, 0.6627451]
 lines = [0.78, 0.015, 0.52]
 flipper = [247, 255, 230]

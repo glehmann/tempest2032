@@ -408,6 +408,7 @@ fn add_systems(app: &mut App) {
                         )
                     }),
                     crate::game::award_start_bonus,
+                    crate::scene::animate_surface,
                     move_bullets,
                     fire_bullets.run_if(controlling),
                     pulsars::pulse,

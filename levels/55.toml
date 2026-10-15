@@ -1,12 +1,12 @@
-# Original _nw55 on web26, retaining the tiny star's retraced tips.
+# Retail Tempest 2000 level 55: web29 from the ROM-initialized web table.
 number = 55
 enemy_count = 51
 
 [web]
-start_lane = 9
+start_lane = 12
 depth = 160
-vertices = [[8,3],[8,5],[9,7],[11,8],[13,8],[11,8],[9,9],[8,11],[8,13],[8,11],[7,9],[5,8],[3,8],[5,8],[7,7],[8,5]]
-orientations = [-64,-48,-16,0,-128,-112,-80,-64,64,80,112,-128,0,16,48,64]
+vertices = [[2,12],[2,10],[3,8],[5,6],[7,5],[9,5],[11,6],[13,8],[14,10],[14,12],[12,12],[10,12],[8,12],[6,12],[4,12]]
+orientations = [-192,-208,-224,-240,0,-16,-32,-48,-64,-128,-128,-128,-128,-128,-128]
 
 [flippers]
 first_spawn_ticks = 26
@@ -38,6 +38,7 @@ spawn_interval_ticks = 901
 climb_speed = 0.71875
 
 [appearance]
+surface_hues = []
 surface = [0.0, 0.06666667, 1.0]
 lines = [0.015, 0.052, 0.78]
 flipper = [68, 236, 255]

@@ -399,7 +399,7 @@ fn fuse_tankers_count_against_the_shared_budget_and_reset_their_timer() {
 
 #[test]
 fn shooting_fuse_tankers_sends_two_children_outward_at_the_same_depth() {
-    for lane in [1, 11] {
+    for lane in [1, fuse_level().web.lanes() - 2] {
         let mut app = crate::test_support::app();
         app.insert_resource(fuse_level())
             .add_systems(FixedUpdate, resolve_hits);

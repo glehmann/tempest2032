@@ -23,6 +23,7 @@ pause_ticks = 8    # Original counter, which advances to the next flip on underf
 max_active = 11
 
 [appearance]
+surface_hues = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00]
 surface = [0.0, 0.0, 1.0]
 lines = [0.015, 0.01, 0.78]
 flipper = [240, 0, 0]

@@ -23,6 +23,7 @@ spawn_interval_ticks = 141
 climb_speed = 0.6875
 
 [appearance]
+surface_hues = []
 surface = [0.0, 0.06666667, 1.0] # Jaguar CRY chroma $01.
 lines = [0.015, 0.052, 0.78]
 flipper = [68, 236, 255] # Jaguar CRY chroma $2B.

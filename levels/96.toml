@@ -1,13 +1,13 @@
-# Original _nw96 on the open backwards-C web37.
+# Retail Tempest 2000 level 96: web31 from the ROM-initialized web table.
 number = 96
 enemy_count = 91
 
 [web]
 closed = false
-start_lane = 12
+start_lane = 13
 depth = 160
-vertices = [[6,6],[4,4],[6,2],[8,2],[10,3],[12,4],[14,5],[15,7],[15,9],[14,11],[12,12],[10,13],[8,14],[6,14],[4,12],[6,10]]
-orientations = [96,32,0,-16,-16,-16,-48,-64,-80,-112,-112,-112,-128,96,32]
+vertices = [[-1,13],[1,11],[-1,11],[-3,11],[-1,10],[1,9],[3,8],[5,7],[7,6],[9,8],[8,10],[7,12],[6,14],[5,16],[4,18],[4,16],[4,14],[2,16]]
+orientations = [-224,-128,-128,-240,-240,-240,-240,-240,-32,-80,-80,-80,-80,-80,-192,-192,-96]
 
 [flippers]
 enabled = false
@@ -75,6 +75,7 @@ spawn_interval_ticks = 801
 climb_speed = 0.8046875
 
 [appearance]
+surface_hues = [0xf0, 0xd0, 0xb0, 0x90, 0x70, 0x50, 0x30, 0x10, 0x00, 0x10, 0x30, 0x50, 0x70, 0x90, 0xb0, 0xd0, 0xf0]
 surface = [1.0, 0.53333336, 0.0]
 lines = [0.78, 0.416, 0.015]
 flipper = [255, 187, 0]

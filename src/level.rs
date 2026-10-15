@@ -153,6 +153,7 @@ impl Default for Level {
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct Appearance {
     pub(crate) surface: [f32; 3],
+    pub(crate) surface_hues: Option<Vec<u8>>,
     pub(crate) lines: [f32; 3],
     pub(crate) flipper: [u8; 3],
 }
@@ -161,6 +162,7 @@ impl Default for Appearance {
     fn default() -> Self {
         Self {
             surface: [0., 0., 1.],
+            surface_hues: None,
             lines: [0.015, 0.01, 0.78],
             flipper: [240, 0, 0],
         }
@@ -392,6 +394,14 @@ impl Level {
             .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(channel))
         {
             return fail("surface and line colors must have finite channels between 0 and 1");
+        }
+        if def
+            .appearance
+            .surface_hues
+            .as_ref()
+            .is_some_and(|hues| !hues.is_empty() && hues.len() != web.lanes())
+        {
+            return fail("surface_hues must be empty or contain one CRY hue per lane");
         }
         Ok(Self {
             number: def.number,

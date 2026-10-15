@@ -1,13 +1,12 @@
-# Original _nw58 on web31. Dispatch 2 creates Spikers despite the "Flippers" comment.
+# Retail Tempest 2000 level 58: web33 from the ROM-initialized web table.
 number = 58
 enemy_count = 41
 
 [web]
-closed = false
-start_lane = 13
+start_lane = 8
 depth = 160
-vertices = [[-1,13],[1,11],[-1,11],[-3,11],[-1,10],[1,9],[3,8],[5,7],[7,6],[9,8],[8,10],[7,12],[6,14],[5,16],[4,18],[4,16],[4,14],[2,16]]
-orientations = [32,-128,-128,16,16,16,16,16,-32,-80,-80,-80,-80,-80,64,64,-96]
+vertices = [[8,1],[10,2],[12,0],[13,2],[15,3],[13,4],[12,6],[10,8],[8,8],[6,8],[4,6],[3,4],[1,3],[3,2],[4,0],[6,2]]
+orientations = [-240,-224,-48,-16,-112,-80,-96,-128,-128,-160,-176,-144,-240,-208,-32,-240]
 
 [flippers]
 enabled = false
@@ -36,6 +35,7 @@ phase_ticks = 5
 propagation_ticks = 5
 
 [appearance]
+surface_hues = []
 surface = [0.0, 0.06666667, 1.0]
 lines = [0.015, 0.052, 0.78]
 flipper = [68, 236, 255]

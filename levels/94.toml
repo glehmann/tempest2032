@@ -1,13 +1,13 @@
-# Original _nw94 on the open crinkly-L web35.
+# Retail Tempest 2000 level 94: web37 from the ROM-initialized web table.
 number = 94
 enemy_count = 81
 
 [web]
 closed = false
-start_lane = 3
+start_lane = 12
 depth = 160
-vertices = [[14,16],[12,17],[10,17],[8,18],[6,18],[5,16],[5,14],[4,12],[4,10],[3,8],[3,6],[2,4],[2,2],[1,0],[1,-2]]
-orientations = [-112,-128,-112,-128,80,64,80,64,80,64,80,64,80,64]
+vertices = [[6,6],[4,4],[6,2],[8,2],[10,3],[12,4],[14,5],[15,7],[15,9],[14,11],[12,12],[10,13],[8,14],[6,14],[4,12],[6,10]]
+orientations = [-160,-224,0,-16,-16,-16,-48,-64,-80,-112,-112,-112,-128,-160,-224]
 
 [flippers]
 enabled = false
@@ -75,6 +75,7 @@ spawn_interval_ticks = 801
 climb_speed = 0.796875
 
 [appearance]
+surface_hues = [0xae, 0x9d, 0x9c, 0xab, 0xaa, 0xb9, 0xb8, 0xc7, 0xc6, 0xd5, 0xd4, 0xe3, 0xe2, 0xf1, 0xf0]
 surface = [1.0, 0.53333336, 0.0]
 lines = [0.78, 0.416, 0.015]
 flipper = [255, 187, 0]

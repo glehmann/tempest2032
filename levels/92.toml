@@ -1,12 +1,13 @@
-# Original _nw92 on the closed cat-head web33.
+# Retail Tempest 2000 level 92: web35 from the ROM-initialized web table.
 number = 92
 enemy_count = 81
 
 [web]
-start_lane = 8
+closed = false
+start_lane = 3
 depth = 160
-vertices = [[8,1],[10,2],[12,0],[13,2],[15,3],[13,4],[12,6],[10,8],[8,8],[6,8],[4,6],[3,4],[1,3],[3,2],[4,0],[6,2]]
-orientations = [16,32,-48,-16,-112,-80,-96,-128,-128,96,80,112,16,48,-32,16]
+vertices = [[14,16],[12,17],[10,17],[8,18],[6,18],[5,16],[5,14],[4,12],[4,10],[3,8],[3,6],[2,4],[2,2],[1,0],[1,-2]]
+orientations = [-112,-128,-112,-128,-176,-192,-176,-192,-176,-192,-176,-192,-176,-192]
 
 [flippers]
 enabled = false
@@ -74,6 +75,7 @@ spawn_interval_ticks = 801
 climb_speed = 0.7890625
 
 [appearance]
+surface_hues = [0x03, 0x0c, 0x00, 0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x70, 0x90, 0xb0, 0xd0, 0xf0]
 surface = [1.0, 0.53333336, 0.0]
 lines = [0.78, 0.416, 0.015]
 flipper = [255, 187, 0]

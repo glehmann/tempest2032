@@ -1,12 +1,12 @@
-# Original _nw63 on the kiss-of-death web36.
+# Retail Tempest 2000 level 63: web26 from the ROM-initialized web table.
 number = 63
 enemy_count = 51
 
 [web]
 start_lane = 9
 depth = 160
-vertices = [[2,7],[4,6],[6,6],[8,7],[10,6],[12,6],[14,7],[13,9],[11,10],[9,11],[7,11],[5,10],[3,9]]
-orientations = [16,0,-16,16,0,-16,-80,-112,-112,-128,112,112,80]
+vertices = [[8,3],[8,5],[9,7],[11,8],[13,8],[11,8],[9,9],[8,11],[8,13],[8,11],[7,9],[5,8],[3,8],[5,8],[7,7],[8,5]]
+orientations = [-64,-48,-16,0,-128,-112,-80,-64,-192,-176,-144,-128,0,-240,-208,-192]
 
 [flippers]
 enabled = false
@@ -45,6 +45,7 @@ spawn_interval_ticks = 524
 climb_speed = 0.84375
 
 [appearance]
+surface_hues = []
 surface = [0.0, 0.06666667, 1.0]
 lines = [0.015, 0.052, 0.78]
 flipper = [68, 236, 255]

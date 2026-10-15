@@ -1,13 +1,12 @@
-# Original _nw59 on the open diagonal double-curve web32; primary dispatch remains 2.
+# Retail Tempest 2000 level 59: web34 from the ROM-initialized web table.
 number = 59
 enemy_count = 41
 
 [web]
-closed = false
 start_lane = 7
 depth = 160
-vertices = [[9,16],[7,17],[5,17],[3,16],[2,14],[2,12],[3,10],[1,11],[-1,11],[-3,10],[-4,8],[-4,6],[-3,4]]
-orientations = [-112,-128,112,80,64,48,-112,-128,112,80,64,48]
+vertices = [[8,-1],[8,1],[9,3],[11,5],[12,7],[12,9],[11,11],[9,12],[7,12],[5,11],[4,9],[4,7],[5,5],[7,3],[8,1]]
+orientations = [-64,-48,-32,-48,-64,-80,-112,-128,-144,-176,-192,-208,-224,-208,-192]
 
 [flippers]
 enabled = false
@@ -41,6 +40,7 @@ spawn_interval_ticks = 524
 climb_speed = 0.78125
 
 [appearance]
+surface_hues = []
 surface = [0.0, 0.06666667, 1.0]
 lines = [0.015, 0.052, 0.78]
 flipper = [68, 236, 255]

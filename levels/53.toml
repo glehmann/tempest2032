@@ -38,6 +38,7 @@ spawn_interval_ticks = 901
 climb_speed = 0.6875
 
 [appearance]
+surface_hues = []
 surface = [0.0, 0.06666667, 1.0]
 lines = [0.015, 0.052, 0.78]
 flipper = [68, 236, 255]

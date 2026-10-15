@@ -10,7 +10,7 @@ use crate::{
     animations::level_entry as entry,
     enemies,
     glider::{ClawFrames, Glider, claw_frame, claw_mesh},
-    level::Level,
+    level::{Appearance, Level},
     mesh::{colored_mesh, segment_transform},
     stars,
     weapons::{ShotAssets, Weapon, shot_mesh},
@@ -26,6 +26,12 @@ pub(crate) struct WebSegment {
     pub(crate) rim: bool,
 }
 
+#[derive(Component)]
+pub(crate) struct WebSurface {
+    hues: Vec<u8>,
+    depth: f32,
+}
+
 #[derive(Resource)]
 pub(crate) struct WebAssets {
     pub(crate) beam: Handle<Mesh>,
@@ -34,38 +40,91 @@ pub(crate) struct WebAssets {
     pub(crate) surface: Handle<StandardMaterial>,
 }
 
-pub(crate) fn tunnel_mesh(web: &Web, color: [f32; 3]) -> Mesh {
+const SURFACE_SECTIONS: usize = 12;
+
+fn surface_color(web: &Web, appearance: &Appearance, lane: usize, depth: f32, frame: u8) -> Color {
+    if let Some(hues) = &appearance.surface_hues {
+        return lane_color(hues, lane, depth, frame);
+    }
+    let extent = web
+        .vertices
+        .iter()
+        .map(|[x, _]| ((x - 8.) * FRONT_RADIUS / 6.).abs())
+        .fold(FRONT_RADIUS, f32::max);
+    let left = 0.5 - web.vertex(lane as f32, FRONT_RADIUS, 0.).x / (2. * extent);
+    let shade = (0.08 + left * 0.5) * (1. - depth).powf(1.4) + 0.012;
+    let [r, g, b] = appearance.surface.map(|channel| channel * shade);
+    Color::srgb(r, g, b)
+}
+
+fn lane_color(hues: &[u8], lane: usize, depth: f32, frame: u8) -> Color {
+    // donky.gas overwrites the orientation-table phase with the previous
+    // face's hue. Our reversed lanes put that face at lane + 1.
+    let phase = i32::from(hues[(lane + 1) % hues.len()]) + i32::from(frame) + 64;
+    let front = ((crate::sines::sine(phase) + 128) / 2 + 64) * 248 / 256;
+    crate::cry::color(hues[lane], (front as f32 * (1. - depth * 0.75)) as u8)
+}
+
+pub(crate) fn tunnel_mesh(web: &Web, appearance: &Appearance) -> Mesh {
+    if appearance.surface_hues.as_ref().is_some_and(Vec::is_empty) {
+        return colored_mesh([]);
+    }
     let mut triangles = Vec::new();
     for lane in 0..web.lanes() {
-        let lane = lane as f32;
-        let extent = web
-            .vertices
-            .iter()
-            .map(|[x, _]| ((x - 8.0) * FRONT_RADIUS / 6.0).abs())
-            .fold(FRONT_RADIUS, f32::max);
-        let left = 0.5 - web.vertex(lane, FRONT_RADIUS, 0.0).x / (2.0 * extent);
-        for section in 0..12 {
+        for section in 0..SURFACE_SECTIONS {
             let mut quad = [(Vec3::ZERO, Color::BLACK); 4];
             for (vertex, (edge, depth)) in [
-                (lane, section),
-                (lane + 1.0, section),
-                (lane + 1.0, section + 1),
-                (lane, section + 1),
+                (lane as f32, section),
+                (lane as f32 + 1.0, section),
+                (lane as f32 + 1.0, section + 1),
+                (lane as f32, section + 1),
             ]
             .into_iter()
             .enumerate()
             {
-                let progress = depth as f32 / 12.0;
-                let blue = (0.08 + left * 0.5) * (1.0 - progress).powf(1.4) + 0.012;
+                let progress = depth as f32 / SURFACE_SECTIONS as f32;
                 quad[vertex] = (
                     web.vertex(edge, FRONT_RADIUS, -web.world_depth() * progress),
-                    Color::srgb(color[0] * blue, color[1] * blue, color[2] * blue),
+                    surface_color(web, appearance, lane, progress, 0),
                 );
             }
             triangles.extend([[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]);
         }
     }
     colored_mesh(triangles)
+}
+
+pub(crate) fn animate_surface(
+    surfaces: Query<(&Mesh3d, &WebSurface)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut frame: Local<u8>,
+) {
+    *frame = frame.wrapping_add(1);
+    for (handle, surface) in &surfaces {
+        let Some(mesh) = meshes.get_mut(&handle.0) else {
+            continue;
+        };
+        let Some(bevy::mesh::VertexAttributeValues::Float32x3(points)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            continue;
+        };
+        let colors = points
+            .iter()
+            .enumerate()
+            .map(|(index, point)| {
+                lane_color(
+                    &surface.hues,
+                    index / (SURFACE_SECTIONS * 6),
+                    -point[2] / surface.depth,
+                    *frame,
+                )
+                .to_linear()
+                .to_f32_array()
+            })
+            .collect::<Vec<_>>();
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    }
 }
 
 pub(crate) fn setup(
@@ -144,7 +203,7 @@ pub(crate) fn setup(
         root,
         web,
         &assets,
-        level.appearance.surface,
+        &level.appearance,
     );
     commands.insert_resource(assets);
     let frames = ClawFrames(std::array::from_fn(|frame| meshes.add(claw_mesh(frame))));
@@ -171,13 +230,21 @@ pub(crate) fn spawn_web(
     root: Entity,
     web: &Web,
     assets: &WebAssets,
-    color: [f32; 3],
+    appearance: &Appearance,
 ) {
-    commands.spawn((
-        Mesh3d(meshes.add(tunnel_mesh(web, color))),
-        MeshMaterial3d(assets.surface.clone()),
-        ChildOf(root),
-    ));
+    if !appearance.surface_hues.as_ref().is_some_and(Vec::is_empty) {
+        let mut surface = commands.spawn((
+            Mesh3d(meshes.add(tunnel_mesh(web, appearance))),
+            MeshMaterial3d(assets.surface.clone()),
+            ChildOf(root),
+        ));
+        if let Some(hues) = &appearance.surface_hues {
+            surface.insert(WebSurface {
+                hues: hues.clone(),
+                depth: web.world_depth(),
+            });
+        }
+    }
     for lane in 0..web.lanes() {
         let lane = lane as f32;
         commands.spawn((
@@ -261,7 +328,7 @@ pub(crate) fn sync_web(
         *root,
         &level.web,
         &assets,
-        level.appearance.surface,
+        &level.appearance,
     );
     if let Some(material) = materials.get_mut(&assets.blue) {
         let [r, g, b] = level.appearance.lines;

@@ -1,12 +1,12 @@
-# Original _nw16. Tempest 2000 selects compact web21 rather than classic web8.
+# Retail Tempest 2000 level 16: web22 from the ROM-initialized web table.
 number = 16
 enemy_count = 41
 
 [web]
-start_lane = 4
+start_lane = 8
 depth = 160
-vertices = [[7,5],[9,5],[11,7],[11,9],[9,11],[7,11],[5,9],[5,7]]
-orientations = [0,-32,-64,-96,-128,96,64,32]
+vertices = [[7,5],[8,3],[9,5],[11,7],[13,8],[11,9],[9,11],[8,13],[7,11],[5,9],[3,8],[5,7]]
+orientations = [-208,-48,-32,-16,-112,-96,-80,-176,-160,-144,-240,-224]
 
 [flippers]
 first_spawn_ticks = 36
@@ -36,6 +36,9 @@ climb_speed = 0.6796875
 first_spawn_ticks = 251
 spawn_interval_ticks = 501
 climb_speed = 0.5625
+
+[appearance]
+surface_hues = [0x14, 0x34, 0x40, 0x54, 0x74, 0x80, 0x74, 0x54, 0x40, 0x34, 0x14, 0x00]
 
 [powerups]
 kill_interval = 7

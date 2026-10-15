@@ -23,5 +23,8 @@ spawn_interval_ticks = 445
 climb_speed = 0.5
 super_chance = 8 # Out of 256, the original superflip threshold.
 
+[appearance]
+surface_hues = [0x5a, 0x48, 0x36, 0x34, 0x32, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80]
+
 [powerups]
 kill_interval = 5

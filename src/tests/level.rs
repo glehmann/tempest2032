@@ -7,6 +7,120 @@ use crate::web::LANE_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn all_levels_follow_the_rom_initialized_tempest_2000_web_order() {
+    // orig/t2k.jag, table at ROM offset 0x19cf0, entries 16..47. Hashes cover
+    // topology, clockwise XY vertices, and lane orientations modulo 256.
+    let retail: [(u8, u64, usize); 32] = [
+        (5, 0xb1e4b244e977932c, 8),
+        (11, 0xa48c85087e67811c, 10),
+        (1, 0x0f75cb467d0be385, 5),
+        (2, 0x90f54b1bf2b0ead3, 7),
+        (9, 0x9983a9dd093d715e, 9),
+        (3, 0x5f04ceb554acd934, 7),
+        (18, 0x817db7efa850223c, 5),
+        (19, 0xbf575411dc88ff57, 8),
+        (20, 0x476a59f9f07cf7d3, 6),
+        (4, 0x66e3eb617d4e5adc, 8),
+        (14, 0xd1e046a29b46fd3a, 5),
+        (10, 0x8c751dbfb31246ec, 8),
+        (17, 0x596f67446496e6fc, 5),
+        (6, 0x6f7cd2566934920d, 8),
+        (16, 0x0ec604f5dd0664c5, 7),
+        (22, 0x202dccfb3c2f629c, 8),
+        (24, 0xb2743b2b40e88417, 13),
+        (23, 0xd2547928ccff2e9a, 11),
+        (27, 0xc8df29e211f4caf4, 7),
+        (25, 0x7a6e63ee9fc6e94f, 2),
+        (21, 0x052af197df72280c, 4),
+        (28, 0x0c5e4b7d14292509, 6),
+        (29, 0xbf60f4850e766b75, 12),
+        (30, 0xb9a3b3779fb5d88d, 4),
+        (32, 0xccf1daf8c5550edf, 7),
+        (33, 0x1ab2530b7ba3833c, 8),
+        (34, 0xb5ba01ef5488a70a, 7),
+        (35, 0x904a506841ecf8b7, 3),
+        (36, 0x72b20fcb1aef4c7d, 9),
+        (37, 0x163ec736505dc555, 12),
+        (26, 0x9403e5dd51a49c1c, 9),
+        (31, 0xdd629e8ffa6b44ca, 13),
+    ];
+    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    assert_eq!(levels.0.len(), 100);
+    for level in &levels.0 {
+        let index = (level.number - 1) % 32;
+        let (web, expected, start) = retail[index];
+        let bytes = std::iter::once(u8::from(level.web.closed))
+            .chain(
+                level
+                    .web
+                    .vertices
+                    .iter()
+                    .flatten()
+                    .flat_map(|value| value.to_bits().to_le_bytes()),
+            )
+            .chain(
+                level
+                    .web
+                    .orientations
+                    .iter()
+                    .map(|angle| angle.rem_euclid(256) as u8),
+            );
+        let actual = bytes.fold(0xcbf29ce484222325u64, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+        });
+        assert_eq!(
+            actual, expected,
+            "level {} should use retail web{web}",
+            level.number
+        );
+        assert_eq!(
+            level.web.start_lane,
+            if level.number == 1 { 7 } else { start }
+        );
+        if !(49..=64).contains(&level.number) {
+            assert_eq!(
+                level.appearance.surface_hues,
+                levels.0[index].appearance.surface_hues
+            );
+        }
+    }
+}
+
+#[test]
+fn surface_hues_require_one_byte_per_lane_or_an_explicit_empty_palette() {
+    let source = include_str!("../../levels/05.toml");
+    for palette in ["[]", "[1]", "[256]", "[\"purple\"]"] {
+        let source = source
+            .lines()
+            .map(|line| {
+                if line.starts_with("surface_hues =") {
+                    format!("surface_hues = {palette}")
+                } else {
+                    line.into()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(
+            Level::parse(&source, "palette-test").is_ok(),
+            palette == "[]"
+        );
+    }
+    let source = source
+        .lines()
+        .filter(|line| !line.starts_with("surface_hues ="))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        Level::parse(&source, "rgb-fallback")
+            .unwrap()
+            .appearance
+            .surface_hues
+            .is_none()
+    );
+}
+
+#[test]
 fn original_level_twenty_has_the_open_hook_and_a_thirty_three_spawn_budget() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/20.toml")),
@@ -242,7 +356,7 @@ fn original_level_seven_selects_the_tempest_2000_lemon_and_its_speed_group() {
 }
 
 #[test]
-fn original_level_eight_reuses_the_lemon_with_denser_tankers_and_spikers() {
+fn original_level_eight_uses_the_retail_wide_v_with_denser_tankers_and_spikers() {
     let seven = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/07.toml")),
         "level7",
@@ -253,8 +367,12 @@ fn original_level_eight_reuses_the_lemon_with_denser_tankers_and_spikers() {
         "level8",
     )
     .unwrap();
-    assert_eq!(seven.web.vertices, eight.web.vertices);
-    assert_eq!(seven.web.orientations, eight.web.orientations);
+    assert_ne!(seven.web.vertices, eight.web.vertices);
+    assert!(!eight.web.closed);
+    assert_eq!(eight.web.lanes(), 14);
+    assert_eq!(eight.web.start_lane, 8);
+    assert_eq!(eight.web.vertices[0], [16., 4.]);
+    assert_eq!(eight.web.vertices[14], [-3., 3.]);
     assert_eq!(eight.flippers.count, 31);
     assert_eq!(
         (
@@ -281,14 +399,16 @@ fn original_level_eight_reuses_the_lemon_with_denser_tankers_and_spikers() {
 }
 
 #[test]
-fn original_level_nine_has_the_sine_wave_and_two_enemy_shots() {
+fn original_level_nine_has_the_retail_giraffe_neck_and_two_enemy_shots() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/09.toml")),
         "level9",
     )
     .unwrap();
     assert!(!level.web.closed);
-    assert_eq!(level.web.lanes(), 14);
+    assert_eq!(level.web.lanes(), 13);
+    assert_eq!(level.web.vertices[0], [14., -3.]);
+    assert_eq!(level.web.vertices[13], [-1., 16.]);
     assert_eq!(level.enemy_shots, 2);
     assert_eq!(level.flippers.climb_speed, 0xa800);
     assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0x10000);
@@ -332,15 +452,16 @@ fn original_level_twelve_has_the_cross_and_faster_fuseball_generator() {
 }
 
 #[test]
-fn original_level_thirteen_selects_the_tempest_2000_giraffe_and_next_speed_group() {
+fn original_level_thirteen_selects_the_retail_wobbly_u_and_next_speed_group() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/13.toml")),
         "level13",
     )
     .unwrap();
     assert!(!level.web.closed);
-    assert_eq!(level.web.lanes(), 13);
-    assert_eq!(level.web.vertices[0], [14., -3.]);
+    assert_eq!(level.web.lanes(), 12);
+    assert_eq!(level.web.vertices[0], [15., 1.]);
+    assert_eq!(level.web.vertices[12], [6., 1.]);
     assert_eq!(level.flippers.climb_speed, 0xac00);
     assert_eq!(level.spikers.as_ref().unwrap().climb_speed, 0x12000);
     assert_eq!(level.fuseballs.as_ref().unwrap().climb_speed, 0x8800);
@@ -377,19 +498,20 @@ fn original_level_fifteen_uses_web16_and_the_last_early_speed_group() {
 }
 
 #[test]
-fn original_level_sixteen_selects_the_compact_tempest_2000_web_and_forty_one_spawns() {
+fn original_level_sixteen_selects_the_retail_twelve_lane_star_and_forty_one_spawns() {
     let level = Level::parse(
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/levels/16.toml")),
         "level16",
     )
     .unwrap();
     assert!(level.web.closed);
-    assert_eq!(level.web.lanes(), 8);
+    assert_eq!(level.web.lanes(), 12);
+    assert_eq!(level.web.start_lane, 8);
     assert_eq!(level.flippers.count, 41);
     assert_eq!(level.flippers.spawn_interval_ticks, 71);
     assert_eq!(level.tankers.as_ref().unwrap().super_chance, 60);
     assert_eq!(level.enemy_shots, 2);
-    assert_eq!(level.web.flip_angle(7, 0, 1), 96);
+    assert_eq!(level.web.flip_angle(11, 0, 1), 144);
 }
 
 #[test]

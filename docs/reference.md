@@ -8,7 +8,7 @@ the original game. For installation and basic controls, see the
 
 Tempest 2032 uses Rust and Bevy 0.18.
 The first level uses the original game's irregular 16-sided `web5` outline
-and straight extrusion. Blue lane surfaces fade into the tunnel, and yellow
+and straight extrusion. Per-lane shaded surfaces fade into the tunnel, and yellow
 edges mark the glider's current lane. The solid gold glider uses the original
 `sclaw0` through `sclaw7` vertex layouts, with shaded faces and a thin extruded
 body. The claw stays at each lane's midpoint while fractional movement progress
@@ -480,7 +480,7 @@ shortcut ID. Existing custom artwork and nonempty shortcut icons are preserved;
 re-running the installer fills missing artwork and adds an icon to older shortcuts.
 It also replaces the old bundled hero with the reframed version when its bytes
 match the original gameplay image.
-The hero background is a wide level 9 gameplay screenshot with the sine-wave blue
+The hero background is a wide gameplay screenshot with a blue
 web, gold claw, enemies, and explosion rings, without HUD or announcement overlays.
 The screenshot fits within a centered 440-pixel-high area of the 1920×620 hero,
 leaving room for Big Picture's vertical crop and bottom-left logo.
@@ -618,7 +618,38 @@ Existing invalid or unreadable files still produce an error, and duplicate
 numbers and gaps beyond the bundled catalog still fail validation.
 The shipped TOML files are included automatically when compiling, including
 newly added levels. You can copy just the executable to another PC; the
-`levels/` directory is optional for customization. The supplied levels are:
+`levels/` directory is optional for customization.
+
+### Released-game web ordering
+
+Tempest 2000 uses the 32-entry sequence at `16 + ((level - 1) & 31)` in the
+runtime `raw_webs` table (`yak.s:3567-3571`, `yak.s:8605-8613`). The labelled
+RAM defaults at `yak.s:23916` are not the released ordering: `Init` copies the
+`romstart` defaults block over `copstart` (`yak.s:878-884`). The table inside
+that ROM block (`yak.s:23731-23733`) differs from the later RAM initializer.
+The cartridge `orig/t2k.jag` confirms the ROM-initialized table at file offset
+`0x19cf0`; its entries are pointers into the cartridge's raw web structures.
+The geometry/start-lane regression test fingerprints those actual cartridge
+profiles for all 100 levels, with level one's documented spawn exception.
+
+The released 32-web sequence, repeated for later color/enemy sets, is:
+
+```text
+ 1–16: web5, web11, web1, web2, web9, web3, web18, web19,
+       web20, web4, web14, web10, web17, web6, web16, web22
+17–32: web24, web23, web27, web25, web21, web28, web29, web30,
+       web32, web33, web34, web35, web36, web37, web26, web31
+```
+
+In particular, level 8 is the long wide V (`web19`), level 9 is the giraffe
+neck (`web20`), level 13 is the wobbly U (`web17`), and level 16 is the
+twelve-lane star (`web22`). The sine-wave `web13` is present in the classic
+table but never selected by the released Tempest 2000 sequence. Selection,
+ordinary advancement, and warp destinations all use the same TOML catalog.
+
+### Level details
+
+The supplied levels are:
 
 - `levels/01.toml`: the existing `web5` level, with 25 Flippers, first spawn after
   61 gameplay ticks, and subsequent spawns every 121 ticks.
@@ -629,9 +660,9 @@ newly added levels. You can copy just the executable to another PC; the
   original per-lane orientations.
 - `levels/03.toml`: the original `_nw3` on the open, eleven-lane flat `web1`.
   Flippers and Flipper Tankers share a 17-enemy generation budget. Tankers
-  arrive first after 223 gameplay ticks, then every 445 ticks. Their pink
-  `s_fliptank` shells use the original vertices and faces, with a Flipper motif
-  inside. Shooting one or letting it reach the rim awards 100 points and sends
+  arrive first after 223 gameplay ticks, then every 445 ticks. Their rotating
+  `s_fliptank2` shells use the original crossed faces and cycling colors.
+  Shooting one or letting it reach the rim awards 100 points and sends
   two Flippers into neighboring lanes. They finish their initial flip before
   climbing; the original 8-in-256 mutation chance produces fast blue Flippers
   that scatter further before returning to normal pursuit.
@@ -657,10 +688,10 @@ newly added levels. You can copy just the executable to another PC; the
   31-spawn budget, `0xA600` Flippers, and `0xF000` Spikers. The Tempest 2000 mode adds
   16 to the web-table index, so this is `web18`, not classic mode's `web12`.
   Flippers repeat every 91 ticks, Tankers every 251, and Spikers every 751.
-- `levels/08.toml`: the same Tempest 2000 lemon and 31-spawn budget, with Tankers every
+- `levels/08.toml`: the open fourteen-lane long wide V `web19` and 31-spawn budget, with Tankers every
   241 ticks and Spikers every 651 ticks. Its Tanker-child mutation threshold
   rises to 28 out of 256.
-- `levels/09.toml`: the open fourteen-lane sine-wave `web13`, with a 31-spawn
+- `levels/09.toml`: the open thirteen-lane giraffe-neck `web20`, with a 31-spawn
   budget, `0xA800` Flippers, and `0x10000` Spikers. Two alien shots can now be
   active at once, following the original `ashots` table calculation. Tankers
   repeat every 231 ticks and pickups every seventh kill after the first.
@@ -679,17 +710,17 @@ newly added levels. You can copy just the executable to another PC; the
   Kills award the original random 250, 500, or 750 points without a pickup drop.
 - `levels/12.toml`: the closed cross `web10`, including the original inward
   corner orientations. Flippers repeat every 81 ticks and Fuseballs every 701.
-- `levels/13.toml`: Tempest 2000's open giraffe-neck `web20`, with thirteen lanes and
+- `levels/13.toml`: Tempest 2000's open wobbly-U `web17`, with twelve lanes and
   `0xAC00` Flippers. This mode-specific selection differs from classic `web15`.
   Fuseballs climb at `0x8800` and repeat every 601 ticks.
 - `levels/14.toml`: the open distorted-W `web6`, with fifteen lanes and
   Flippers every 76 ticks. The local flat sections retain their source angles.
 - `levels/15.toml`: open `web16`, with `0xAE00` Flippers and `0x13000` Spikers.
   Fuseballs climb at `0x9000` and repeat every 501 ticks.
-- `levels/16.toml`: Tempest 2000's compact eight-lane `web21`, with a 41-spawn budget,
+- `levels/16.toml`: Tempest 2000's twelve-lane star `web22`, with a 41-spawn budget,
   Flippers every 71 ticks, and the original 60-in-256 fast-child threshold.
 - `levels/17.toml`: the eighteen-lane big oval `web24`, starting Tempest 2000's second
-  web set with red surfaces and cyan Flippers. The 25-spawn wave includes
+  web set with red wireframes and cyan Flippers. The 25-spawn wave includes
   Pulsars every 601 ticks, Spikers every 751, Beasties every 1,001, and
   Fuseballs every 901. There are no Flipper Tankers, and three enemy shots
   can be active at once. Flippers return to the `0xA800` speed group.
@@ -702,7 +733,7 @@ newly added levels. You can copy just the executable to another PC; the
   spark kills 150; both participate in the normal pickup-drop sequence.
 - `levels/18.toml`: the open fifteen-lane spiraloid `web23`, with a 31-spawn
   budget. Flippers repeat every 101 ticks and Pulsars every 501. It retains
-  level seventeen's red surfaces, cyan Flippers, climbing speeds, and other
+  level seventeen's red wireframes, cyan Flippers, climbing speeds, and other
   generators. Pulsar sparks bounce at the open ends.
 - `levels/19.toml`: the closed fifteen-lane pentagon `web27`, with a 31-spawn
   budget. Flipper Tankers return every 445 ticks with a 72-in-256 fast-child
@@ -719,41 +750,41 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/22.toml`: open twelve-lane inverted-bird `web28`, with 36 shared
   spawns. Flippers repeat every 96 ticks, Tankers every 261, and Pulsars every
   426. Pulsar sparks bounce at the wing tips.
-- `levels/23.toml`: closed sixteen-lane tiny-star `web26`, retaining its
-  retraced tips and sharp lane reversals. Flippers climb at `0xAE00`, Spikers
+- `levels/23.toml`: closed fifteen-lane D-shaped `web29`, with six flat lanes
+  along its base. Flippers climb at `0xAE00`, Spikers
   at `0xF000`, and Fuseballs at `0xA800`; Pulsars repeat every 463 ticks.
-- `levels/24.toml`: closed fifteen-lane D-shaped `web29`, with six flat lanes
-  along its base. Tankers repeat every 241 ticks, Spikers every 651, and
+- `levels/24.toml`: open thirteen-lane curved-L `web30`.
+  Tankers repeat every 241 ticks, Spikers every 651, and
   Pulsars every 412, with the same 36-spawn budget as levels 22 and 23.
-- `levels/25.toml`: open thirteen-lane curved-L `web30`, with 41 shared spawns
+- `levels/25.toml`: open twelve-lane diagonal double-curve `web32`, with 41 shared spawns
   and Fuseball Tankers every 2,001 ticks. Their rotating five-armed graphic
   draws both original leg shapes per arm. Shooting a Tanker or letting it
   reach the rim awards 100 points and releases two Fuseballs at its depth,
   crossing outward from the lane's two edges. Children do not consume the
   generation budget, and opening the Tanker does not advance the pickup counter.
   Pulsar phases now last seven ticks and pickups drop every eighth kill.
-- `levels/26.toml`: open seventeen-lane mouse-pointer `web31`, including its
-  folded tail. Pulsars repeat every 400 ticks and Spikers every 851; Fuseball
+- `levels/26.toml`: closed sixteen-lane cat-head `web33`, including its
+  inward ear corners. Pulsars repeat every 400 ticks and Spikers every 851; Fuseball
   Tankers retain their 2,001-tick interval.
-- `levels/27.toml`: open twelve-lane diagonal double-curve `web32`, with
+- `levels/27.toml`: closed fifteen-lane teardrop `web34`, with its retraced tip and
   `0xB200` Flippers, `0x11000` Spikers, and `0xB800` Fuseballs. Pulsars repeat
   every 389 ticks and Tankers every 371.
-- `levels/28.toml`: closed sixteen-lane cat-head `web33`, with inward-facing
-  ear corners. Flippers repeat every 81 ticks, Pulsars every 378, and
+- `levels/28.toml`: open fourteen-lane crinkly-L `web35`, with alternating
+  stem angles. Flippers repeat every 81 ticks, Pulsars every 378, and
   Fuseballs every 701. The fast-child threshold rises to 108 out of 256.
-- `levels/29.toml`: closed fifteen-lane teardrop `web34`, retaining the
-  retraced top tip. Flippers climb at `0xB400`, Tankers at `0x9800`, Spikers
+- `levels/29.toml`: closed thirteen-lane kiss-of-death `web36`, retaining its
+  shallow inward corners. Flippers climb at `0xB400`, Tankers at `0x9800`, Spikers
   at `0x12000`, and Fuseballs at `0xC000`. Pulsar phases drop to six ticks.
-- `levels/30.toml`: open fourteen-lane crinkly-L `web35`, with alternating
-  angles along its stem. Flippers repeat every 76 ticks, Pulsars every 351,
+- `levels/30.toml`: open fifteen-lane backwards-C `web37`.
+  Flippers repeat every 76 ticks, Pulsars every 351,
   and Fuseball Tankers every 1,001, twice their previous frequency.
-- `levels/31.toml`: closed thirteen-lane kiss-of-death `web36`, with the
-  original shallow inward corners. Flippers climb at `0xB600`, Spikers at
+- `levels/31.toml`: closed sixteen-lane tiny-star `web26`, with its retraced
+  tips and sharp lane reversals. Flippers climb at `0xB600`, Spikers at
   `0x13000`, and Fuseballs at `0xC800`; Flippers repeat every 96 ticks.
-- `levels/32.toml`: open fifteen-lane backwards-C `web37`, finishing the
+- `levels/32.toml`: open seventeen-lane mouse-pointer `web31`, finishing the
   second web set. Fuseballs and Fuseball Tankers both repeat every 501 ticks,
   while Pulsars repeat every 901. Four enemy shots can be active at once.
-- `levels/33.toml`: returns to sixteen-lane `web5`, now with yellow surfaces
+- `levels/33.toml`: returns to sixteen-lane `web5`, now with yellow wireframes
   and yellow-green Flippers. The 25-spawn wave introduces Pulsar Tankers
   every 501 ticks and Beasties every 701. A Pulsar Tanker draws two opposing,
   rotating zigzags synchronized with the shared pulse. Opening it awards 100
@@ -778,10 +809,10 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/39.toml`: fourteen-lane Tempest 2000 lemon `web18`, with `0xB600` Flippers,
   `0xF000` Spikers, and `0xB800` Fuseballs. Pulsar Tankers repeat every 401
   ticks and Flipper Tankers every 251.
-- `levels/40.toml`: the same Tempest 2000 lemon, with Pulsar Tankers every 351 ticks,
+- `levels/40.toml`: open fourteen-lane long wide V `web19`, with Pulsar Tankers every 351 ticks,
   Flipper Tankers every 241, and Spikers every 651. The Flipper Tanker
   mutation threshold rises to 156 out of 256.
-- `levels/41.toml`: open fourteen-lane sine-wave `web13`, with 41 shared
+- `levels/41.toml`: open thirteen-lane giraffe-neck `web20`, with 41 shared
   spawns and all three Tanker types. Pulsar Tankers repeat every 351 ticks,
   Fuseball Tankers every 801, and direct Pulsars every 1,101. The shared
   Pulsar phase delay drops to five ticks.
@@ -794,7 +825,7 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/44.toml`: sixteen-lane cross `web10`. Direct Pulsars and Pulsar
   Tankers both repeat every 501 ticks; Fuseball Tankers remain on their
   301-tick interval, and Flippers repeat every 81 ticks.
-- `levels/45.toml`: open thirteen-lane Tempest 2000 giraffe-neck `web20`, with
+- `levels/45.toml`: open twelve-lane wobbly-U `web17`, with
   `0xBC00` Flippers and `0xB800` Tankers. Pulsar phases drop to four ticks;
   Pulsar Tankers repeat every 301 ticks and direct Pulsars every 1,001.
 - `levels/46.toml`: open fifteen-lane distorted-W `web6`, with Flippers every
@@ -803,11 +834,11 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/47.toml`: open fifteen-lane `web16`, with `0xBE00` Flippers,
   `0x13000` Spikers, and `0xD800` Fuseballs. Direct Pulsars now repeat every
   351 ticks while Pulsar Tankers remain at 301.
-- `levels/48.toml`: compact eight-lane `web21`, finishing the third web set.
+- `levels/48.toml`: twelve-lane star `web22`, finishing the third web set.
   Flipper Tankers repeat every 231 ticks, Pulsar Tankers every 301, and
   Fuseball Tankers every 401; the fast-child threshold reaches 188 out of 256.
 - `levels/49.toml`: eighteen-lane big oval `web24`, starting the fourth web
-  set with blue surfaces and pale-cyan Flipper colors. This wave consists
+  set with unfilled webs and pale-cyan Flipper colors. This wave consists
   entirely of 17 armored Beasties: first spawn after 71 gameplay ticks,
   then every 141 ticks, climbing at `0xB000`. Normal Flipper generation is
   disabled, and there are no other enemy generators.
@@ -826,45 +857,45 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/54.toml`: open twelve-lane inverted-bird `web28`, with Beasties
   every 101 ticks and Flipper Tankers every 261. The shared budget stays
   at 51 spawns, with a 212-in-256 fast-child threshold.
-- `levels/55.toml`: closed sixteen-lane tiny-star `web26`, preserving its
-  retraced tips. Flippers and Beasties climb at `0xB600`, Spikers at `0xF000`,
+- `levels/55.toml`: closed fifteen-lane D-shaped `web29`, preserving its
+  flat base. Flippers and Beasties climb at `0xB600`, Spikers at `0xF000`,
   and Fuseballs at `0xB800`; Flipper Tankers repeat every 251 ticks.
-- `levels/56.toml`: closed fifteen-lane D-shaped `web29`, with Flippers every
+- `levels/56.toml`: open thirteen-lane curved-L `web30`, with Flippers every
   51 ticks, Beasties every 101, Flipper Tankers every 241, and Spikers every
   651. The fast-child threshold reaches 220 out of 256.
-- `levels/57.toml`: open curved-L `web30`, with 61 shared spawns. Dedicated
+- `levels/57.toml`: open diagonal double-curve `web32`, with 61 shared spawns. Dedicated
   Super Flippers appear first after 13 ticks, then every 26, using the blue
   `supf1` mesh and double-speed rim flips without a normal pause. Mirrors
   repeat every 401 ticks, spin, and stop forty units from the rim. Surviving
   hits push a Mirror backward by sixteen climbing steps and return the shot
   at full speed, retaining its magazine slot. Five hits or recoil beyond
   the rear destroys it for 250, 500, or 750 points without a pickup drop.
-- `levels/58.toml`: open seventeen-lane mouse-pointer `web31`, with 41 shared
+- `levels/58.toml`: closed sixteen-lane cat-head `web33`, with 41 shared
   generation attempts. The executable wave table selects Spikers every 51
   ticks, despite its "Flippers" comment. Only one Spiker can be active;
   blocked attempts still count against the budget, as in `launch1`.
   Mirrors repeat every 401 ticks and Pulsars every 152, with five-tick phases.
-- `levels/59.toml`: open twelve-lane diagonal double-curve `web32`, adding
+- `levels/59.toml`: closed fifteen-lane teardrop `web34`, adding
   Fuseballs every 524 ticks. Mirrors and Fuseballs use the `0xC800` climbing
   speed group, while the primary Spiker attempts retain their 51-tick interval.
-- `levels/60.toml`: closed cat-head `web33`, with 51 shared attempts and
+- `levels/60.toml`: open crinkly-L `web35`, with 51 shared attempts and
   a second Spiker generator every 1,501 ticks. Both Spiker timers share the
   original one-active-Spiker limit; blocked attempts still consume budget.
   Mirrors, Pulsars, and Fuseballs keep level fifty-nine's intervals.
-- `levels/61.toml`: closed teardrop `web34`, retaining the retraced tip.
+- `levels/61.toml`: closed kiss-of-death `web36`, retaining its inward corners.
   Mirrors and Fuseballs climb at `0xD000`, Spikers at `0x12000`, and Pulsar
   phases drop to four ticks. Generator intervals remain those of level 60.
-- `levels/62.toml`: open fourteen-lane crinkly-L `web35`, replacing direct
+- `levels/62.toml`: open fifteen-lane backwards-C `web37`, replacing direct
   Pulsars with Pulsar Tankers every 352 ticks. Both Spiker timers and the
   Mirror and Fuseball generators retain their previous intervals.
-- `levels/63.toml`: closed thirteen-lane kiss-of-death `web36`, with Pulsar
+- `levels/63.toml`: closed sixteen-lane tiny-star `web26`, with Pulsar
   Tankers every 252 ticks. Mirrors and Fuseballs climb at `0xD800`, while
   Spikers use the final fourth-set `0x13000` speed group.
-- `levels/64.toml`: open fifteen-lane backwards-C `web37`, ending the fourth
+- `levels/64.toml`: open seventeen-lane mouse-pointer `web31`, ending the fourth
   web set with primary Pulsars every 31 ticks and Beasties every 401. Normal
   Flippers, Mirrors, Spikers, and Tankers are absent from this 51-spawn wave.
 - `levels/65.toml`: returns to sixteen-lane `web5`, starting the fifth set
-  with magenta surfaces and pale-cream Flippers. The dispatch table selects
+  with magenta wireframes and pale-cream Flippers. The dispatch table selects
   Super Flippers every 21 ticks and Alien Droids every 701. Alien Droids
   climb at twice the Flipper speed to fifteen units beyond the rim, cross
   a lane in sixteen three-tick steps, then zap for 32 ticks. Jumping and
@@ -888,10 +919,10 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/71.toml`: fourteen-lane Tempest 2000 lemon `web18`, replacing Fuseballs with
   Beasties every 501 ticks. Primary Pulsar Tankers remain on their 71-tick
   interval, alongside Mirrors and faster `0x16C00` Alien Droids.
-- `levels/72.toml`: the same Tempest 2000 lemon, restoring Super Flippers every 21
+- `levels/72.toml`: open long wide V `web19`, restoring Super Flippers every 21
   ticks and adding Spikers every 501. The 61-spawn wave retains Mirrors and
   Alien Droids, while Pulsar Tankers and Beasties are absent.
-- `levels/73.toml`: open fourteen-lane sine-wave `web13`, adding Fuseballs
+- `levels/73.toml`: open thirteen-lane giraffe-neck `web20`, adding Fuseballs
   every 301 ticks to the Super Flipper, Mirror, Alien Droid, and Spiker wave.
   Alien Droids climb at `0x17000` and Spikers at `0x16000`.
 - `levels/74.toml`: closed clover `web4`, adding type-3 Super Flippers every
@@ -906,7 +937,7 @@ newly added levels. You can copy just the executable to another PC; the
 - `levels/76.toml`: closed cross `web10`, adding direct Pulsars every 301
   ticks with five-tick phases to the full type-2/type-3, Mirror, Alien Droid,
   Spiker, Fuseball, and Flipper Tanker wave.
-- `levels/77.toml`: open giraffe-neck `web20`, introducing Fuseball Tankers
+- `levels/77.toml`: open wobbly-U `web17`, introducing Fuseball Tankers
   every 624 ticks in place of direct Pulsars. Alien Droids climb at `0x17800`,
   while Mirrors and Fuseballs use the `0xD000` group.
 - `levels/78.toml`: open distorted-W `web6`, adding direct Pulsars every
@@ -914,11 +945,11 @@ newly added levels. You can copy just the executable to another PC; the
   budget, with four-tick Pulsar phases.
 - `levels/79.toml`: open fifteen-lane `web16`, adding Beasties every 801
   ticks. Type-2 and type-3 Flippers use `0xBE00`; Alien Droids use `0x17C00`.
-- `levels/80.toml`: compact eight-lane `web21`, ending the fifth set with
+- `levels/80.toml`: twelve-lane star `web22`, ending the fifth set with
   both Super Flipper types, all three Tanker types, Mirrors, Alien Droids,
   Fuseballs, Pulsars, and Beasties. Pulsar Tankers replace Spikers at 501 ticks.
 - `levels/81.toml`: big oval `web24`, beginning the sixth set with orange
-  surfaces, amber Flippers, and pickups every eleventh kill. It retains the
+  wireframes, amber Flippers, and pickups every eleventh kill. It retains the
   full level-80 enemy mix with `0xC000` Flippers and seven-tick Pulsar phases.
 - `levels/82.toml`: open spiraloid `web23`, shortening Alien Droid and
   Flipper Tanker intervals to 501 ticks while retaining the full enemy mix.
@@ -930,27 +961,27 @@ newly added levels. You can copy just the executable to another PC; the
   Flippers use `0xC400`, Alien Droids `0x18800`, and Pulsar phases drop to six ticks.
 - `levels/86.toml`: open inverted-bird `web28`, shortening Alien Droid
   generation to 401 ticks within the 71-spawn wave.
-- `levels/87.toml`: tiny-star `web26`, shortening Pulsar Tankers to 451 ticks
+- `levels/87.toml`: D-shaped `web29`, shortening Pulsar Tankers to 451 ticks
   and moving into the `0xC600` Flipper and `0xD800` Fuseball speed groups.
-- `levels/88.toml`: D-shaped `web29`, retaining the 71-spawn full enemy mix
+- `levels/88.toml`: curved-L `web30`, retaining the 71-spawn full enemy mix
   and level-87 speed and interval settings.
-- `levels/89.toml`: curved-L `web30`, shortening Flipper Tankers to 301 ticks.
+- `levels/89.toml`: diagonal double-curve `web32`, shortening Flipper Tankers to 301 ticks.
   Flippers use `0xC800`, Fuseballs `0xE000`, and Pulsar phases drop to five ticks.
-- `levels/90.toml`: mouse-pointer `web31`, increasing the full enemy-mix
+- `levels/90.toml`: cat-head `web33`, increasing the full enemy-mix
   budget to 81 spawns while retaining level-89 speeds and intervals.
-- `levels/91.toml`: diagonal double-curve `web32`, shortening type-3 Flippers
+- `levels/91.toml`: teardrop `web34`, shortening type-3 Flippers
   to 351 ticks and moving into `0xCA00`/`0xE800` movement groups.
-- `levels/92.toml`: cat-head `web33`, shortening Flipper Tankers to 251 ticks
+- `levels/92.toml`: open crinkly-L `web35`, shortening Flipper Tankers to 251 ticks
   within the 81-spawn wave.
-- `levels/93.toml`: teardrop `web34`, increasing direct Pulsars to every
+- `levels/93.toml`: kiss-of-death `web36`, increasing direct Pulsars to every
   101 ticks with four-tick phases and `0xCC00` Flipper movement.
-- `levels/94.toml`: open crinkly-L `web35`, retaining the rapid Pulsar and
+- `levels/94.toml`: open backwards-C `web37`, retaining the rapid Pulsar and
   dense Tanker settings of level 93 in an 81-spawn wave.
-- `levels/95.toml`: kiss-of-death `web36`, shortening Alien Droids to 201
+- `levels/95.toml`: tiny-star `web26`, shortening Alien Droids to 201
   ticks and using the final sixth-set `0xCE00`/`0xF800` speed groups.
-- `levels/96.toml`: backwards-C `web37`, ending the sixth set with 91 spawns
+- `levels/96.toml`: mouse-pointer `web31`, ending the sixth set with 91 spawns
   and Mirrors every 351 ticks alongside the rapid Alien Droid and Pulsar generators.
-- `levels/97.toml`: ring `web5`, starting the final cream-surface/magenta-
+- `levels/97.toml`: ring `web5`, starting the final cream-wireframe/magenta-
   Flipper group. Pickups now repeat every sixteenth kill, Pulsar phases reset
   to seven ticks, and Fuseball Tankers repeat every 424 ticks.
 - `levels/98.toml`: square `web11`, shortening Fuseball Tankers to 324 ticks
@@ -1020,13 +1051,46 @@ The TOML fields use these conventions:
   when present, or the original `0x8000` otherwise. Both tables must agree
   on phase and propagation timing.
 - `appearance.surface` and `appearance.lines`: RGB channels between 0 and 1.
-  `appearance.flipper` uses integer RGB channels between 0 and 255.
+  `surface` is the fallback fill for custom levels without `surface_hues`.
+- `appearance.surface_hues`: optional array of Jaguar CRY hue bytes, one per
+  lane in the TOML vertex order. Hexadecimal values such as `0x33` are supported.
+  This overrides `surface`; an explicit empty array disables the fill entirely.
+  Every bundled level specifies its source-derived palette, including empty
+  palettes for levels 49–64.
+- `appearance.flipper` uses integer RGB channels between 0 and 255.
 - `powerups.kill_interval`: first kill drops a pickup, then every Nth kill.
   Each new level starts a fresh drop counter while retaining collected rewards.
 
 Invalid geometry, out-of-range values, numbering errors, and unknown fields
 are rejected with the offending file's name. Shared player, weapon, palette,
 and animation behavior stays in Rust.
+
+### Web fill colors
+
+The wireframe's `webcol` is not the solid fill color. The `solweb` path sends
+the raw web to `donky.gas` (`yak.s:16518-16555`), whose `web3d` reads a hue word
+for each lane after the web's orientation table (`donky.gas:341-404`). Thus
+level 5's `web9` has blue outlines but blue-to-purple lane fills, from its
+`0x04` through `0x71` palette (`yak.s:21020-21025`). Repeated web shapes retain
+their fill palette even when later level sets change the wireframe hue.
+The `webcol == 1` set, levels 49–64, skips the solid draw
+(`yak.s:16522-16525`).
+
+The 100 TOML palettes follow the actual source vertex sequences, reversing and
+rotating the hue lists along with the lanes. Full sequences distinguish
+retraced edges such as `web26`'s tips. A short or missing source color table is
+read through into the following words, just as the GPU does; `web35` retains
+those resulting colors rather than inventing a missing palette. Palettes for
+the released ordering were also checked directly against the cartridge words.
+
+Shading uses the original sine table, a settled glint of 248, and a rear-rim
+intensity one quarter of the front. The shader's phase load is overwritten by
+the previous face's hue (`donky.gas:399-419`), so those hues also determine the
+relative brightness phases. The first face uses the last face's hue to keep
+the cyclic phase deterministic. Vertex colors advance at 60 Hz while geometry
+and mesh handles stay fixed. The existing entry/death/exit fade still controls
+surface visibility. Custom levels may omit `surface_hues` to retain the RGB
+fill and its static depth shading.
 
 ### Difficulty
 
