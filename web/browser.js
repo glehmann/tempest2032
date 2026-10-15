@@ -1,10 +1,17 @@
+import { touchControls } from './touch.js';
+
 const player = document.querySelector('#player');
 const canvas = document.querySelector('#game');
 const overlay = document.querySelector('#overlay');
 const status = document.querySelector('#status');
 const play = document.querySelector('#play');
 const fullscreen = document.querySelector('#fullscreen');
-const controls = '\n\nMove: arrows / A D · Fire: Space / Z\nJump: X · Superzapper: C\nPause / configuration: P · FPS: F3 · Fullscreen: F\nConfirm: Enter · Back: Esc\n\nControllers supported. Press a controller button to connect.';
+const touch = touchControls(player, canvas);
+function controls() {
+  return touch.enabled
+    ? '\n\nSlide your thumb in the left area to steer. Lift to stop.\nHold Fire to shoot; slide onto Jump or Zapper to use them.\nTap the playfield to pause, then tap Resume, Restart, or Exit.\nSettings is in the top-left corner of Welcome.\nSlide up/down in menus and warps. OK / Back in menus.'
+    : '\n\nMove: arrows / A D · Fire: Space / Z\nJump: X · Superzapper: C\nPause / configuration: P · FPS: F3 · Fullscreen: F\nConfirm: Enter · Back: Esc\nClick the playfield to pause; click a pause-menu choice to activate it.\n\nControllers supported. Press a controller button to connect.';
+}
 const audioContexts = new Set();
 let loaded = false;
 let engaged = false;
@@ -28,6 +35,7 @@ if (AudioContext) {
 function fail(error) {
   failed = true;
   engaged = false;
+  touch.setActive(false);
   overlay.hidden = false;
   status.textContent = `The game could not run.\n${error?.message || String(error)}\nTry a browser with WebGL2 and hardware acceleration enabled.`;
   play.disabled = true;
@@ -35,6 +43,8 @@ function fail(error) {
 }
 
 window.tempestBrowser = {
+  canvasWidth: () => canvas.getBoundingClientRect().width,
+  touchInput: context => touch.read(context),
   active: () => {
     // Observe hide/resume even when both happened between animation frames.
     if (pendingSuspension) {
@@ -45,7 +55,7 @@ window.tempestBrowser = {
   },
   ready: () => {
     loaded = true;
-    status.textContent = `Click Play to enable sound and focus the game.${controls}`;
+    status.textContent = `${touch.enabled ? 'Tap' : 'Click'} Play to enable sound and focus the game.${controls()}`;
     play.disabled = false;
     fullscreen.disabled = false;
   },
@@ -78,6 +88,7 @@ function engage() {
   engaged = true;
   started = true;
   overlay.hidden = true;
+  touch.setActive(true);
   canvas.focus();
 }
 
@@ -85,8 +96,9 @@ function suspend() {
   if (!engaged || failed) return;
   engaged = false;
   pendingSuspension = true;
+  touch.setActive(false);
   overlay.hidden = false;
-  status.textContent = `Game suspended. Click Resume to continue.${controls}`;
+  status.textContent = `Game suspended. ${touch.enabled ? 'Tap' : 'Click'} Resume to continue.${controls()}`;
   play.textContent = 'Resume';
   for (const context of audioContexts) context.suspend().catch(console.warn);
 }

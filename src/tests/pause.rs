@@ -35,6 +35,82 @@ fn key(app: &mut App, key: KeyCode) {
 }
 
 #[test]
+fn pointer_pauses_and_clicks_each_choice_without_keyboard_navigation() {
+    let mut app = app();
+    app.init_resource::<ButtonInput<MouseButton>>()
+        .insert_resource(crate::menu::FrontEnd::new(
+            crate::menu::Screen::Gameplay,
+            true,
+            Vec::new(),
+        ))
+        .init_resource::<crate::messages::Messages>();
+    let window = app
+        .world_mut()
+        .spawn((
+            Window {
+                resolution: (960, 720).into(),
+                ..default()
+            },
+            bevy::window::PrimaryWindow,
+        ))
+        .id();
+    let click = |app: &mut App, point: Vec2| {
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .set_cursor_position(Some(point));
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .reset_all();
+    };
+    click(&mut app, Vec2::new(10., 10.));
+    assert!(app.world().resource::<Time<Virtual>>().is_paused());
+    click(&mut app, Vec2::new(10., 10.));
+    assert!(app.world().resource::<Time<Virtual>>().is_paused());
+    for row in 0..3 {
+        if row > 0 {
+            click(&mut app, Vec2::new(10., 10.));
+        }
+        let (center, _) = choice_layout(row, 320.);
+        click(&mut app, Vec2::new(480., 360. - center * 3.));
+        assert!(!app.world().resource::<Time<Virtual>>().is_paused());
+        if row == 1 {
+            assert!(matches!(
+                app.world().resource::<crate::game::Game>().load,
+                Some(crate::level::LoadReason::Restart)
+            ));
+            app.world_mut().resource_mut::<crate::game::Game>().load = None;
+        }
+    }
+    assert_eq!(
+        app.world().resource::<crate::menu::FrontEnd>().screen,
+        crate::menu::Screen::Welcome
+    );
+}
+
+#[test]
+fn pointer_targets_follow_pause_lettering_in_portrait_and_landscape() {
+    for size in [
+        Vec2::new(320., 450.),
+        Vec2::new(850., 350.),
+        Vec2::new(1280., 800.),
+    ] {
+        let viewport = size.x * 240. / size.y;
+        for row in 0..3 {
+            let (center, _) = choice_layout(row, viewport);
+            let point = size / 2. - Vec2::Y * center * size.y / 240.;
+            assert_eq!(choice_at(point, size), Some(row));
+            assert_eq!(choice_at(Vec2::new(0., point.y), size), None);
+        }
+        assert_eq!(choice_at(Vec2::ZERO, size), None);
+    }
+}
+
+#[test]
 fn pause_stops_fixed_updates_and_resumes_without_catching_up() {
     let mut app = app();
     for _ in 0..10 {

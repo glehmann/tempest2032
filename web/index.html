@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Tempest 2032</title>
     <meta name="description" content="A Tempest 2000 clone with graphics for modern hardware.">
     <meta property="og:type" content="website">
@@ -19,7 +19,21 @@
   </head>
   <body>
     <main id="player" aria-label="Game">
-      <canvas id="game" tabindex="0" aria-label="Tempest 2032 game canvas"></canvas>
+      <div id="viewport">
+        <canvas id="game" tabindex="0" aria-label="Tempest 2032 game canvas"></canvas>
+      </div>
+      <div id="touch-controls" aria-label="Touch controller" hidden>
+        <button data-action="128" id="touch-settings" hidden>Settings</button>
+        <div id="steering-pad" role="group" aria-label="Slide to steer. Touch anywhere here, then slide in a direction. Lift to stop.">
+          <span>Slide to steer</span>
+          <span class="steering-thumb" aria-hidden="true"></span>
+        </div>
+        <div id="touch-actions" role="group" aria-label="Actions">
+          <button data-action="32" id="touch-jump">Jump</button>
+          <button data-action="64" id="touch-zapper" aria-label="Superzapper">Zapper</button>
+          <button data-action="16" id="touch-fire">Fire</button>
+        </div>
+      </div>
       <div id="overlay">
         <p id="status" role="status">Loading game...</p>
         <button id="play" disabled>Play</button>

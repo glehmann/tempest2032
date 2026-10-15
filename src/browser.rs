@@ -12,6 +12,46 @@ extern "C" {
     fn typing_initials(active: bool);
     #[wasm_bindgen(js_name = capabilities)]
     fn capabilities() -> JsValue;
+    #[wasm_bindgen(js_name = touchInput)]
+    fn touch_input(context: &str) -> u32;
+    #[wasm_bindgen(js_name = canvasWidth)]
+    fn canvas_width() -> f32;
+}
+
+pub(crate) fn pointer_position(point: Vec2, window: &Window) -> Vec2 {
+    // Winit reports CSS pointer positions, while canvas fitting can use backing pixels.
+    point * (window.width() / canvas_width().max(1.))
+}
+
+pub(crate) fn touch_keys(
+    front: &crate::menu::FrontEnd,
+    game: &crate::game::Game,
+    time: &Time<Virtual>,
+) -> impl Iterator<Item = KeyCode> {
+    use crate::menu::Screen;
+    let context = match front.screen {
+        Screen::Welcome => "welcome",
+        Screen::Configuration => "configuration",
+        Screen::Initials => "initials",
+        Screen::Gameplay if game.status == crate::game::Status::GameOver => "gameover",
+        Screen::Gameplay if time.is_paused() => "pause",
+        Screen::Gameplay => "gameplay",
+    };
+    let menu = context != "gameplay";
+    let mask = touch_input(context);
+    [
+        KeyCode::ArrowLeft,
+        KeyCode::ArrowRight,
+        KeyCode::ArrowUp,
+        KeyCode::ArrowDown,
+        if menu { KeyCode::Enter } else { KeyCode::KeyZ },
+        if menu { KeyCode::Escape } else { KeyCode::KeyX },
+        KeyCode::KeyC,
+        KeyCode::KeyP,
+    ]
+    .into_iter()
+    .enumerate()
+    .filter_map(move |(bit, key)| (mask & (1 << bit) != 0).then_some(key))
 }
 
 /// Picks the first antialiasing step. Browsers reduce the user agent, so the

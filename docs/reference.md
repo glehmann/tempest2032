@@ -56,6 +56,8 @@ and resume. Pausing freezes gameplay, animations, timers, and audio, and shows
 the original-style red-and-gold PAUSED lettering over the frozen scene.
 The pause menu offers Resume, Restart, and Exit, with Resume selected each time
 it opens. Use up/down arrows or W/S to choose, then Enter or Space to confirm.
+Click or tap the playfield to pause; click or tap a pause-menu choice to activate
+it directly. The hit regions follow the lettering's viewport-scaled layout.
 Restart returns to level one with a fresh score and lives.
 Exit abandons the current run without saving its score and returns to Welcome.
 Press `P` or `Pause` again to resume.
@@ -138,8 +140,8 @@ cache entry cannot read the app key.
 
 The browser version uses Bevy's WebGL2 renderer and a single-threaded
 `wasm32-unknown-unknown` build. All levels, effects, music, and other game assets
-remain embedded. It requires a WebGL2-capable browser and a keyboard or controller;
-touch controls are not implemented.
+remain embedded. It requires a WebGL2-capable browser and supports touch controls,
+a keyboard, or a controller.
 
 Install the WASM target and a `wasm-bindgen-cli` version matching the
 `wasm-bindgen` package in `Cargo.lock`. The current version is 0.2.129:
@@ -158,6 +160,47 @@ Enter / controller A then starts a run from Welcome. The Fullscreen button uses
 the browser's fullscreen API, as does F while the game canvas has focus. F types
 the letter during initials entry. Press a controller button to let the browser detect
 it. Esc on Welcome leaves the game running; close the tab to quit.
+
+Touch controls appear automatically when the browser reports a coarse pointer or
+touch support, including in fullscreen. The Play/Resume prompt shows touch
+instructions on those devices, and keyboard instructions otherwise. Portrait
+reserves a 190-pixel strip below the canvas; landscape overlays translucent
+controls near the bottom edges. Controls
+respect the browser's safe-area insets. Touch anywhere in the left slide area,
+then move your thumb left/right to steer. Hold the displacement to keep moving,
+return to the touch origin or lift to stop. Up/down slides steer in warp stages,
+select menu choices, and edit initials. Fire becomes OK in menus and Jump
+becomes Back; Zapper is hidden there. Fire/OK stays in the bottom-right corner,
+with Zapper directly above and Jump/Back directly to its left.
+An action finger can slide between these buttons;
+crossing the gaps keeps its last action held until it reaches another button.
+Short visits to Jump or Zapper survive between polls. Tap the playfield to pause,
+then tap Resume, Restart, or Exit on the existing menu lettering. Touch controls
+do not trigger playfield taps. Settings sits in the top-left corner on Welcome
+and Configuration. There is no separate pause button. Canvas pointer coordinates
+are mapped to the fitted window size so pause-menu hit regions match the lettering
+on high-DPI displays too.
+
+Buttons and steering directions request a 4 ms vibration on activation and
+on release through `navigator.vibrate`, including action-button slides. Steering
+vibrates when a direction engages, changes, or returns to neutral, without
+repeating while held steady. Entering or leaving the pause
+menu requests the same 4 ms pulse. Input resets do not vibrate. Feedback is best-effort;
+unsupported browsers and contexts continue without it.
+
+`web/touch.js` tracks one steering thumb independently of the action fingers.
+Steering has a 10-CSS-pixel dead zone around the touch origin and caps each axis
+at 32 pixels, following longer slides so reversal does not require crossing the
+whole area. Captured gestures continue outside the slide area's border. The
+latest steering direction replaces pending directions, avoiding opposite inputs
+from a quick reversal between polls. Short gestures and button taps survive
+between input polls. It passes an action bitmask
+through `tempestBrowser.touchInput` in `src/browser.rs`. The controller mapper
+merges touch and physical controller actions before updating the virtual keys,
+ahead of menu, pause, and fixed gameplay input. Screen or pause-context changes
+clear touches so held OK cannot fire into a new run or dismiss game over.
+Pointer cancellation, suspension, resize, rotation, and capability changes clear
+touch state too. Touch changes neither movement rates nor the 60 Hz simulation.
 
 The build uses the `web-release` Cargo profile, with optimization level 2 and the
 native release profile's LTO settings. `tools/web.py` checks the bindings version,

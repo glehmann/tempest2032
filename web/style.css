@@ -3,9 +3,10 @@ body { margin: 0; height: 100vh; height: 100dvh; display: grid; grid-template-ro
 button { font: inherit; padding: 8px 20px; border: 1px solid #70cfff; border-radius: 5px; background: #152943; color: #fff; cursor: pointer; }
 button:disabled { opacity: .5; cursor: wait; }
 button:focus-visible, a:focus-visible { outline: 2px solid #ffdc72; outline-offset: 3px; }
-#player { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #000; }
+#player { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #000; display: grid; grid-template-rows: minmax(0, 1fr); }
+#viewport { min-width: 0; min-height: 0; overflow: hidden; }
 #game { display: block; width: 100%; height: 100%; outline: none; }
-#overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: safe center; align-items: center; background: #000c; padding: 24px; overflow: auto; }
+#overlay { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: safe center; align-items: center; background: #000c; padding: 24px; overflow: auto; }
 #overlay > * { flex-shrink: 0; }
 #overlay[hidden] { display: none; }
 #status { white-space: pre-wrap; text-align: center; max-width: 700px; line-height: 1.7; }
@@ -13,3 +14,27 @@ button:focus-visible, a:focus-visible { outline: 2px solid #ffdc72; outline-offs
 footer { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 6px 12px; background: #070b16; }
 footer a { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #a1aec4; }
 footer a:hover { color: #fff; }
+#touch-controls { position: absolute; inset: 0; pointer-events: none; --key: clamp(44px, 11vh, 64px); }
+#touch-controls[hidden], #touch-controls button[hidden] { display: none; }
+#touch-controls { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#touch-controls button { touch-action: none; }
+#touch-controls button { pointer-events: auto; padding: 0; min-width: var(--key); height: var(--key); border-color: #70cfff90; background: #152943a6; text-shadow: 0 1px 3px #000; }
+#touch-controls button.held { background: #447caee6; border-color: #ffdc72; }
+#steering-pad { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); width: calc(var(--key) * 3 + 6px); height: calc(var(--key) * 3 + 6px); box-sizing: border-box; border: 1px solid #70cfff60; border-radius: 22px; background: #15294360; pointer-events: auto; touch-action: none; --origin-x: 50%; --origin-y: 45%; --drag-x: 0px; --drag-y: 0px; }
+#steering-pad > span:first-child { position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 12px; color: #c6d8ed; pointer-events: none; }
+#steering-pad::before, .steering-thumb { position: absolute; left: var(--origin-x); top: var(--origin-y); transform: translate(-50%, -50%); border: 1px solid #70cfff90; border-radius: 50%; pointer-events: none; }
+#steering-pad::before { content: ''; width: 72px; height: 72px; }
+.steering-thumb { width: 32px; height: 32px; background: #447cae80; margin-left: var(--drag-x); margin-top: var(--drag-y); }
+#steering-pad.held .steering-thumb { background: #447caee6; border-color: #ffdc72; }
+#touch-settings { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 0 12px !important; height: 44px !important; }
+#touch-actions { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); display: grid; grid-template-columns: var(--key) calc(var(--key) * 1.5); gap: 8px; }
+#touch-actions button { border-radius: 50%; font-size: 12px; }
+#touch-jump { grid-area: 2 / 1; align-self: center; }
+#touch-zapper { grid-area: 1 / 2; justify-self: center; }
+#touch-fire { grid-area: 2 / 2; width: calc(var(--key) * 1.5); height: calc(var(--key) * 1.5) !important; font-size: 16px !important; }
+.touch-visible #game { touch-action: none; }
+@media (orientation: portrait) {
+  #player.touch-visible { grid-template-rows: minmax(0, 1fr) calc(190px + env(safe-area-inset-bottom)); }
+  #touch-controls { position: static; --key: clamp(44px, 12.6vw, 52px); background: #070b16; }
+  #steering-pad { height: 120px; width: min(calc(var(--key) * 3 + 6px), calc(100% - var(--key) * 2.5 - 44px)); }
+}

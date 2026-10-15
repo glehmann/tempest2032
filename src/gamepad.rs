@@ -1,5 +1,4 @@
-//! Controller input mapped onto the virtual keys the game already reads, so
-//! every system keeps a single input path.
+//! Controllers and browser touch controls share the game's virtual keys.
 
 use bevy::{
     input::{
@@ -81,9 +80,13 @@ pub(crate) fn map_controllers(
     mut previous_buttons: Local<Vec<GamepadButton>>,
     mut blocked: Local<Vec<GamepadButton>>,
 ) {
-    let menu = front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay)
-        || game.is_some_and(|game| game.status == crate::game::Status::GameOver)
-        || time.is_some_and(|time| time.is_paused());
+    let menu = front
+        .as_ref()
+        .is_some_and(|front| front.screen != crate::menu::Screen::Gameplay)
+        || game
+            .as_ref()
+            .is_some_and(|game| game.status == crate::game::Status::GameOver)
+        || time.as_ref().is_some_and(|time| time.is_paused());
     let buttons: Vec<_> = gamepads
         .iter()
         .flat_map(|pad| pad.get_pressed().copied())
@@ -106,6 +109,12 @@ pub(crate) fn map_controllers(
         .iter()
         .flat_map(|pad| keys_of(pad, menu, &blocked))
         .collect();
+    #[cfg(target_arch = "wasm32")]
+    if let (Some(front), Some(game), Some(time)) =
+        (front.as_deref(), game.as_deref(), time.as_deref())
+    {
+        wanted.extend(crate::browser::touch_keys(front, game, time));
+    }
     wanted.sort_unstable();
     wanted.dedup();
     for key in wanted.iter().filter(|key| !held.contains(key)) {

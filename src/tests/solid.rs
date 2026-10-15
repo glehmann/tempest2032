@@ -18,7 +18,7 @@ fn app() -> App {
 }
 
 #[test]
-fn paused_word_is_gold_and_red_geometry_and_has_no_mouse_controls_or_dimmed_panel() {
+fn paused_word_is_gold_and_red_geometry_without_extra_ui_or_a_dimmed_panel() {
     let glyphs = Glyphs::default();
     assert!(paused_geometry(&glyphs, 384., false).is_empty());
     let triangles = paused_geometry(&glyphs, 384., true);

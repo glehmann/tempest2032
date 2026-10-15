@@ -179,7 +179,7 @@ fn draw(
         let fit = ((viewport - 24.) / 174.).clamp(0.01, 1.);
         for (row, text) in crate::pause::CHOICES.iter().enumerate() {
             let selected = row == menu.selected;
-            let scale = 0.65 * fit;
+            let (center, scale) = crate::pause::choice_layout(row, viewport);
             let left = -(text.len() as f32 * ADVANCE - 2.) * scale / 2.;
             for (index, character) in text.chars().enumerate() {
                 paused.extend(
@@ -195,7 +195,7 @@ fn draw(
                                 (
                                     Vec3::new(
                                         left + (index as f32 * ADVANCE + p.x) * scale,
-                                        5. - row as f32 * 25. - p.y * scale,
+                                        center + (9. - p.y) * scale,
                                         60. + p.z * scale,
                                     ),
                                     color,
@@ -208,7 +208,7 @@ fn draw(
                 let color = crate::cry::color(0x8f, 255);
                 for side in [-1., 1.] {
                     let x = side * (text.len() as f32 * ADVANCE * scale / 2. + 10. * fit);
-                    let y = 5. - row as f32 * 25. - 9. * scale;
+                    let y = center;
                     paused.push([
                         (Vec3::new(x - side * 4. * fit, y, 61.), color),
                         (Vec3::new(x + side * 2. * fit, y + 4. * fit, 61.), color),

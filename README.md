@@ -36,7 +36,7 @@ requests that restore original behavior are welcome.
 
 ## Install and play
 
-**[Play in your browser](https://tempest2032.github.io/)** with a keyboard or controller.
+**[Play in your browser](https://tempest2032.github.io/)** with touch controls, a keyboard, or a controller.
 
 Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
 Then:
@@ -118,6 +118,16 @@ Steam Deck and native, Flatpak, and Snap Steam installations.
 ## Controls
 
 Controller buttons use Xbox names.
+
+On touch devices, slide your thumb in the left control area to steer, and lift
+to stop. Use Fire, Jump, and Zapper on the right; hold Fire to keep shooting.
+Slide up/down in warp stages and menus, including high-score initials entry.
+Menus use OK and Back. Landscape puts the controls over the game;
+portrait gives them a separate strip below it. Controls appear automatically
+on touch devices. Slide from Fire onto Jump or Zapper to use them without lifting
+your finger. Tap the playfield to pause, then tap Resume, Restart, or Exit.
+Settings is in the top-left corner of Welcome. Buttons give short vibration
+feedback where the browser supports it.
 
 | Action | Keyboard | Controller |
 | --- | --- | --- |

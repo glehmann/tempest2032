@@ -27,17 +27,35 @@ def build(profile):
     if actual != f"wasm-bindgen {version}":
         raise SystemExit(f"Install matching bindings: {install}")
     subprocess.run(
-        ["cargo", "build", "--locked", "--target", "wasm32-unknown-unknown", "--profile", profile],
-        cwd=ROOT, check=True,
+        [
+            "cargo",
+            "build",
+            "--locked",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--profile",
+            profile,
+        ],
+        cwd=ROOT,
+        check=True,
     )
     OUTPUT.mkdir(parents=True, exist_ok=True)
     directory = "debug" if profile == "dev" else profile
-    subprocess.run([
-        "wasm-bindgen", "--target", "web", "--no-typescript", "--out-dir", str(OUTPUT),
-        *(["--remove-name-section"] if profile == "web-release" else []),
-        "--out-name", "tempest2032",
-        str(ROOT / f"target/wasm32-unknown-unknown/{directory}/tempest2032.wasm"),
-    ], check=True)
+    subprocess.run(
+        [
+            "wasm-bindgen",
+            "--target",
+            "web",
+            "--no-typescript",
+            "--out-dir",
+            str(OUTPUT),
+            *(["--remove-name-section"] if profile == "web-release" else []),
+            "--out-name",
+            "tempest2032",
+            str(ROOT / f"target/wasm32-unknown-unknown/{directory}/tempest2032.wasm"),
+        ],
+        check=True,
+    )
     for path in (ROOT / "web").iterdir():
         if path.is_file():
             shutil.copy2(path, OUTPUT / path.name)
@@ -47,7 +65,11 @@ def build(profile):
     shutil.copy2(ROOT / "assets/preview.png", OUTPUT / "preview.png")
     version = tag(OUTPUT)
     replace(OUTPUT / "index.html", 'src="browser.js"', f'src="browser.js?v={version}"')
-    replace(OUTPUT / "browser.js", "'./tempest2032.js'", f"'./tempest2032.js?v={version}'")
+    replace(
+        OUTPUT / "browser.js", "'./tempest2032.js'", f"'./tempest2032.js?v={version}'"
+    )
+    replace(OUTPUT / "browser.js", "'./touch.js'", f"'./touch.js?v={version}'")
+    replace(OUTPUT / "index.html", 'href="style.css"', f'href="style.css?v={version}"')
     print(f"Browser build written to {OUTPUT} (version {version})")
 
 
@@ -75,7 +97,9 @@ def replace(path, old, new):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["build", "serve"])
-    parser.add_argument("--profile", default="web-release", choices=["dev", "web-release"])
+    parser.add_argument(
+        "--profile", default="web-release", choices=["dev", "web-release"]
+    )
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     if args.command == "build":
@@ -83,8 +107,10 @@ def main():
     else:
         if not (OUTPUT / "tempest2032_bg.wasm").exists():
             parser.error("Build the browser game first with make web")
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(OUTPUT))
-        with http.server.ThreadingHTTPServer(("127.0.0.1", args.port), handler) as server:
+        handler = functools.partial(
+            http.server.SimpleHTTPRequestHandler, directory=str(OUTPUT)
+        )
+        with http.server.ThreadingHTTPServer(("0.0.0.0", args.port), handler) as server:
             print(f"Play at http://127.0.0.1:{args.port}", flush=True)
             try:
                 server.serve_forever()
