@@ -132,6 +132,72 @@ fn collecting_during_exit_grants_a_droid_on_the_next_webs_first_pickup() {
 }
 
 #[test]
+fn a_surprise_pickup_can_end_the_web_with_enemies_and_spawns_remaining() {
+    use crate::animations::level_exit;
+    use crate::enemies::{flippers::Motion, shots::EnemyShot};
+    use crate::game::{check_game, load_level};
+    use crate::messages::Id;
+    use crate::test_support::{START_PROGRESS, enemy};
+
+    let mut app = app();
+    app.add_systems(
+        FixedUpdate,
+        (advance_powerups, level_exit::animate, check_game)
+            .chain()
+            .before(load_level),
+    );
+    let mut second = Level::default();
+    second.number = 2;
+    app.world_mut()
+        .resource_mut::<crate::level::Levels>()
+        .0
+        .push(second);
+    app.world_mut().resource_mut::<Upgrades>().stage = 1;
+    // The next shared gameplay roll is zero, within suprise's 0..=8 skip range.
+    app.world_mut().resource_mut::<Game>().random = 1972;
+    let enemies = [1, 5].map(|lane| enemy(&mut app, lane, 100 * LANE_UNIT, Motion::Climb));
+    let shot = app
+        .world_mut()
+        .spawn(EnemyShot {
+            lane: 2,
+            depth: 60 * LANE_UNIT,
+            angle: 0,
+        })
+        .id();
+    let mut bonus = pickup(0);
+    bonus.lane = (START_PROGRESS / LANE_UNIT) as usize;
+    bonus.rez = -4;
+    app.world_mut().spawn(bonus);
+    assert!(app.world().resource::<Game>().remaining > 0);
+    ticks(&mut app, 1);
+    let game = app.world().resource::<Game>();
+    assert!(game.status == Status::Exiting && game.outta_here);
+    assert_eq!((game.score, game.lives, game.remaining), (3000, 4, 0));
+    assert_eq!(
+        game.announcements
+            .iter()
+            .map(|event| event.id)
+            .collect::<Vec<_>>(),
+        [Id::OuttaHere, Id::Excellent]
+    );
+    assert!(
+        enemies
+            .into_iter()
+            .chain([shot])
+            .all(|entity| app.world().get_entity(entity).is_err())
+    );
+    assert!(game.exit.is_some());
+    for _ in 0..400 {
+        ticks(&mut app, 1);
+        if app.world().resource::<Level>().number == 2 {
+            break;
+        }
+    }
+    assert_eq!(app.world().resource::<Level>().number, 2);
+    assert_eq!(app.world().resource::<Game>().score, 3000);
+}
+
+#[test]
 fn a_points_pickup_can_earn_a_score_life() {
     let mut app = app();
     app.add_systems(FixedUpdate, advance_powerups);

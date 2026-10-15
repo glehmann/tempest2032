@@ -142,7 +142,7 @@ fn pickups_emit_original_announcements_in_collection_order() {
     let mut upgrades = crate::powerups::Upgrades::default();
     let mut game = Game::default();
     for stage in 0..8 {
-        upgrades.random = 0x2000;
+        game.random = 0x2000;
         upgrades.collect(&mut game);
         let id = upgrades
             .announcements

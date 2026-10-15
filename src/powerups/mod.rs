@@ -16,7 +16,7 @@ pub(crate) use jump::{queue_jump, update_jump};
 pub(crate) use pickups::{PowerUp, advance_powerups, spawn_drop};
 pub(crate) use render::draw_powerups;
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub(crate) struct Upgrades {
     delay: u8,
     stage: u8,
@@ -31,28 +31,6 @@ pub(crate) struct Upgrades {
     warp_tokens: u8,
     frame: u32,
     pub(crate) announcements: Vec<crate::messages::Id>,
-    random: u32,
-}
-
-impl Default for Upgrades {
-    fn default() -> Self {
-        Self {
-            delay: 0,
-            stage: 0,
-            laser: false,
-            jump_enabled: false,
-            jump_height: 0,
-            jump_velocity: 0,
-            jump_queued: false,
-            zapper: superzapper::Superzapper::default(),
-            droid: false,
-            droid_next: false,
-            warp_tokens: 0,
-            frame: 0,
-            announcements: Vec::new(),
-            random: 0x2000,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -127,8 +105,9 @@ impl Upgrades {
                 Reward::Zap
             }
             _ => {
-                self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
-                if self.random >> 24 <= 8 {
+                // suprise uses rannum's shared gameplay stream, not a pickup-only sequence.
+                game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                if game.random >> 24 <= 8 {
                     game.add_score(3000);
                     self.message(crate::messages::Id::OuttaHere);
                     self.message(crate::messages::Id::Excellent);
@@ -164,11 +143,9 @@ impl Upgrades {
     }
 
     pub(crate) fn begin_level(&mut self) {
-        let (tokens, random, frame, droid_next) =
-            (self.warp_tokens, self.random, self.frame, self.droid_next);
+        let (tokens, frame, droid_next) = (self.warp_tokens, self.frame, self.droid_next);
         *self = Self::default();
         self.warp_tokens = tokens;
-        self.random = random;
         self.frame = frame;
         self.droid_next = droid_next;
     }

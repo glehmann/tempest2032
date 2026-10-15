@@ -1564,6 +1564,13 @@ reward sequence unchanged.
 | 6 | Superzap plus a warp token |
 | 7 onward | Surprise bonuses |
 
+The surprise bonus uses the shared gameplay random stream, following `suprise`
+and `rannum` (`yak.s:10628-10654`, `yak.s:17739-17745`). Rolls 0 through 8 award
+3,000 points, OUTTA HERE and EXCELLENT, and start the level exit even with enemies
+and unspawned enemies remaining. Other rolls award 2,000 points. The former
+pickup-only random stream restarted after every death and could not award a skip
+until its 38th surprise roll, making early skips effectively absent in short runs.
+
 The particle laser uses `draw_pring` and the GPU's `pring`, not the four-wing
 `pshot` polygon. Its dots stay two original framebuffer pixels wide, rotate
 with camera-relative depth, and use `pulser` for their color sweep. Their rotation
