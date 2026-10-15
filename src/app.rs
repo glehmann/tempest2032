@@ -93,6 +93,7 @@ fn toggle_fullscreen(
 
 pub(crate) fn run(args: cli::Cli) {
     let mut app = App::new();
+    crate::antialiasing::add_systems(&mut app);
     let direct = args.direct_start();
     let mut store = crate::scores::Store::load();
     let difficulty = args.difficulty.unwrap_or(store.data.difficulty);

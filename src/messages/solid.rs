@@ -63,6 +63,8 @@ fn setup(
         RenderLayers::layer(3),
         Tonemapping::None,
         Msaa::Sample4,
+        // Smooth the combined scene once, after the web, actors, and 3D HUD.
+        bevy::anti_alias::fxaa::Fxaa::default(),
     ));
     let opaque = materials.add(StandardMaterial {
         unlit: true,

@@ -12,9 +12,10 @@ high-resolution displays.
 
 These are the deliberate differences from the original:
 
-- **Resolution.** Everything is drawn at your display's native resolution with
-  anti-aliasing, in any window size and aspect ratio, well beyond 4K. The
-  original drew a 384×240 framebuffer.
+- **Resolution.** The game renders at your display's native resolution, in any
+  window size and aspect ratio, well beyond 4K. The original drew a 384×240
+  framebuffer. Antialiasing smooths geometry and switches off automatically
+  if frame rates stay below 60 FPS.
 - **More visible warp gates.** Gate flight shows the remaining course gates into
   the distance instead of only the nearest three, reducing sudden pop-in on
   high-resolution displays.

@@ -10,6 +10,7 @@ use clap::Parser;
 static ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 mod animations;
+mod antialiasing;
 mod app;
 #[cfg(target_arch = "wasm32")]
 mod browser;

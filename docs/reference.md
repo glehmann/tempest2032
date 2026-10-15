@@ -1249,6 +1249,24 @@ unspent warp tokens preserved. Upgrades reset on entry to the next web.
 The last level loops back to the first. Restart in the pause menu cancels the exit
 and starts a fresh game.
 
+## Antialiasing
+
+All geometry cameras, including both gameplay layers, the 2D effects layer,
+the 3D HUD, and offscreen welcome-screen models, use explicit 4× MSAA. A single
+FXAA pass on the final 3D overlay camera smooths remaining high-contrast edges
+after the scene layers are combined. UI text uses Bevy's font antialiasing;
+original bitmap feedback and particle effects retain their original resolution.
+
+Antialiasing starts enabled on every launch. After a five-second warmup,
+three consecutive one-second windows below 58 rendered updates per second
+disable both MSAA and FXAA for the rest of the session. The tolerance accepts
+59.94 Hz displays and small scheduling variations; isolated stalls do not
+trigger the fallback. Unfocused or hidden windows reset the measurement and
+warmup. Measurements use real time, including in browser builds, and do not
+alter the fixed 60 Hz gameplay simulation. This measures application updates,
+not GPU timings or confirmed display presentations, and reducing antialiasing
+cannot fix every cause of slow rendering.
+
 ## HUD
 
 The HUD uses sharp, beveled 3D score numerals with continuous rainbow colour

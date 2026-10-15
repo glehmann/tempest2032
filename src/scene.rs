@@ -151,6 +151,7 @@ pub(crate) fn setup(
             },
             RenderLayers::layer(layer),
             Tonemapping::None,
+            Msaa::Sample4,
             Projection::Perspective(PerspectiveProjection {
                 fov: 1.2,
                 ..default()
