@@ -80,6 +80,64 @@ fn effect_rates_and_durations_match_the_jaguar_dsp_not_amiga_periods() {
 }
 
 #[test]
+fn spike_hits_use_the_cartridge_sample_and_pretrim_length_pitch() {
+    use crate::enemies::spikers::Spike;
+    use crate::weapons::Bullet;
+    use crate::web::{LANE_UNIT, WORLD_UNIT};
+
+    let mut hits = crate::test_support::app();
+    hits.init_resource::<Sounds>()
+        .add_systems(FixedUpdate, crate::collisions::resolve_hits);
+    let mut playback = app();
+    playback.insert_resource(EffectsPitch(1.));
+    playback.update();
+    let sample = &playback.world().resource::<Catalog>().samples[Effect::Spike as usize];
+    assert_eq!((sample.period, sample.data.len()), (254, 1038));
+    let mut previous_speed = f32::INFINITY;
+    for (length, pitch) in [(150, 674), (30, 554), (3, 527), (0, 524)] {
+        let spike = hits
+            .world_mut()
+            .spawn(Spike {
+                lane: 7,
+                length: length * LANE_UNIT,
+            })
+            .id();
+        hits.world_mut().spawn((
+            Bullet { lane: 7 },
+            Transform::from_xyz(0., 0., 0.06 - (160 - length) as f32 * WORLD_UNIT),
+        ));
+        ticks(&mut hits, 1);
+        let requests = std::mem::take(&mut hits.world_mut().resource_mut::<Sounds>().pending);
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].effect, Effect::Spike);
+        assert_eq!(requests[0].period, Some(pitch));
+        if length > 0 {
+            assert_eq!(
+                hits.world().get::<Spike>(spike).unwrap().length,
+                (length - 3) * LANE_UNIT
+            );
+            hits.world_mut().despawn(spike);
+        } else {
+            assert!(hits.world().get_entity(spike).is_err());
+        }
+        playback.world_mut().resource_mut::<Sounds>().pending = requests;
+        playback.update();
+        let mut voices = playback
+            .world_mut()
+            .query::<(Entity, &AudioPlayer<Sample>, &PlaybackSettings)>();
+        let (entity, player, settings) = voices.single(playback.world()).unwrap();
+        assert_eq!(
+            player.0,
+            playback.world().resource::<Catalog>().shots[Effect::Spike as usize]
+        );
+        assert_eq!(settings.speed, playback_speed(254, pitch));
+        assert!(settings.speed < previous_speed);
+        previous_speed = settings.speed;
+        playback.world_mut().despawn(entity);
+    }
+}
+
+#[test]
 fn the_laser_is_gained_down_because_it_overlaps_itself_four_times() {
     assert!(Effect::Laser.gain() < Effect::Shot.gain());
     assert_eq!(Effect::Shot.gain(), 1.0);
