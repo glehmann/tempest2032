@@ -1855,6 +1855,12 @@ cargo run -- --record-shot-hit target/shot-hit
 This records 15 seconds and injects an enemy shot six seconds into the capture,
 showing entry, the starburst, camera retreat, and re-entry.
 
+Gate-flight failures retain the missed-gate scene for the 151-tick `failcount`
+interval. `failfade`'s one-brad rotation, 500/512 sampling scale, and eight-unit
+intensity loss accumulate each simulation tick before returning to the next web.
+The modern renderer applies these to the frozen scene's camera and materials;
+it does not reproduce the Jaguar framebuffer's repeated resampling artifacts.
+
 ## Original geometry references
 
 The original Tempest 2000 sources are available at
