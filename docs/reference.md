@@ -110,10 +110,23 @@ the WASM target and the bindings CLI version from `Cargo.lock`, then runs
 The workflow publishes `target/web/`, including LICENSE and NOTICE, to the
 `gh-pages` branch of `tempest2032/tempest2032.github.io`. That repository serves
 the branch's root through GitHub Pages, with Jekyll disabled. The source stays
-in `tempest2032/tempest2032`. A dedicated write-enabled deploy key on the website
-repository authenticates publishing; its private half is stored only in the
-source repository's `PAGES_DEPLOY_KEY` Actions secret. To rotate it, replace both
-the website deploy key and the source secret.
+in `tempest2032/tempest2032`. The `Tempest 2032 Pages` GitHub App, installed
+only on the website repository with Contents write access, authenticates
+publishing. The publish job exchanges the app's private key for a token that is
+limited to that repository and expires after an hour. The token cannot change
+workflow files there. The app's client ID and private key are the
+`PAGES_APP_CLIENT_ID` variable and `PAGES_APP_PRIVATE_KEY` secret of the source
+repository's `website` environment, which only accepts deployments from `main`.
+To rotate the key, generate a new one in the app settings, replace the
+environment secret, then delete the old key. A ruleset on the website repository
+blocks deleting or force-pushing `gh-pages`, and only repository admins can
+change `main`.
+
+Building and publishing are separate jobs. The build job compiles third-party
+crates and uses the Rust cache but has no access to the app credentials. It hands
+`target/web/` to the publish job as a workflow artifact. The publish job runs no
+repository code and restores no cache, so a malicious build script or poisoned
+cache entry cannot read the app key.
 
 ## Local browser build
 
