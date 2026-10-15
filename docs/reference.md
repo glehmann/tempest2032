@@ -1298,15 +1298,18 @@ original bitmap feedback and particle effects retain their original resolution.
 
 Antialiasing starts at a step chosen per launch and only ever steps down:
 4× MSAA with FXAA, then FXAA alone, then nothing, for the rest of the session.
-After a 1.5-second warmup, two consecutive half-second windows below 58
+After a 1.5-second warmup, two consecutive half-second windows slower than 50
 rendered updates per second lower the step, and each step-down starts a fresh
 warmup, so a session needs roughly 2.5 seconds to reach FXAA and 5 seconds to
 reach no filtering. Each window drops its slowest tenth before averaging, so a
 single stall cannot lower the step and a mixture of met and missed refresh
-lengths still counts as slow; the tolerance accepts 59.94 Hz displays and small
-scheduling variations. Unfocused or hidden windows reset the measurement,
-warmup, and step to the launch state. `--antialiasing full`, `--antialiasing
-fxaa`, and `--antialiasing off` skip the measurement and start at that step,
+lengths still counts as slow. The 50 FPS bar sits well under the 60 Hz
+simulation: a panel reporting 58 FPS, or a high-refresh display running at
+100 FPS, is still keeping up, and losing smoothing there is a downgrade nobody
+asked for. The tolerance also accepts 59.94 Hz displays and small scheduling
+variations. Unfocused or hidden windows reset the measurement, warmup, and step
+to the launch state. `--antialiasing full`, `--antialiasing fxaa`, and
+`--antialiasing off` skip the measurement and start at that step,
 and the browser accepts the same values as `?aa=`, where `auto` is the default.
 
 The starting step comes from the host. Browsers report their unmasked WebGL
@@ -1319,6 +1322,13 @@ use real time, including in browser builds, and do not alter the fixed 60 Hz
 gameplay simulation. This measures application updates, not GPU timings or
 confirmed display presentations, and reducing antialiasing cannot fix every
 cause of slow rendering.
+
+The starting step and every step below it are each applied for one frame during
+the warmup. The sample count is part of wgpu's pipeline key, so a first-time
+step-down otherwise compiles every pipeline of both camera passes in the frame
+it lands on, which reads as a freeze; building them during the warmup moves that
+cost to startup, while the welcome screen is still loading. Refocusing a
+backgrounded window does not repeat them.
 
 ## HUD
 

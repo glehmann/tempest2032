@@ -2,14 +2,17 @@
 
 use bevy::{anti_alias::fxaa::Fxaa, prelude::*, window::PrimaryWindow};
 use clap::ValueEnum;
+use std::collections::VecDeque;
 use std::time::Duration;
 
 /// Shaders, uploads, and level setup settle before the first reading.
 const WARMUP: Duration = Duration::from_millis(1500);
 const WINDOW: Duration = Duration::from_millis(500);
 const SLOW_WINDOWS: u8 = 2;
-/// Allow 59.94 Hz displays and scheduling jitter without chasing individual stalls.
-const SLOW_FRAME: f64 = 1. / 58.;
+/// The simulation is fixed at 60 Hz, so a machine holding this rate is keeping up
+/// and only a clear shortfall is worth losing smoothing for. This accepts 59.94 Hz
+/// displays, high-refresh panels, and scheduling jitter well below a visible stall.
+const SLOW_FRAME: f64 = 1. / 50.;
 /// About one frame in ten is dropped from a window, and at least one, so a single
 /// stall cannot decide. Short windows keep the frame they drop.
 const TRIM: usize = 10;
@@ -59,6 +62,9 @@ pub(crate) struct Antialiasing {
     elapsed: Duration,
     frames: Vec<Duration>,
     slow_windows: u8,
+    /// Remaining configurations to apply once, so a later step-down finds its
+    /// render targets and pipelines already built instead of compiling them mid-game.
+    prewarm: VecDeque<Quality>,
 }
 
 impl Default for Antialiasing {
@@ -69,6 +75,16 @@ impl Default for Antialiasing {
 
 impl Antialiasing {
     pub(crate) fn new(start: Quality) -> Self {
+        let mut prewarm = VecDeque::new();
+        // Nothing follows a session that starts unfiltered, so it builds nothing.
+        if start != Quality::Off {
+            prewarm.push_back(start);
+            for quality in [Quality::Fxaa, Quality::Off] {
+                if quality != start {
+                    prewarm.push_back(quality);
+                }
+            }
+        }
         Self {
             quality: start,
             start,
@@ -76,6 +92,7 @@ impl Antialiasing {
             elapsed: Duration::ZERO,
             frames: Vec::new(),
             slow_windows: 0,
+            prewarm,
         }
     }
 
@@ -85,6 +102,8 @@ impl Antialiasing {
         }
         if !active {
             *self = Self::new(self.start);
+            // The configurations are already built, so refocusing must not repeat them.
+            self.prewarm.clear();
             return;
         }
         if !self.warmup.is_zero() {
@@ -161,15 +180,18 @@ fn update(
             && window.physical_height() > 0
     });
     state.sample(time.delta(), active);
+    // Sample count is part of wgpu's pipeline key, so an unprepared step-down stalls
+    // on compilation. Pay that cost during the warmup instead.
+    let applied = state.prewarm.pop_front().unwrap_or(state.quality);
     for (mut msaa, fxaa) in &mut cameras {
-        let samples = state.quality.samples();
+        let samples = applied.samples();
         if *msaa != samples {
             *msaa = samples;
         }
         if let Some(mut fxaa) = fxaa
-            && fxaa.enabled != state.quality.filtered()
+            && fxaa.enabled != applied.filtered()
         {
-            fxaa.enabled = state.quality.filtered();
+            fxaa.enabled = applied.filtered();
         }
     }
 }
@@ -222,6 +244,17 @@ mod tests {
         frames(&mut state, 600, 1. / 120.);
         state.sample(Duration::from_secs(10), false);
         assert_eq!(state.quality, Quality::Off);
+    }
+
+    #[test]
+    fn a_frame_rate_that_keeps_up_with_the_simulation_keeps_multisampling() {
+        let mut state = Antialiasing::default();
+        frames(&mut state, 90, 1. / 60.);
+        // A panel that reports 58 FPS now and then is still holding the simulation.
+        frames(&mut state, 300, 1. / 58.);
+        assert_eq!(state.quality, Quality::Full);
+        frames(&mut state, 300, 1. / 120.);
+        assert_eq!(state.quality, Quality::Full);
     }
 
     #[test]
@@ -333,6 +366,77 @@ mod tests {
         }
         assert_eq!(app.world().get::<Msaa>(camera), Some(&Msaa::Sample4));
         assert!(app.world().get::<Fxaa>(camera).unwrap().enabled);
+    }
+
+    #[test]
+    fn the_alternate_configurations_are_built_during_the_warmup() {
+        let mut app = App::new();
+        app.init_resource::<Time<Real>>();
+        add_systems(&mut app, Quality::Full);
+        app.world_mut().spawn((
+            Window {
+                focused: true,
+                ..default()
+            },
+            PrimaryWindow,
+        ));
+        let camera = app
+            .world_mut()
+            .spawn((Camera::default(), Msaa::Sample4, Fxaa::default()))
+            .id();
+        let advance = |app: &mut App| {
+            app.world_mut()
+                .resource_mut::<Time<Real>>()
+                .advance_by(Duration::from_secs_f64(1. / 60.));
+            app.update();
+        };
+        assert!(!app.world().resource::<Antialiasing>().prewarm.is_empty());
+        advance(&mut app);
+        assert_eq!(app.world().get::<Msaa>(camera), Some(&Msaa::Sample4));
+        advance(&mut app);
+        assert_eq!(app.world().get::<Msaa>(camera), Some(&Msaa::Off));
+        assert!(app.world().get::<Fxaa>(camera).unwrap().enabled);
+        advance(&mut app);
+        assert_eq!(app.world().get::<Msaa>(camera), Some(&Msaa::Off));
+        assert!(!app.world().get::<Fxaa>(camera).unwrap().enabled);
+        advance(&mut app);
+        assert_eq!(app.world().get::<Msaa>(camera), Some(&Msaa::Sample4));
+        assert!(app.world().get::<Fxaa>(camera).unwrap().enabled);
+        assert_eq!(
+            app.world().resource::<Antialiasing>().quality,
+            Quality::Full
+        );
+    }
+
+    #[test]
+    fn refocusing_does_not_rebuild_the_configurations() {
+        let mut app = App::new();
+        app.init_resource::<Time<Real>>();
+        add_systems(&mut app, Quality::Full);
+        let window = app
+            .world_mut()
+            .spawn((
+                Window {
+                    focused: true,
+                    ..default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
+        let camera = app
+            .world_mut()
+            .spawn((Camera::default(), Msaa::Sample4))
+            .id();
+        for _ in 0..4 {
+            app.world_mut()
+                .resource_mut::<Time<Real>>()
+                .advance_by(Duration::from_secs_f64(1. / 60.));
+            app.update();
+        }
+        app.world_mut().get_mut::<Window>(window).unwrap().focused = false;
+        app.update();
+        assert!(app.world().resource::<Antialiasing>().prewarm.is_empty());
+        assert_eq!(app.world().get::<Msaa>(camera), Some(&Msaa::Sample4));
     }
 
     #[test]
