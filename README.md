@@ -6,7 +6,7 @@ The goal is to make Tempest 2000 easy to install and play on today's computers,
 preserve its exact gameplay, and update the graphics for modern GPUs and
 high-resolution displays.
 
-![Gameplay on level 9, with a blue web, gold claw, enemies, and explosion rings](assets/steam/gameplay.png)
+[![Animated gameplay on level 8, with a gold claw, particle laser, enemies, and explosion rings](assets/gameplay.gif)](assets/steam/gameplay.png)
 
 ## Differences from the original
 

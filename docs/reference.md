@@ -510,8 +510,8 @@ shortcut ID. Existing custom artwork and nonempty shortcut icons are preserved;
 re-running the installer fills missing artwork and adds an icon to older shortcuts.
 It also replaces the old bundled hero with the reframed version when its bytes
 match the original gameplay image.
-The hero background is a wide gameplay screenshot with a blue
-web, gold claw, enemies, and explosion rings, without HUD or announcement overlays.
+The hero background is a gameplay screenshot of level 8's long V-shaped web,
+with a gold claw, enemies, and explosion rings, without HUD or announcement overlays.
 The screenshot fits within a centered 440-pixel-high area of the 1920×620 hero,
 leaving room for Big Picture's vertical crop and bottom-left logo.
 Running it from the installed copy also works and skips copying onto itself.
@@ -523,6 +523,9 @@ cover captions; `uv` installs the script's Python dependencies. Normal builds an
 installation use the bundled PNGs and need no image conversion tools.
 The hero is generated from `assets/steam/gameplay.png`; to replace that source,
 run `uv run tools/steam_artwork.py --hero-source /path/to/screenshot.png`.
+The README uses `assets/gameplay.gif`, a cropped 4.8-second excerpt of scripted
+level 8 gameplay at 960×465 and 25 frames per second, showing particle-laser fire
+and enemy explosions. Clicking it opens the full-size Steam screenshot.
 
 If detection is ambiguous or Steam is installed in a custom location, use:
 
