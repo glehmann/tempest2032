@@ -40,6 +40,7 @@ def build(profile):
     for name in ["LICENSE", "NOTICE"]:
         shutil.copy2(ROOT / name, OUTPUT / name)
     shutil.copy2(ROOT / "assets/steam/icon.png", OUTPUT / "favicon.png")
+    shutil.copy2(ROOT / "assets/preview.png", OUTPUT / "preview.png")
     print(f"Browser build written to {OUTPUT}")
 
 

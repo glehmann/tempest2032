@@ -110,7 +110,10 @@ the WASM target and the bindings CLI version from `Cargo.lock`, then runs
 
 The workflow publishes `target/web/`, including LICENSE and NOTICE, to the
 `gh-pages` branch of `tempest2032/tempest2032.github.io`. That repository serves
-the branch's root through GitHub Pages, with Jekyll disabled. The source stays
+the branch's root through GitHub Pages, with Jekyll disabled. Alongside the page
+it publishes `assets/preview.png` as `preview.png`, cropped from the Steam
+gameplay screenshot, which link unfurlers such as Slack use for a site preview.
+The source stays
 in `tempest2032/tempest2032`. The `Tempest 2032 Pages` GitHub App, installed
 only on the website repository with Contents write access, authenticates
 publishing. The publish job exchanges the app's private key for a token that is
