@@ -1736,9 +1736,12 @@ crosshair, stars, and a scrolling Mode-7-style surface using the original
 `beasty6.cry` texture. The surface lies at zero height, appearing overhead
 when flying below it and beneath the player when flying above it. Course
 order and difficulty progress independently of normal webs.
-Gate flight draws previews of all remaining course gates beyond the original
-255-unit generation distance, reducing visible pop-in on modern displays. The
-previews follow the generator's distance counters and current speed, including
+Gate flight draws the nearest three gates in full color and the next five with
+progressively lower opacity, reducing visible pop-in on modern displays. Opacity
+falls linearly with distance between the third gate and the hidden ninth gate;
+all gates beyond the eighth are invisible. Icons share their gate's opacity.
+The previews extend beyond the original 255-unit generation distance and
+follow the generator's distance counters and current speed, including
 rotation continuity when a preview becomes a live gate. Only rendering looks
 ahead; gate checks, course spacing, boosts, and scoring retain their original
 simulation timing. Gates on the opposite side of the surface remain hidden.

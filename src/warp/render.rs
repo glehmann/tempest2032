@@ -45,6 +45,7 @@ pub(crate) struct WarpAssets {
     feedback: Handle<Image>,
     feedback_material: Handle<StandardMaterial>,
     gates: [Handle<Mesh>; 2],
+    gate_materials: [Handle<StandardMaterial>; GATES],
     icons: [Handle<Mesh>; 5],
 }
 
@@ -308,6 +309,24 @@ fn gate_views(session: &super::Session) -> Vec<super::Gate> {
     gates
 }
 
+fn gate_opacity(gates: &[super::Gate], rank: usize) -> f32 {
+    if rank < 3 {
+        return 1.;
+    }
+    if rank >= 8 {
+        return 0.;
+    }
+    let near = gates[2].distance;
+    let far = gates.get(8).map_or_else(
+        || {
+            let last = gates.last().unwrap().distance;
+            last + (last - gates[gates.len() - 2].distance).max(1)
+        },
+        |gate| gate.distance,
+    );
+    (far - gates[rank].distance) as f32 / (far - near) as f32
+}
+
 pub(crate) fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -376,7 +395,14 @@ pub(crate) fn setup(
         Visibility::Hidden,
         RenderLayers::layer(0),
     ));
-    for index in 0..GATES {
+    let gate_materials = std::array::from_fn(|_| {
+        materials.add(StandardMaterial {
+            unlit: true,
+            cull_mode: None,
+            ..default()
+        })
+    });
+    for (index, material) in gate_materials.iter().enumerate() {
         commands.spawn((
             WarpNode::Gate(index),
             Mesh3d(gates[0].clone()),
@@ -409,6 +435,7 @@ pub(crate) fn setup(
         feedback,
         feedback_material,
         gates,
+        gate_materials,
         icons,
     });
     commands
@@ -475,6 +502,19 @@ pub(crate) fn draw(
     }
     let Some(session) = session else { return };
     let gates = gate_views(session);
+    if session.kind == ZoneKind::GateFlight {
+        for (rank, gate) in gates.iter().take(8).enumerate() {
+            if let Some(material) = materials.get_mut(&assets.gate_materials[gate.index]) {
+                let alpha = gate_opacity(&gates, rank);
+                material.base_color = Color::srgba(1., 1., 1., alpha);
+                material.alpha_mode = if rank < 3 {
+                    AlphaMode::Opaque
+                } else {
+                    AlphaMode::Blend
+                };
+            }
+        }
+    }
     let failure_age = if session.kind == ZoneKind::GateFlight {
         if let Phase::Failure(ticks) = session.phase {
             151 - ticks.min(151)
@@ -557,7 +597,7 @@ pub(crate) fn draw(
                 if session.kind != ZoneKind::GateFlight {
                     continue;
                 }
-                let Some(gate) = gates.iter().find(|g| g.index == index) else {
+                let Some(gate) = gates.iter().take(8).find(|g| g.index == index) else {
                     continue;
                 };
                 let (x, y, kind) = session.spec(index);
@@ -596,6 +636,76 @@ mod tests {
     use super::*;
     use crate::level::Level;
     use crate::warp::{Gate, Session, ZoneKind};
+
+    #[test]
+    fn three_gates_are_opaque_then_five_fade_by_distance_and_the_rest_are_hidden() {
+        let gates: Vec<_> = [10, 20, 40, 60, 100, 150, 210, 280, 360, 450]
+            .into_iter()
+            .enumerate()
+            .map(|(index, distance)| Gate {
+                index,
+                distance,
+                age: 0,
+            })
+            .collect();
+        let opacity: Vec<_> = (0..gates.len())
+            .map(|rank| gate_opacity(&gates, rank))
+            .collect();
+        assert_eq!(&opacity[..3], &[1.; 3]);
+        assert!(opacity[3..8].iter().all(|alpha| *alpha > 0. && *alpha < 1.));
+        assert!(opacity[2..9].windows(2).all(|pair| pair[0] > pair[1]));
+        assert_eq!(&opacity[8..], &[0., 0.]);
+        assert_eq!(opacity[3], 300. / 320.);
+        assert_eq!(opacity[7], 80. / 320.);
+        let mut farther = gates.clone();
+        farther[3].distance = 80;
+        assert!(gate_opacity(&farther, 3) < opacity[3]);
+        assert!(gate_opacity(&gates[..4], 3) > 0.);
+    }
+
+    #[test]
+    fn gate_and_icon_materials_share_opacity_and_no_more_than_eight_gates_are_drawn() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<Game>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, draw);
+        let mut game = app.world_mut().resource_mut::<Game>();
+        game.status = Status::Bonus;
+        game.bonus = Some(Session::new(ZoneKind::GateFlight, 0, Some(1), 0));
+        app.update();
+        let mut nodes = app
+            .world_mut()
+            .query::<(&WarpNode, &Visibility, &MeshMaterial3d<StandardMaterial>)>();
+        let assets = app.world().resource::<WarpAssets>();
+        let materials = app.world().resource::<Assets<StandardMaterial>>();
+        let mut visible_gates = 0;
+        for (node, visibility, material) in nodes.iter(app.world()) {
+            let (WarpNode::Gate(index) | WarpNode::Icon(index)) = *node else {
+                continue;
+            };
+            assert_eq!(material.0, assets.gate_materials[index]);
+            if index >= 8 {
+                assert_eq!(*visibility, Visibility::Hidden);
+            } else {
+                if matches!(node, WarpNode::Gate(_)) {
+                    assert_eq!(*visibility, Visibility::Visible);
+                    visible_gates += 1;
+                }
+                let material = materials.get(&material.0).unwrap();
+                if index < 3 {
+                    assert_eq!(material.base_color.to_linear(), Color::WHITE.to_linear());
+                    assert_eq!(material.alpha_mode, AlphaMode::Opaque);
+                } else {
+                    assert!(material.base_color.alpha() > 0. && material.base_color.alpha() < 1.);
+                    assert_eq!(material.alpha_mode, AlphaMode::Blend);
+                }
+            }
+        }
+        assert_eq!(visible_gates, 8);
+    }
 
     #[test]
     fn distant_gate_previews_cover_the_course_and_join_live_gates_without_popping() {
