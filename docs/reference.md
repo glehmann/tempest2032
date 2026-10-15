@@ -1477,6 +1477,11 @@ of invulnerability.
 Choose **Restart** in the pause menu to restart on level one. After a level-clear exit, the next web loads
 automatically.
 
+The HUD warp-token pyramids have fixed red tips, green base corners, and white
+central highlights, matching the [original-game screenshot on Wikipedia](https://en.wikipedia.org/wiki/File:JAG_Tempest_2000.png).
+They do not pulse. This screenshot-based palette replaces `makepyr`'s animated
+hue phases from the available assembly.
+
 ## Power-ups
 
 Level one's `pup_stuff` entry is `$0404`, but `stdinit` clears the active byte.

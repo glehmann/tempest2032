@@ -141,10 +141,10 @@ pub(crate) fn update_hud(
             Vec2::new(0., 12.),
         ];
         let colors = [
-            crate::cry::color(0x8f, 95),
-            crate::cry::color(0x8f, 95),
-            crate::cry::color(0x8f, 95),
-            crate::cry::color(0x88, 255),
+            Color::srgb_u8(0, 95, 0),
+            Color::srgb_u8(95, 0, 0),
+            Color::srgb_u8(0, 95, 0),
+            Color::WHITE,
         ];
         for face in [[0, 1, 3], [1, 2, 3], [2, 0, 3]] {
             triangles
