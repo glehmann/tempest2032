@@ -455,6 +455,7 @@ fn add_systems(app: &mut App) {
             (fit_camera.run_if(normal_scene), load_level, update_hud).chain(),
         )
         .add_systems(Update, sync_web.after(load_level))
+        .add_systems(Update, warp::failure::draw.after(warp::render::draw))
         .add_systems(
             Update,
             warp::render::draw

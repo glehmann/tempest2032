@@ -10,6 +10,7 @@ use clap::ValueEnum;
 use std::collections::VecDeque;
 
 mod courses;
+pub(crate) mod failure;
 pub(crate) mod render;
 mod rings;
 mod tunnel;

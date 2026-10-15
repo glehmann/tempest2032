@@ -1,0 +1,308 @@
+//! failfade reprocesses the last displayed bitmap, like the game-over feedback.
+
+use super::{Phase, ZoneKind};
+use crate::{
+    cry,
+    game::{Game, Status},
+};
+use bevy::{
+    asset::RenderAssetUsages,
+    prelude::*,
+    render::{
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::screenshot::{Screenshot, ScreenshotCaptured},
+    },
+};
+use std::collections::HashMap;
+
+const WIDTH: usize = 384;
+const HEIGHT: usize = 240;
+// Like gofeed, pace completed feedback frames at 15 Hz, independently of rendering.
+const TICKS_PER_FRAME: u16 = 4;
+
+#[derive(Resource, Default)]
+pub(crate) struct Feedback {
+    source: Option<u32>,
+    generation: u64,
+    pixels: Vec<u16>,
+    scratch: Vec<u16>,
+    age: u16,
+}
+
+impl Feedback {
+    fn capture(&mut self, image: &Image) {
+        let image = image
+            .clone()
+            .try_into_dynamic()
+            .expect("failure frame must be readable")
+            .to_rgb8();
+        let mut colors = HashMap::new();
+        self.pixels = (0..WIDTH * HEIGHT)
+            .map(|i| {
+                let pixel = image
+                    .get_pixel(
+                        ((i % WIDTH) as u32 * image.width()) / WIDTH as u32,
+                        ((i / WIDTH) as u32 * image.height()) / HEIGHT as u32,
+                    )
+                    .0;
+                *colors.entry(pixel).or_insert_with(|| encode(pixel))
+            })
+            .collect();
+        self.scratch = vec![0; WIDTH * HEIGHT];
+    }
+
+    fn advance(&mut self, age: u16) {
+        if self.pixels.is_empty() {
+            return;
+        }
+        while self.age < age / TICKS_PER_FRAME {
+            cry::feedback(
+                &mut self.pixels,
+                &mut self.scratch,
+                UVec2::new(WIDTH as u32, HEIGHT as u32),
+                1,
+                Vec2::splat(500. / 256.),
+                -8 * 65536,
+            );
+            self.age += 1;
+        }
+    }
+}
+
+// The modern renderer produces RGB; choose the nearest CRY hue and intensity once.
+fn encode(rgb: [u8; 3]) -> u16 {
+    let rgb = rgb.map(i32::from);
+    (0..256)
+        .map(|hue| {
+            let channels = [&cry::RED, &cry::GREEN, &cry::BLUE]
+                .map(|table| i32::from(table[hue >> 4][hue & 15]));
+            let intensity = (rgb.iter().zip(channels).map(|(a, b)| a * b).sum::<i32>() * 256
+                / channels.iter().map(|c| c * c).sum::<i32>().max(1))
+            .clamp(0, 255);
+            let error = rgb
+                .iter()
+                .zip(channels)
+                .map(|(a, b)| (a - b * intensity / 256).pow(2))
+                .sum::<i32>();
+            (error, (hue as u16) << 8 | intensity as u16)
+        })
+        .min_by_key(|(error, _)| *error)
+        .unwrap()
+        .1
+}
+
+#[derive(Component)]
+pub(crate) struct Canvas;
+
+pub(crate) fn setup(commands: &mut Commands, images: &mut Assets<Image>) {
+    let mut image = Image::new_fill(
+        Extent3d {
+            width: WIDTH as u32,
+            height: HEIGHT as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &[0, 0, 0, 255],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    image.sampler = bevy::image::ImageSampler::nearest();
+    commands.insert_resource(Feedback::default());
+    commands.spawn((
+        Canvas,
+        ImageNode::new(images.add(image)),
+        Visibility::Hidden,
+        Node {
+            position_type: PositionType::Absolute,
+            width: percent(100),
+            height: percent(100),
+            ..default()
+        },
+        GlobalZIndex(30),
+    ));
+}
+
+pub(crate) fn draw(
+    mut commands: Commands,
+    game: Res<Game>,
+    mut feedback: ResMut<Feedback>,
+    mut images: ResMut<Assets<Image>>,
+    mut canvas: Single<(&ImageNode, &mut Visibility), With<Canvas>>,
+) {
+    let failure = game
+        .bonus
+        .as_ref()
+        .filter(|session| game.status == Status::Bonus && session.kind == ZoneKind::GateFlight)
+        .and_then(|session| match session.phase {
+            Phase::Failure(ticks) => {
+                let age = 151 - ticks.min(151);
+                Some((session.tick.saturating_sub(u32::from(age)), age))
+            }
+            _ => None,
+        });
+    let source = failure.map(|(source, _)| source);
+    if source != feedback.source {
+        feedback.source = source;
+        feedback.generation = feedback.generation.wrapping_add(1);
+        feedback.pixels.clear();
+        feedback.age = 0;
+        if source.is_some() {
+            let generation = feedback.generation;
+            commands.spawn(Screenshot::primary_window()).observe(
+                move |event: On<ScreenshotCaptured>, mut feedback: ResMut<Feedback>| {
+                    if feedback.source.is_some() && feedback.generation == generation {
+                        feedback.capture(&event.image);
+                    }
+                },
+            );
+        }
+    }
+    *canvas.1 = Visibility::Hidden;
+    let Some((_, age)) = failure else { return };
+    feedback.advance(age);
+    if feedback.pixels.is_empty() {
+        return;
+    }
+    *canvas.1 = Visibility::Visible;
+    if let Some(image) = images.get_mut(&canvas.0.image) {
+        for (pixel, rgba) in feedback
+            .pixels
+            .iter()
+            .zip(image.data.as_mut().unwrap().as_chunks_mut::<4>().0)
+        {
+            let hue = (pixel >> 8) as usize;
+            for (channel, table) in [&cry::RED, &cry::GREEN, &cry::BLUE].iter().enumerate() {
+                rgba[channel] = ((u16::from(table[hue >> 4][hue & 15]) * (pixel & 255)) >> 8) as u8;
+            }
+            rgba[3] = 255;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame() -> Image {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: WIDTH as u32,
+                height: HEIGHT as u32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        );
+        for (i, pixel) in image
+            .data
+            .as_mut()
+            .unwrap()
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .enumerate()
+        {
+            if i % WIDTH % 32 < 4 || i / WIDTH % 32 < 4 {
+                *pixel = [240, 80, 20, 255];
+            }
+        }
+        image
+    }
+
+    #[test]
+    fn bitmap_feedback_accumulates_distortion_and_fade_at_fifteen_hz() {
+        let mut feedback = Feedback::default();
+        feedback.capture(&frame());
+        let original = feedback.pixels.clone();
+        feedback.advance(3);
+        assert_eq!(original, feedback.pixels);
+        feedback.advance(4);
+        assert_ne!(original, feedback.pixels);
+        let first = feedback.pixels.clone();
+        feedback.advance(7);
+        assert_eq!(first, feedback.pixels);
+        for tick in 8..=80 {
+            feedback.advance(tick);
+        }
+        let mut skipped = Feedback::default();
+        skipped.capture(&frame());
+        skipped.advance(80);
+        assert_eq!(feedback.pixels, skipped.pixels);
+        assert!(
+            feedback
+                .pixels
+                .iter()
+                .map(|p| u64::from(p & 255))
+                .sum::<u64>()
+                < original.iter().map(|p| u64::from(p & 255)).sum::<u64>()
+        );
+        feedback.advance(150);
+        assert!(feedback.pixels.iter().all(|p| p & 255 == 0));
+    }
+
+    #[test]
+    fn failure_captures_once_displays_feedback_and_discards_late_captures_on_return() {
+        let mut app = App::new();
+        app.init_resource::<Game>()
+            .init_resource::<Assets<Image>>()
+            .add_systems(
+                Startup,
+                |mut commands: Commands, mut images: ResMut<Assets<Image>>| {
+                    setup(&mut commands, &mut images)
+                },
+            )
+            .add_systems(Update, draw);
+        let mut session = super::super::Session::new(ZoneKind::GateFlight, 0, Some(1), 0);
+        session.tick = 200;
+        session.phase = Phase::Failure(151);
+        let mut game = app.world_mut().resource_mut::<Game>();
+        game.status = Status::Bonus;
+        game.bonus = Some(session);
+        app.update();
+        let request = app
+            .world_mut()
+            .query_filtered::<Entity, With<Screenshot>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut().trigger(ScreenshotCaptured {
+            entity: request,
+            image: frame(),
+        });
+        app.update();
+        assert_eq!(
+            app.world_mut()
+                .query::<&Screenshot>()
+                .iter(app.world())
+                .count(),
+            1
+        );
+        let canvas = app
+            .world_mut()
+            .query_filtered::<Entity, With<Canvas>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(
+            app.world().get::<Visibility>(canvas),
+            Some(&Visibility::Visible)
+        );
+        let mut game = app.world_mut().resource_mut::<Game>();
+        let session = game.bonus.as_mut().unwrap();
+        session.tick += 20;
+        session.phase = Phase::Failure(131);
+        app.update();
+        assert_eq!(app.world().resource::<Feedback>().age, 5);
+        app.world_mut().resource_mut::<Game>().status = Status::Playing;
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(canvas),
+            Some(&Visibility::Hidden)
+        );
+        app.world_mut().trigger(ScreenshotCaptured {
+            entity: request,
+            image: frame(),
+        });
+        assert!(app.world().resource::<Feedback>().pixels.is_empty());
+    }
+}

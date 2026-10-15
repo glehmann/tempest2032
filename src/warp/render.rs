@@ -39,8 +39,6 @@ pub(crate) struct Crosshair;
 
 #[derive(Resource)]
 pub(crate) struct WarpAssets {
-    material: Handle<StandardMaterial>,
-    ground_material: Handle<StandardMaterial>,
     ground: Handle<Mesh>,
     tunnel: Handle<Mesh>,
     rings: Handle<Mesh>,
@@ -283,6 +281,7 @@ pub(crate) fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
+    super::failure::setup(&mut commands, &mut images);
     let gates = [meshes.add(gate_mesh(false)), meshes.add(gate_mesh(true))];
     let icons = std::array::from_fn(|kind| meshes.add(icon_mesh(kind)));
     let material = materials.add(StandardMaterial {
@@ -371,8 +370,6 @@ pub(crate) fn setup(
         RenderLayers::layer(1),
     ));
     commands.insert_resource(WarpAssets {
-        material,
-        ground_material,
         ground,
         tunnel,
         rings,
@@ -453,13 +450,6 @@ pub(crate) fn draw(
     } else {
         0
     };
-    // failfade samples at 500/512 scale, rotates one brad, and subtracts eight intensity units.
-    let brightness = (1. - f32::from(failure_age) * 8. / 255.).max(0.);
-    for handle in [&assets.material, &assets.ground_material] {
-        if let Some(material) = materials.get_mut(handle) {
-            material.base_color = Color::srgb(brightness, brightness, brightness);
-        }
-    }
     for mut window in &mut windows {
         window.title = format!(
             "Tempest 2032 | {} | Course {}",
@@ -474,10 +464,8 @@ pub(crate) fn draw(
     };
     for (mut pose, mut projection) in &mut cameras {
         *pose = Transform::from_xyz(position.x * SCALE, -position.y * SCALE, 0.);
-        pose.rotation = Quat::from_rotation_z(-f32::from(failure_age) * TAU / 256.);
         if let Projection::Perspective(perspective) = &mut *projection {
-            perspective.fov =
-                2. * (0.6_f32.tan() * (500_f32 / 512.).powi(i32::from(failure_age))).atan();
+            perspective.fov = 1.2;
             perspective.near = 0.01;
             perspective.far = 500.;
             if session.rings.is_some()
@@ -655,7 +643,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_gate_rotates_zooms_and_darkens_the_frozen_scene() {
+    fn failed_gate_keeps_the_source_scene_frozen_for_bitmap_feedback() {
         let mut app = App::new();
         app.init_resource::<Assets<Mesh>>()
             .init_resource::<Assets<StandardMaterial>>()
@@ -695,23 +683,12 @@ mod tests {
         session.phase = Phase::Failure(131);
         app.update();
         let pose = app.world().get::<Transform>(camera).unwrap();
-        assert!(pose.rotation.angle_between(Quat::IDENTITY) > 0.4);
+        assert_eq!(pose.rotation, Quat::IDENTITY);
         let Projection::Perspective(projection) = app.world().get::<Projection>(camera).unwrap()
         else {
             panic!()
         };
-        assert!(projection.fov < 0.9);
-        let assets = app.world().resource::<WarpAssets>();
-        assert!(
-            app.world()
-                .resource::<Assets<StandardMaterial>>()
-                .get(&assets.ground_material)
-                .unwrap()
-                .base_color
-                .to_srgba()
-                .red
-                < 0.4
-        );
+        assert_eq!(projection.fov, 1.2);
         assert_eq!(frozen_uvs, uvs(&app));
     }
 
