@@ -35,6 +35,8 @@ requests that restore original behavior are welcome.
 
 ## Install and play
 
+**[Play in your browser](https://tempest2032.github.io/)** with a keyboard or controller.
+
 Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
 Then:
 

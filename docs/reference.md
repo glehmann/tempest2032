@@ -100,6 +100,21 @@ libraries. On Debian or Ubuntu, install `build-essential`, `pkg-config`,
 graphical desktop and a Vulkan-capable graphics driver. Windows and macOS use
 their native window backends.
 
+## Browser deployment
+
+Play at <https://tempest2032.github.io/>. The `Browser deployment` workflow builds
+the browser game on pushes to `main` and manual dispatches from `main`. It installs
+the WASM target and the bindings CLI version from `Cargo.lock`, then runs
+`python3 tools/web.py build` with the optimized `web-release` profile.
+
+The workflow publishes `target/web/`, including LICENSE and NOTICE, to the
+`gh-pages` branch of `tempest2032/tempest2032.github.io`. That repository serves
+the branch's root through GitHub Pages, with Jekyll disabled. The source stays
+in `tempest2032/tempest2032`. A dedicated write-enabled deploy key on the website
+repository authenticates publishing; its private half is stored only in the
+source repository's `PAGES_DEPLOY_KEY` Actions secret. To rotate it, replace both
+the website deploy key and the source secret.
+
 ## Local browser build
 
 The browser version uses Bevy's WebGL2 renderer and a single-threaded
@@ -155,7 +170,7 @@ Filesystem level overrides, capture tools, and Steam installation are native-onl
 
 The same validated player TOML is stored in `localStorage` under the key
 `tempest2032/player.toml`. Scores and difficulty are local to the browser and
-origin, so `localhost`, `127.0.0.1`, different ports, and a future hosted site have
+origin, so `localhost`, `127.0.0.1`, different ports, and the hosted site have
 separate data. Clearing site data removes the tables. Invalid stored data is
 preserved and disables saving for that session; storage failures show a notice.
 
