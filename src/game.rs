@@ -491,7 +491,7 @@ pub(crate) fn load_level(
     game.bonus = None;
     if game.lives > 0 {
         reset_wave(&mut game, &level);
-        if level.number > 1 {
+        if matches!(reason, LoadReason::Advance | LoadReason::ReturnWarp { .. }) {
             game.announce(crate::messages::Id::SuperzapperRecharge);
         }
     } else {

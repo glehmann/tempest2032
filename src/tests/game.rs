@@ -308,6 +308,41 @@ fn score_awards_every_twenty_thousand_boundary_including_multiple_lives_at_once(
 }
 
 #[test]
+fn new_runs_and_retries_recharge_silently_but_web_transitions_announce() {
+    for initials in [None, Some(*b"ABC")] {
+        let mut app = app();
+        app.world_mut().resource_mut::<Levels>().0 = (1..=10)
+            .map(|number| Level {
+                number,
+                ..default()
+            })
+            .collect();
+        app.world_mut().resource_mut::<Game>().load =
+            Some(LoadReason::StartLevel { index: 8, initials });
+        ticks(&mut app, 1);
+        assert_eq!(app.world().resource::<Level>().number, 9);
+        assert!(app.world().resource::<Game>().announcements.is_empty());
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
+        ticks(&mut app, 1);
+        assert!(app.world().resource::<Game>().announcements.is_empty());
+        for reason in [
+            LoadReason::Advance,
+            LoadReason::ReturnWarp { destination: 8 },
+        ] {
+            app.world_mut().resource_mut::<Game>().load = Some(reason);
+            ticks(&mut app, 1);
+            let mut game = app.world_mut().resource_mut::<Game>();
+            assert_eq!(game.announcements.len(), 1);
+            assert_eq!(
+                game.announcements[0].id,
+                crate::messages::Id::SuperzapperRecharge
+            );
+            game.announcements.clear();
+        }
+    }
+}
+
+#[test]
 fn level_loading_distinguishes_advancing_retrying_and_restarting() {
     let mut app = app();
     let mut second = Level::default();
@@ -360,11 +395,7 @@ fn level_loading_distinguishes_advancing_retrying_and_restarting() {
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Level>().number, 2);
-    assert_eq!(app.world().resource::<Game>().announcements.len(), 1);
-    assert_eq!(
-        app.world().resource::<Game>().announcements[0].id,
-        crate::messages::Id::SuperzapperRecharge
-    );
+    assert!(app.world().resource::<Game>().announcements.is_empty());
     assert!(!app.world().resource::<powerups::Upgrades>().laser);
     assert_eq!(
         app.world_mut()

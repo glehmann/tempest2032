@@ -27,8 +27,9 @@ pub(crate) struct EnemyShot {
 }
 
 pub(crate) fn enemy_shot_mesh() -> Mesh {
+    // Keep the larger darts, but move each one inward by 1.5 source pixels.
     let vertices = [(1., 9.), (4., 9.), (5., 8.), (5., 10.)]
-        .map(|(x, y)| Vec3::new((x - 9.) * 0.075, (9. - y) * 0.075, 0.0));
+        .map(|(x, y)| Vec3::new((x - 7.5) * 0.15, (9. - y) * 0.15, 0.0));
     let faces = [
         ([135, 104, 255], [(2, 192), (1, 255), (0, 64)]),
         ([224, 255, 71], [(3, 192), (1, 255), (0, 64)]),

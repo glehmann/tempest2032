@@ -1311,8 +1311,12 @@ object is zapped. On level one, the newest Flipper is usually the farthest down
 the web, but the zapper does not compare distances.
 Both uses recharge on web entry, including a retry after losing a life. Holding `C`
 does not spend the second use automatically. An empty zap still uses a charge.
-The recharge announcement is silent on level one, including new runs and retries;
-later levels still show the message and play the recharge sound.
+Initial launches on every level, including Key and direct `--level` starts, and
+life-loss retries recharge silently. They follow `setweb`/`sweb`, which resets
+`szap_avail` (`yak.s:8657-8659`) without announcing it. Only the `sweb0` path
+after advancing or returning from a warp shows the recharge message and plays
+its sound (`yak.s:8969-8974`). Announcement timing follows the load reason,
+not the level number.
 
 Zaps bypass Beastie armor and normal shot windows, and open Tankers normally.
 Tankers' released enemies remain eligible for subsequent bolts. Mirrors,
@@ -1426,6 +1430,14 @@ Climbing Flippers also fire at the player. Level one allows one enemy shot
 in flight. It uses `s_shot`'s three rotating chevrons, shaded with the original
 purple and yellow-green CRY colors. Enemy shots travel toward the rim at
 `0x18000` depth units per tick, and your shots can intercept them.
+Their chevrons render at 0.15 world units per source pixel, twice the previous
+mesh scale, to make the three darts easier to see against the filled web.
+Each dart is moved inward by 1.5 source pixels before the three rotations,
+reducing the projectile's outer radius from 1.2 to 0.975 world units while
+preserving the individual chevron dimensions.
+This is a presentation adjustment based on comparison with the original;
+movement, four-unit rotation steps, lane/depth collisions, and firing limits
+do not depend on that mesh scale.
 
 Destroying a Flipper replaces it with the original's ring explosion. The
 source turns the enemy into a `dpring` object, which draws two rings of single
