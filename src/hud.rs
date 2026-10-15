@@ -196,6 +196,7 @@ pub(crate) fn toggle_fps(
 
 pub(crate) fn update_fps(
     time: Res<Time<Real>>,
+    antialiasing: Res<crate::antialiasing::Antialiasing>,
     #[cfg(not(target_arch = "wasm32"))] diagnostics: Res<DiagnosticsStore>,
     mut meter: ResMut<FpsMeter>,
     mut label: Single<&mut Text, With<FpsLabel>>,
@@ -243,7 +244,10 @@ pub(crate) fn update_fps(
     .map_or(String::new(), |gib| {
         format!("  MEM {:.0} MiB", gib * 1024.0)
     });
-    let text = format!("{fps:.0} FPS  {fastest:.1}-{slowest:.1} ms");
+    let text = format!(
+        "{fps:.0} FPS  {fastest:.1}-{slowest:.1} ms  AA {}",
+        if antialiasing.enabled { "on" } else { "off" }
+    );
     #[cfg(not(target_arch = "wasm32"))]
     let text = format!("{text}{cpu}{memory}");
     if label.0 != text {

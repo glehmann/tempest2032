@@ -4,8 +4,8 @@ use bevy::{anti_alias::fxaa::Fxaa, prelude::*, window::PrimaryWindow};
 use std::time::Duration;
 
 #[derive(Resource)]
-struct Antialiasing {
-    enabled: bool,
+pub(crate) struct Antialiasing {
+    pub(crate) enabled: bool,
     warmup: Duration,
     elapsed: Duration,
     frames: u32,
