@@ -563,12 +563,23 @@ direct playback increment for effects. Playback follows the Jaguar driver in
 at the SSI rate with clock divider 27. Higher pitch values play faster.
 Explosion pitch varies without consuming gameplay random numbers.
 Spike hits play sample 13, "Tink For Spike", with a playback increment of
-`524 + (remaining_integer_length & 511)`, sampled before removing three units.
-Both `decspike` (`yak.s:11931–11943`) and the released cartridge at file offset
-`0xb996` confirm this formula. The embedded 1,038-byte sample also matches the
-cartridge exactly. Higher increments play faster, so successive hits lower the
-pitch as the spike shrinks. The earlier observation-based rising-pitch formula
-was incorrect.
+`524 + (remaining_integer_length & 511)`, sampled before removing three units,
+following `decspike` (`yak.s:11931–11943`, cartridge file offset `0xb996`).
+The embedded 1,038-byte sample matches the cartridge exactly. Spike playback
+reproduces the Jaguar's fixed SSI output stage at about 14,838.7 Hz: advance an
+8:8 sample position by `floor(pitch * 28 / 43)` each tick, then interpolate with
+the DSP mixer's 255-based weights. The mixer is embedded in `moomoo.dat` at
+`$5ed4`, copied to `$f1b000`; the first voice's stepping and interpolation are
+at DSP addresses `$f1b084–$f1b0b4` and `$f1b258–$f1b266`.
+
+This output stage matters because the spike tone exceeds the SSI Nyquist
+frequency. Its alias is the original game's lower, rising sound: trimming a
+30-unit spike to zero moves its main peak from about 4.67 kHz to 5.20 kHz, even
+though the sample increment falls from 360 to 341. Sending the source PCM
+straight to a modern output at its calculated playback rate instead produces
+a roughly 10 kHz tone with the wrong pitch direction. Earlier inverted or
+offset length curves tried to compensate for that missing output stage and
+have been removed. A spectral regression checks the actual decoded waveform.
 The upgraded laser fires every three ticks instead of four and its 405 ms sample
 is more than twice as loud as the plain shot, so four copies overlap while the
 trigger is held. It therefore plays at a fifth of the usual effect gain, which

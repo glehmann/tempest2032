@@ -72,7 +72,7 @@ fn effect_rates_and_durations_match_the_jaguar_dsp_not_amiga_periods() {
 }
 
 #[test]
-fn spike_hits_use_the_cartridge_sample_and_pretrim_length_pitch() {
+fn spike_hits_use_the_original_sample_with_rising_pitch_as_the_spike_shrinks() {
     use crate::enemies::spikers::Spike;
     use crate::weapons::Bullet;
     use crate::web::{LANE_UNIT, WORLD_UNIT};
@@ -84,8 +84,13 @@ fn spike_hits_use_the_cartridge_sample_and_pretrim_length_pitch() {
     playback.update();
     let sample = &playback.world().resource::<Catalog>().samples[Effect::Spike as usize];
     assert_eq!((sample.period, sample.data.len()), (254, 1038));
-    let mut previous_speed = f32::INFINITY;
-    for (length, pitch) in [(150, 674), (30, 554), (3, 527), (0, 524)] {
+    let mut previous_frequency = 0.;
+    for (length, pitch, expected_frequency) in [
+        (150, 674, 2462.),
+        (30, 554, 4666.),
+        (3, 527, 5146.),
+        (0, 524, 5203.),
+    ] {
         let spike = hits
             .world_mut()
             .spawn(Spike {
@@ -113,19 +118,68 @@ fn spike_hits_use_the_cartridge_sample_and_pretrim_length_pitch() {
         }
         playback.world_mut().resource_mut::<Sounds>().pending = requests;
         playback.update();
-        let mut voices = playback
-            .world_mut()
-            .query::<(Entity, &AudioPlayer<Sample>, &PlaybackSettings)>();
-        let (entity, player, settings) = voices.single(playback.world()).unwrap();
-        assert_eq!(
-            player.0,
-            playback.world().resource::<Catalog>().shots[Effect::Spike as usize]
+        let mut voices =
+            playback
+                .world_mut()
+                .query::<(Entity, &AudioPlayer<Sample>, &PlaybackSettings, &Voice)>();
+        let (entity, player, settings, voice) = voices.single(playback.world()).unwrap();
+        assert_eq!(settings.speed, 1.);
+        let clip = playback
+            .world()
+            .resource::<Assets<Sample>>()
+            .get(&player.0)
+            .unwrap();
+        assert_eq!(clip.dsp_pitch, Some(pitch));
+        let mut decoder = clip.decoder();
+        let rate = decoder.sample_rate();
+        assert_eq!(rate, 14_839);
+        let duration = decoder.total_duration().unwrap();
+        let pcm: Vec<_> = decoder.by_ref().collect();
+        assert!((duration.as_secs_f64() - pcm.len() as f64 / f64::from(rate)).abs() < 1e-8);
+        assert!(
+            (voice.deadline - (duration.as_secs_f64() / f64::from(settings.speed) + 0.25)).abs()
+                < 0.001
         );
-        assert_eq!(settings.speed, playback_speed(254, pitch));
-        assert!(settings.speed < previous_speed);
-        previous_speed = settings.speed;
+        let frequency = dominant_spike_frequency(&pcm, rate) * f64::from(settings.speed);
+        assert!(
+            (frequency - expected_frequency).abs() < 50.,
+            "length {length}: {frequency} Hz"
+        );
+        assert!(frequency > previous_frequency);
+        previous_frequency = frequency;
         playback.world_mut().despawn(entity);
     }
+}
+
+fn dominant_spike_frequency(pcm: &[f32], rate: u32) -> f64 {
+    let windowed: Vec<_> = pcm
+        .iter()
+        .enumerate()
+        .map(|(i, sample)| {
+            f64::from(*sample)
+                * (0.5 - 0.5 * (std::f64::consts::TAU * i as f64 / (pcm.len() - 1) as f64).cos())
+        })
+        .collect();
+    (2000..=6000)
+        .step_by(5)
+        .map(|frequency| {
+            let (real, imaginary) =
+                windowed
+                    .iter()
+                    .enumerate()
+                    .fold((0., 0.), |(real, imaginary), (i, sample)| {
+                        let phase =
+                            std::f64::consts::TAU * frequency as f64 * i as f64 / f64::from(rate);
+                        (
+                            real + sample * phase.cos(),
+                            imaginary + sample * phase.sin(),
+                        )
+                    });
+            (frequency, real * real + imaginary * imaginary)
+        })
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .unwrap()
+        .0 as f64
 }
 
 #[test]

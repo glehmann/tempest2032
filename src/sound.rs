@@ -129,17 +129,28 @@ pub(crate) struct Sample {
     repeat: usize,
     repeat_length: usize,
     looping: bool,
+    dsp_pitch: Option<u16>,
 }
 
 pub(crate) struct Decoder {
     sample: Sample,
     position: usize,
+    step: usize,
 }
 
 impl Iterator for Decoder {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
+        if self.step != 0 {
+            // The original mixer advances an 8:8 position before interpolating.
+            self.position += self.step;
+            let index = self.position >> 8;
+            let first = i32::from(*self.sample.data.get(index)? as i8);
+            let second = i32::from(self.sample.data.get(index + 1).copied().unwrap_or(0) as i8);
+            let fraction = (self.position & 255) as i32;
+            return Some((first * (255 - fraction) + second * fraction) as f32 / 32768.);
+        }
         if self.sample.looping && self.position == self.sample.repeat + self.sample.repeat_length {
             self.position = self.sample.repeat;
         }
@@ -157,11 +168,22 @@ impl Source for Decoder {
         1
     }
     fn sample_rate(&self) -> u32 {
-        playback_rate(self.sample.period)
+        if self.step != 0 {
+            DSP_RATE.round() as u32
+        } else {
+            playback_rate(self.sample.period)
+        }
     }
     fn total_duration(&self) -> Option<Duration> {
         (!self.sample.looping).then(|| {
-            Duration::from_secs_f64(self.sample.data.len() as f64 / f64::from(self.sample_rate()))
+            let frames = if self.step != 0 {
+                (self.sample.data.len() * 256)
+                    .div_ceil(self.step)
+                    .saturating_sub(1)
+            } else {
+                self.sample.data.len()
+            };
+            Duration::from_secs_f64(frames as f64 / f64::from(self.sample_rate()))
         })
     }
 }
@@ -173,6 +195,9 @@ impl Decodable for Sample {
         Decoder {
             sample: self.clone(),
             position: 0,
+            step: self
+                .dsp_pitch
+                .map_or(0, |pitch| (usize::from(pitch) * 28 / 43).max(1)),
         }
     }
 }
@@ -197,6 +222,7 @@ fn samples() -> [Sample; 30] {
             repeat: fields[1],
             repeat_length: fields[2],
             looping: false,
+            dsp_pitch: None,
         }
     })
 }
@@ -317,6 +343,7 @@ fn update(
     mut commands: Commands,
     mut sounds: ResMut<Sounds>,
     catalog: Res<Catalog>,
+    mut samples: ResMut<Assets<Sample>>,
     time: Res<Time>,
     game: Res<crate::game::Game>,
     volume: Res<GlobalVolume>,
@@ -393,12 +420,21 @@ fn update(
                 }
             })
             .max(1);
-        let speed = playback_speed(sample.period, period);
+        let speed = if request.effect == Effect::Spike {
+            1.
+        } else {
+            playback_speed(sample.period, period)
+        };
         let (audio, settings) = if request.exit_yes {
             if let Some(entity) = yes_voice.take() {
                 commands.entity(entity).despawn();
             }
             (catalog.yes.clone(), PlaybackSettings::ONCE)
+        } else if request.effect == Effect::Spike {
+            // Keep the fixed SSI output stage: its aliasing is the spike's audible rising tone.
+            let mut clip = sample.clone();
+            clip.dsp_pitch = Some(period);
+            (samples.add(clip), PlaybackSettings::DESPAWN)
         } else {
             (catalog.shots[index].clone(), PlaybackSettings::DESPAWN)
         };
