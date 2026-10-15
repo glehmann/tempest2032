@@ -1718,6 +1718,12 @@ crosshair, stars, and a scrolling Mode-7-style surface using the original
 `beasty6.cry` texture. The surface lies at zero height, appearing overhead
 when flying below it and beneath the player when flying above it. Course
 order and difficulty progress independently of normal webs.
+Gate flight draws previews of all remaining course gates beyond the original
+255-unit generation distance, reducing visible pop-in on modern displays. The
+previews follow the generator's distance counters and current speed, including
+rotation continuity when a preview becomes a live gate. Only rendering looks
+ahead; gate checks, course spacing, boosts, and scoring retain their original
+simulation timing. Gates on the opposite side of the surface remain hidden.
 Gate-score popups use readable numeral lettering split into fixed-size cells,
 matching the square breakup effect of 2000 and EXCELLENT.
 They stay centered on screen while steering, rather than projecting from a

@@ -15,6 +15,9 @@ These are the deliberate differences from the original:
 - **Resolution.** Everything is drawn at your display's native resolution with
   anti-aliasing, in any window size and aspect ratio, well beyond 4K. The
   original drew a 384×240 framebuffer.
+- **More visible warp gates.** Gate flight shows the remaining course gates into
+  the distance instead of only the nearest three, reducing sudden pop-in on
+  high-resolution displays.
 - **Sound effects overlap.** While the music played, the original could mix only
   two effects, so busy scenes cut each other off. The effect draws from a
   pool of sixteen voices, so explosions and announcements stay audible.

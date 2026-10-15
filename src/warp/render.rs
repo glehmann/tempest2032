@@ -275,6 +275,39 @@ fn screen_mesh(aspect_ratio: f32) -> Mesh {
     .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
 }
 
+fn gate_views(session: &super::Session) -> Vec<super::Gate> {
+    let mut gates: Vec<_> = session.gates.iter().copied().collect();
+    if session.kind != ZoneKind::GateFlight {
+        return gates;
+    }
+    let mut distance = session.generation_distance;
+    let mut wait = session.generation_wait;
+    let mut travel = 0;
+    let mut ticks = 0_u16;
+    for index in session.cursor..GATES {
+        loop {
+            ticks = ticks.wrapping_add(1);
+            travel += session.speed;
+            distance -= session.speed;
+            if distance < 0 {
+                distance += 12 * super::UNIT;
+                wait -= 1;
+                if wait < 0 {
+                    break;
+                }
+            }
+        }
+        gates.push(super::Gate {
+            index,
+            distance: 255 * super::UNIT + travel,
+            // Count up to age zero so the preview keeps rotating through its real spawn.
+            age: 0_u16.wrapping_sub(ticks),
+        });
+        wait = (super::courses::COURSES[session.course][index] >> 24) as i16;
+    }
+    gates
+}
+
 pub(crate) fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -441,6 +474,7 @@ pub(crate) fn draw(
         };
     }
     let Some(session) = session else { return };
+    let gates = gate_views(session);
     let failure_age = if session.kind == ZoneKind::GateFlight {
         if let Phase::Failure(ticks) = session.phase {
             151 - ticks.min(151)
@@ -467,7 +501,7 @@ pub(crate) fn draw(
         if let Projection::Perspective(perspective) = &mut *projection {
             perspective.fov = 1.2;
             perspective.near = 0.01;
-            perspective.far = 500.;
+            perspective.far = 1000.;
             if session.rings.is_some()
                 && let Some(mesh) = meshes.get_mut(&assets.rings)
             {
@@ -523,7 +557,7 @@ pub(crate) fn draw(
                 if session.kind != ZoneKind::GateFlight {
                     continue;
                 }
-                let Some(gate) = session.gates.iter().find(|g| g.index == index) else {
+                let Some(gate) = gates.iter().find(|g| g.index == index) else {
                     continue;
                 };
                 let (x, y, kind) = session.spec(index);
@@ -562,6 +596,39 @@ mod tests {
     use super::*;
     use crate::level::Level;
     use crate::warp::{Gate, Session, ZoneKind};
+
+    #[test]
+    fn distant_gate_previews_cover_the_course_and_join_live_gates_without_popping() {
+        for course in 1..=8 {
+            let mut session = Session::new(ZoneKind::GateFlight, 0, Some(course), 0);
+            let previews = gate_views(&session);
+            assert_eq!(previews.len(), GATES);
+            assert!(
+                previews
+                    .windows(2)
+                    .all(|gates| gates[0].distance < gates[1].distance)
+            );
+            assert!(previews.last().unwrap().distance > 10 * 255 * super::super::UNIT);
+            assert!(session.gates.is_empty());
+            assert_eq!(
+                session.cursor, 0,
+                "previewing must not generate gameplay gates"
+            );
+            for _ in 0..450 {
+                let before = gate_views(&session);
+                let speed = session.speed;
+                session.step_flight(0, 0);
+                for gate in &session.gates {
+                    let preview = before
+                        .iter()
+                        .find(|preview| preview.index == gate.index)
+                        .unwrap();
+                    assert_eq!(preview.distance - speed, gate.distance);
+                    assert_eq!(preview.age.wrapping_add(1), gate.age);
+                }
+            }
+        }
+    }
 
     #[test]
     fn rings_and_tunnel_isolate_their_scene_and_upload_visible_feedback() {
@@ -807,6 +874,15 @@ mod tests {
             panic!()
         };
         assert_eq!((p.fov, p.near), (1.2, 0.01));
+        assert!(
+            app.world_mut()
+                .query::<(&WarpNode, &Visibility)>()
+                .iter(app.world())
+                .filter(|(node, visibility)| matches!(node, WarpNode::Gate(_))
+                    && **visibility == Visibility::Visible)
+                .count()
+                > 3
+        );
         let rotation = app
             .world_mut()
             .query::<(&WarpNode, &Transform)>()
