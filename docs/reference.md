@@ -530,6 +530,13 @@ Effects, voices, and engine loops use the original driver rates without a
 global pitch multiplier. The former `--effects-pitch` option has been removed.
 Gameplay-controlled pitch changes still apply to individual sounds.
 
+Normal gameplay effects share two voices, as `START_MOD` reserves the first
+four DSP voices for music. `PLAYFX2` (`moomoo.dat:$4370–$446a`) takes a free
+voice or replaces the lowest-priority voice when the new priority is equal
+or higher. The higher-numbered slot wins ties. A lower-priority request is
+dropped; sounds are not queued until a previous hit finishes. Playback completion
+frees a slot immediately, without the former quarter-second bookkeeping delay.
+
 YES! YES! YES! replaces the exit-engine sounds with the original looping `yes`
 sample. It plays its intro once, then repeats the stored loop region continuously
 until the exit flash starts, following `yeson` and `zoo2off`
@@ -567,10 +574,11 @@ Spike hits play sample 13, "Tink For Spike", with a playback increment of
 following `decspike` (`yak.s:11931–11943`, cartridge file offset `0xb996`).
 The embedded 1,038-byte sample matches the cartridge exactly. Spike playback
 reproduces the Jaguar's fixed SSI output stage at about 14,838.7 Hz: advance an
-8:8 sample position by `floor(pitch * 28 / 43)` each tick, then interpolate with
-the DSP mixer's 255-based weights. The mixer is embedded in `moomoo.dat` at
-`$5ed4`, copied to `$f1b000`; the first voice's stepping and interpolation are
-at DSP addresses `$f1b084–$f1b0b4` and `$f1b258–$f1b266`.
+8:8 sample position by `floor(pitch * 28 / 43)` each tick, then read the indexed
+signed byte. The mixer is embedded in `moomoo.dat` at `$5ed4`, copied to
+`$f1b000`. Its four music voices interpolate, but effect voices 4 and 5 use
+uninterpolated samples (`$f1b1a4–$f1b21c`, `$f1b244–$f1b24c`, and
+`$f1b2a6–$f1b2b2`).
 
 This output stage matters because the spike tone exceeds the SSI Nyquist
 frequency. Its alias is the original game's lower, rising sound: trimming a
@@ -580,10 +588,10 @@ straight to a modern output at its calculated playback rate instead produces
 a roughly 10 kHz tone with the wrong pitch direction. Earlier inverted or
 offset length curves tried to compensate for that missing output stage and
 have been removed. A spectral regression checks the actual decoded waveform.
-The upgraded laser fires every three ticks instead of four and its 405 ms sample
-is more than twice as loud as the plain shot, so four copies overlap while the
-trigger is held. It therefore plays at a fifth of the usual effect gain, which
-brings its sustained level back in line with the normal shot.
+The upgraded laser fires every three ticks instead of four. Its long sample is
+more than twice as loud as the plain shot and can occupy both effect voices.
+It plays at a fifth of the usual effect gain to keep sustained fire in balance
+with the normal shot.
 The converter limits the alternate normal-shot sample
 to its physical boundary and trims the first "sexy yes" sample to its declared
 length. The ROM omits two unused death samples; a ROM-generated pack leaves

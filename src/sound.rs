@@ -7,7 +7,7 @@ use bevy::{
 use std::time::Duration;
 
 const DSP_RATE: f64 = 26_590_906. / (64. * 28.);
-const MAX_VOICES: usize = 16;
+const MAX_VOICES: usize = 2;
 
 fn playback_rate(pitch: u16) -> u32 {
     // moomoo.dat PLAYFX2 at $4440 scales pitch by 28/43. The DSP adds
@@ -64,9 +64,8 @@ impl Effect {
         }
     }
 
-    /// The laser sample is both far louder than the plain shot and long enough
-    /// to overlap the next two shots, so holding the trigger stacks four copies
-    /// of it. It needs a much lower gain than the 121 ms click it replaces.
+    /// The laser is louder than the plain shot and can occupy both effect voices.
+    /// Lower its gain to keep sustained fire in balance with the normal shot.
     fn gain(self) -> f32 {
         match self {
             Self::Laser => 0.2,
@@ -147,9 +146,8 @@ impl Iterator for Decoder {
             self.position += self.step;
             let index = self.position >> 8;
             let first = i32::from(*self.sample.data.get(index)? as i8);
-            let second = i32::from(self.sample.data.get(index + 1).copied().unwrap_or(0) as i8);
-            let fraction = (self.position & 255) as i32;
-            return Some((first * (255 - fraction) + second * fraction) as f32 / 32768.);
+            // Music occupies the four interpolated voices; effect voices 4/5 use one byte.
+            return Some(first as f32 / 128.);
         }
         if self.sample.looping && self.position == self.sample.repeat + self.sample.repeat_length {
             self.position = self.sample.repeat;
@@ -237,6 +235,7 @@ struct Catalog {
 
 #[derive(Component)]
 struct Voice {
+    slot: usize,
     priority: u16,
     generation: u32,
     deadline: f64,
@@ -347,17 +346,19 @@ fn update(
     time: Res<Time>,
     game: Res<crate::game::Game>,
     volume: Res<GlobalVolume>,
-    voices: Query<(Entity, &Voice)>,
+    voices: Query<(Entity, &Voice, Option<&AudioSink>)>,
     yes: Query<Entity, With<PitchRise>>,
     mut engines: Query<(Entity, &Engine, &mut PlaybackSettings, Option<&AudioSink>)>,
 ) {
     let now = time.elapsed_secs_f64();
-    let mut active = Vec::new();
-    for (entity, voice) in &voices {
-        if voice.generation != sounds.generation || voice.deadline <= now {
+    let mut active = [None; MAX_VOICES];
+    for (entity, voice, sink) in &voices {
+        if voice.generation != sounds.generation
+            || sink.map_or(voice.deadline <= now, AudioSink::empty)
+        {
             commands.entity(entity).despawn();
         } else {
-            active.push((entity, voice.priority));
+            active[voice.slot] = Some((entity, voice.priority));
         }
     }
     if engine_period(&game).is_none() {
@@ -400,12 +401,21 @@ fn update(
             continue;
         }
         let priority = request.effect.priority();
-        if !request.exit_yes && active.len() == MAX_VOICES {
-            let (index, &(_, lowest)) = active.iter().enumerate().min_by_key(|(_, v)| v.1).unwrap();
-            if priority < lowest {
-                continue;
+        let mut slot = None;
+        if !request.exit_yes {
+            // PLAYFX2 scans ascending slots, accepting equal priorities, so the last tie wins.
+            let mut lowest = i32::from(priority);
+            for (index, voice) in active.iter().enumerate() {
+                let candidate = voice.map_or(-1, |(_, priority)| i32::from(priority));
+                if candidate <= lowest {
+                    lowest = candidate;
+                    slot = Some(index);
+                }
             }
-            commands.entity(active.remove(index).0).despawn();
+            let Some(index) = slot else { continue };
+            if let Some((entity, _)) = active[index].take() {
+                commands.entity(entity).despawn();
+            }
         }
         let index = request.effect as usize;
         let sample = &catalog.samples[index];
@@ -457,11 +467,12 @@ fn update(
             yes_voice = Some(entity);
         } else {
             commands.entity(entity).insert(Voice {
+                slot: slot.unwrap(),
                 priority,
                 generation: sounds.generation,
-                deadline: now + sample.data.len() as f64 / f64::from(playback_rate(period)) + 0.25,
+                deadline: now + sample.data.len() as f64 / f64::from(playback_rate(period)),
             });
-            active.push((entity, priority));
+            active[slot.unwrap()] = Some((entity, priority));
         }
     }
 }

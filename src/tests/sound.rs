@@ -25,7 +25,7 @@ fn count<T: Component>(app: &mut App) -> usize {
 #[test]
 fn effects_and_voices_keep_original_rates_and_cleanup_deadlines() {
     let mut app = app();
-    let effects = [Effect::Shot, Effect::Laser, Effect::Recharge];
+    let effects = [Effect::Shot, Effect::Recharge];
     app.world_mut()
         .resource_mut::<Sounds>()
         .pending
@@ -46,9 +46,8 @@ fn effects_and_voices_keep_original_rates_and_cleanup_deadlines() {
             .unwrap();
         assert_eq!(settings.speed, 1.0);
         let sample = &catalog.samples[*effect as usize];
-        let expected = sample.decoder().total_duration().unwrap().as_secs_f64()
-            / f64::from(settings.speed)
-            + 0.25;
+        let expected =
+            sample.decoder().total_duration().unwrap().as_secs_f64() / f64::from(settings.speed);
         assert!((voice.deadline - expected).abs() < 0.001);
     }
     assert_eq!(clips.iter(app.world()).count(), effects.len());
@@ -86,7 +85,7 @@ fn spike_hits_use_the_original_sample_with_rising_pitch_as_the_spike_shrinks() {
     assert_eq!((sample.period, sample.data.len()), (254, 1038));
     let mut previous_frequency = 0.;
     for (length, pitch, expected_frequency) in [
-        (150, 674, 2462.),
+        (150, 674, 1827.),
         (30, 554, 4666.),
         (3, 527, 5146.),
         (0, 524, 5203.),
@@ -137,8 +136,7 @@ fn spike_hits_use_the_original_sample_with_rising_pitch_as_the_spike_shrinks() {
         let pcm: Vec<_> = decoder.by_ref().collect();
         assert!((duration.as_secs_f64() - pcm.len() as f64 / f64::from(rate)).abs() < 1e-8);
         assert!(
-            (voice.deadline - (duration.as_secs_f64() / f64::from(settings.speed) + 0.25)).abs()
-                < 0.001
+            (voice.deadline - duration.as_secs_f64() / f64::from(settings.speed)).abs() < 0.001
         );
         let frequency = dominant_spike_frequency(&pcm, rate) * f64::from(settings.speed);
         assert!(
@@ -160,7 +158,7 @@ fn dominant_spike_frequency(pcm: &[f32], rate: u32) -> f64 {
                 * (0.5 - 0.5 * (std::f64::consts::TAU * i as f64 / (pcm.len() - 1) as f64).cos())
         })
         .collect();
-    (2000..=6000)
+    (1000..=6000)
         .step_by(5)
         .map(|frequency| {
             let (real, imaginary) =
@@ -445,6 +443,75 @@ fn shots_emit_only_when_a_bullet_is_actually_fired() {
         .release(KeyCode::Space);
     ticks(&mut app, 30);
     assert_eq!(app.world().resource::<Sounds>().pending.len(), 1);
+}
+
+#[test]
+fn repeated_spike_hits_replace_equal_priority_voices_instead_of_stacking_or_queuing() {
+    let mut app = app();
+    let hit = Request {
+        effect: Effect::Spike,
+        period: Some(554),
+        exit_yes: false,
+    };
+    app.world_mut().resource_mut::<Sounds>().pending.push(hit);
+    app.update();
+    let mut voices = app.world_mut().query::<(Entity, &Voice)>();
+    let (first, voice) = voices.single(app.world()).unwrap();
+    assert_eq!(voice.slot, 1);
+
+    app.world_mut().resource_mut::<Sounds>().pending.push(hit);
+    app.update();
+    let second = voices
+        .iter(app.world())
+        .find(|(_, voice)| voice.slot == 0)
+        .unwrap()
+        .0;
+    assert_eq!(voices.iter(app.world()).count(), 2);
+
+    app.world_mut().resource_mut::<Sounds>().pending.push(hit);
+    app.update();
+    assert_eq!(voices.iter(app.world()).count(), 2);
+    assert!(app.world().get_entity(first).is_err());
+    assert!(app.world().get_entity(second).is_ok());
+    let third = voices
+        .iter(app.world())
+        .find(|(_, voice)| voice.slot == 1)
+        .unwrap()
+        .0;
+
+    app.world_mut()
+        .resource_mut::<Sounds>()
+        .pending
+        .push(Request {
+            effect: Effect::Shot,
+            period: None,
+            exit_yes: false,
+        });
+    app.update();
+    assert_eq!(voices.iter(app.world()).count(), 2);
+    assert!(app.world().get_entity(second).is_ok());
+    assert!(app.world().get_entity(third).is_ok());
+    assert!(app.world().resource::<Sounds>().pending.is_empty());
+
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_millis(60));
+    app.update();
+    assert_eq!(
+        voices.iter(app.world()).count(),
+        0,
+        "no deferred hit or shot may start later"
+    );
+    app.world_mut()
+        .resource_mut::<Sounds>()
+        .pending
+        .push(Request {
+            effect: Effect::Shot,
+            period: None,
+            exit_yes: false,
+        });
+    app.update();
+    assert_eq!(voices.single(app.world()).unwrap().1.priority, 1);
 }
 
 #[test]
