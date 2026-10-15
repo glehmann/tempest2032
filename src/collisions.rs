@@ -128,7 +128,14 @@ pub(crate) fn resolve_hits(
                     .filter(|(entity, shot, _, _)| {
                         !killed.contains(entity) && intersects(shot.lane, shot.depth)
                     })
-                    .map(|(entity, shot, _, _)| (entity, shot.depth, 0, None)),
+                    .map(|(entity, shot, _, _)| {
+                        (
+                            entity,
+                            shot.depth,
+                            0,
+                            Some((shot.lane, transform.translation)),
+                        )
+                    }),
             )
             .chain(
                 aliens

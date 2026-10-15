@@ -116,7 +116,8 @@ pub(crate) fn particle_shot_mesh(
         let angle = phase.wrapping_add(index * 64);
         let center = Vec3::new(
             (f32::from(crate::sines::SINES[angle as usize]) * radius / 256.0).floor(),
-            -(f32::from(crate::sines::SINES[angle.wrapping_add(64) as usize]) * radius / 256.0).floor(),
+            -(f32::from(crate::sines::SINES[angle.wrapping_add(64) as usize]) * radius / 256.0)
+                .floor(),
             0.0,
         ) * pixel;
         let quad = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].map(|(x, y)| {

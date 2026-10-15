@@ -1481,7 +1481,10 @@ automatically.
 Level one's `pup_stuff` entry is `$0404`, but `stdinit` clears the active byte.
 `changex` decrements it and drops a power-up on underflow. The first kill drops
 one, then kills 6, 11, 16, and 21. A drop replaces that enemy's normal explosion;
-intercepted enemy shots and superzap kills do not advance the drop counter.
+Intercepted enemy shots also advance the drop counter, following `run_ashot` →
+`kill_ashot` → `killme` → `changex`. This supplies the extra drops needed to reach
+the sixth pickup, EXCELLENT and a warp token, on web one. Superzap kills do not
+advance the counter.
 
 `draw_pup1` first shows the `opupring` formation animation: a contracting
 20-dot ring and four expanding 24-dot rings. The pickup stays at the kill's
@@ -1541,7 +1544,7 @@ earn lives by crossing the normal score thresholds.
 Warp tokens accumulate across webs and survive deaths, up to three. The pickup
 sequence and acquired laser, jump, and droid reset on every web entry, so later
 webs can award additional tokens. R clears both upgrades and tokens. Level one
-normally provides at most five drops; mixed waves can provide more
+provides five drops from Flippers plus drops from intercepted shots; mixed waves can provide more
 pickup-eligible kills through released Tanker contents.
 
 ## Animated messages

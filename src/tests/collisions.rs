@@ -27,6 +27,37 @@ use crate::web::WORLD_UNIT;
 use bevy::prelude::*;
 
 #[test]
+fn intercepted_shots_supply_the_sixth_first_web_pickup() {
+    let mut app = app();
+    app.add_systems(FixedUpdate, resolve_hits);
+    for kill in 0..26 {
+        let depth = 20 * LANE_UNIT;
+        let pose = Transform::from_xyz(0., 0., -20. * WORLD_UNIT + 0.06);
+        if kill == 25 {
+            app.world_mut().spawn((
+                EnemyShot {
+                    lane: 7,
+                    depth,
+                    angle: 0,
+                },
+                pose,
+            ));
+        } else {
+            enemy(&mut app, 7, depth, Motion::Climb);
+        }
+        app.world_mut().spawn((Bullet { lane: 7 }, pose));
+        ticks(&mut app, 1);
+    }
+    assert_eq!(
+        app.world_mut()
+            .query::<&powerups::PowerUp>()
+            .iter(app.world())
+            .count(),
+        6
+    );
+}
+
+#[test]
 fn active_fire_covers_the_normal_shot_delay_but_releasing_fire_allows_a_grab() {
     for laser in [false, true] {
         for release in [false, true] {
