@@ -171,3 +171,29 @@ fn the_dots_keep_one_size_while_the_rings_grow() {
         );
     }
 }
+#[test]
+fn tanker_sphere_has_depth_and_expands_in_all_three_axes() {
+    let camera = bevy::prelude::Transform::from_xyz(0., 0., 5.);
+    let projection = bevy::prelude::PerspectiveProjection::default();
+    let extent = |age| {
+        let mesh = super::sphere_mesh(
+            age,
+            32,
+            bevy::prelude::Vec3::new(0., 0., -10.),
+            &camera,
+            &projection,
+        );
+        let positions = mesh
+            .attribute(bevy::prelude::Mesh::ATTRIBUTE_POSITION)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+        positions.iter().fold(bevy::prelude::Vec3::ZERO, |max, p| {
+            max.max(bevy::prelude::Vec3::from_array(*p).abs())
+        })
+    };
+    let early = extent(4);
+    let late = extent(20);
+    assert!(early.min_element() > 1.);
+    assert!((late / early).min_element() > 4.);
+}

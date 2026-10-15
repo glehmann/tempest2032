@@ -1454,6 +1454,11 @@ prebuilt here. Each explosion adjusts its dot geometry for camera distance and
 projection, targeting one pixel at the original 384-pixel framebuffer width.
 This keeps distant dots visible instead of shrinking them with the ring.
 
+Opening a Tanker instead uses `tsphkillme` → `setsphk` → `drawsphere`'s particle
+sphere. Sixteen rotating meridians contain 32 dots each, with real XYZ depth,
+per-dot perspective sizing, an expanding radius, and fading CRY colors. Its
+scale advances by two units per 60 Hz tick and expires at 64, as in `run_pixex`.
+
 A Flipper grab shows "CAUGHT YOU" and locks movement, jumping, and firing.
 Following `take_me_to_your_leader`, the Flipper and claw keep their grab poses
 and travel down the web together at two depth units per tick, reaching the

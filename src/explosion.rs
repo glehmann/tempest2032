@@ -157,20 +157,69 @@ pub(crate) struct Explosion {
     pub(crate) mesh: Option<Handle<Mesh>>,
 }
 
+#[derive(Component)]
+pub(crate) struct SphereBurst;
+
+pub(crate) fn spawn_sphere(commands: &mut Commands, assets: &BurstAssets, centre: Vec3) {
+    let entity = spawn_explosion(commands, assets, centre);
+    commands.entity(entity).insert(SphereBurst);
+}
+
 /// Spawn the death ring where a Flipper was destroyed.
-pub(crate) fn spawn_explosion(commands: &mut Commands, assets: &BurstAssets, centre: Vec3) {
+pub(crate) fn spawn_explosion(
+    commands: &mut Commands,
+    assets: &BurstAssets,
+    centre: Vec3,
+) -> Entity {
     crate::sound::play(commands, crate::sound::Effect::Explosion);
-    commands.spawn((
-        Explosion {
-            centre,
-            age: 0,
-            mesh: None,
-        },
-        RenderLayers::layer(1),
-        Mesh3d(assets.frames.first().cloned().unwrap_or_default()),
-        MeshMaterial3d(assets.material.clone()),
-        Transform::from_translation(centre),
-    ));
+    commands
+        .spawn((
+            Explosion {
+                centre,
+                age: 0,
+                mesh: None,
+            },
+            RenderLayers::layer(1),
+            Mesh3d(assets.frames.first().cloned().unwrap_or_default()),
+            MeshMaterial3d(assets.material.clone()),
+            Transform::from_translation(centre),
+        ))
+        .id()
+}
+
+fn sphere_mesh(
+    age: u8,
+    frame: u32,
+    centre: Vec3,
+    camera: &Transform,
+    projection: &PerspectiveProjection,
+) -> Mesh {
+    let radius = (1. + 2. * f32::from(age)) * crate::web::WORLD_UNIT;
+    let hue =
+        ((centre.x.to_bits() ^ centre.y.to_bits()) as u8 & 0xf0) | (15 - (1 + 2 * age) / 4) & 15;
+    colored_mesh((0..16).flat_map(|ring| {
+        (0..32).flat_map(move |point| {
+            let a = point as f32 * TAU / 32.;
+            let b = (frame as f32 + ring as f32 * 8.) * TAU / 256.;
+            let offset = Vec3::new(a.sin() * b.cos(), -a.cos(), a.sin() * b.sin()) * radius;
+            let distance = -(camera.rotation.inverse() * (centre + offset - camera.translation)).z;
+            let dot =
+                distance.max(0.01) * (projection.fov * 0.5).tan() * projection.aspect_ratio / 384.;
+            let color = crate::cry::color(
+                hue,
+                ((255. - distance / crate::web::WORLD_UNIT / 64.).max(0.)
+                    * (255. - (1. + 2. * f32::from(age)))
+                    / 256.) as u8,
+            );
+            let quad = [(-1., -1.), (1., -1.), (1., 1.), (-1., 1.)].map(|(x, y)| {
+                (
+                    offset + camera.rotation * Vec3::new(x * dot, y * dot, 0.),
+                    color,
+                )
+            });
+            [[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
+        })
+    }))
 }
 
 /// `run_prex` advances the radius once per tick and removes the object once it
@@ -189,12 +238,18 @@ pub(crate) fn age_explosions(
             Without<crate::messages::geometry::OverlayCamera>,
         ),
     >,
-    mut explosions: Query<(Entity, &mut Explosion, &mut Mesh3d, &mut Transform)>,
+    mut explosions: Query<(
+        Entity,
+        &mut Explosion,
+        &mut Mesh3d,
+        &mut Transform,
+        Option<&SphereBurst>,
+    )>,
 ) {
     frames.0 = frames.0.wrapping_add(1);
-    for (entity, mut explosion, mut mesh, mut transform) in &mut explosions {
+    for (entity, mut explosion, mut mesh, mut transform, sphere) in &mut explosions {
         explosion.age += 1;
-        if explosion.age > MAX_AGE {
+        if explosion.age > if sphere.is_some() { 31 } else { MAX_AGE } {
             commands.entity(entity).despawn();
             continue;
         }
@@ -202,12 +257,22 @@ pub(crate) fn age_explosions(
             && let Some(mut geometry) = meshes.get(frame).cloned()
         {
             if let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() {
-                let distance =
-                    -(camera.rotation.inverse() * (explosion.centre - camera.translation)).z;
-                let dot_size =
-                    distance.max(0.01) * (projection.fov * 0.5).tan() * projection.aspect_ratio
-                        / 384.0;
-                resize_dots(&mut geometry, dot_size / DOT_SIZE);
+                if sphere.is_some() {
+                    geometry = sphere_mesh(
+                        explosion.age,
+                        frames.0,
+                        explosion.centre,
+                        camera,
+                        projection,
+                    );
+                } else {
+                    let distance =
+                        -(camera.rotation.inverse() * (explosion.centre - camera.translation)).z;
+                    let dot_size =
+                        distance.max(0.01) * (projection.fov * 0.5).tan() * projection.aspect_ratio
+                            / 384.0;
+                    resize_dots(&mut geometry, dot_size / DOT_SIZE);
+                }
             }
             if let Some(handle) = &explosion.mesh {
                 if let Some(existing) = meshes.get_mut(handle) {
@@ -219,7 +284,11 @@ pub(crate) fn age_explosions(
             mesh.0 = explosion.mesh.as_ref().unwrap().clone();
         }
         transform.translation = explosion.centre;
-        transform.rotation = Quat::from_rotation_z(frames.0 as f32 * TAU / 256.0);
+        transform.rotation = if sphere.is_some() {
+            Quat::IDENTITY
+        } else {
+            Quat::from_rotation_z(frames.0 as f32 * TAU / 256.0)
+        };
     }
 }
 

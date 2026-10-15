@@ -280,7 +280,7 @@ pub(crate) fn resolve_hits(
                     tanker,
                     *contents,
                 );
-                explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+                explosion::spawn_sphere(&mut commands, &bursts, pose.translation);
             }
             if let Some((lane, centre)) = centre {
                 if upgrades.drop_due(level.powerups.kill_interval) {

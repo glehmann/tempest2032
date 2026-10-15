@@ -426,7 +426,7 @@ pub(crate) fn move_tankers(
                 &tanker,
                 *contents,
             );
-            explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
+            explosion::spawn_sphere(&mut commands, &bursts, pose.translation);
             commands.entity(entity).despawn();
         }
     }
