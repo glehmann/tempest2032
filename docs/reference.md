@@ -29,7 +29,8 @@ center. The camera does not recenter each web by its bounding box.
 Horizontal plane webs, including level 3's `web1`, use the original half-claw
 viewpoint and 30-unit front distance. Their lens follows the original
 128-pixel projection scale, with extra room in narrow windows. Sideways yaw
-is disabled so the near and far edges remain horizontal as the claw moves.
+is disabled on every web so horizontal rim edges, including the triangle's
+base, remain parallel to the viewport as the claw moves.
 
 ## Run
 

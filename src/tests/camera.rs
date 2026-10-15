@@ -124,6 +124,33 @@ fn flat_web_uses_half_claw_tracking_and_original_lens_without_sideways_yaw() {
 }
 
 #[test]
+fn triangle_base_stays_horizontal_under_tracking() {
+    use bevy::camera::CameraProjection;
+    let level = crate::level::Level::parse(include_str!("../../levels/05.toml"), "5").unwrap();
+    let projection = PerspectiveProjection::default().get_clip_from_view();
+    for lane in 0..level.web.lanes() {
+        let camera = Transform::from_translation(
+            level.web.camera_position(
+                level
+                    .web
+                    .glider_transform(lane as i32 * LANE_UNIT)
+                    .translation,
+            ),
+        )
+        .with_rotation(level.web.camera_rotation());
+        let project =
+            |p| projection.project_point3(camera.compute_affine().inverse().transform_point3(p));
+        for i in 0..level.web.lanes() {
+            let a = level.web.vertex(i as f32, 4., 0.);
+            let b = level.web.vertex((i + 1) as f32, 4., 0.);
+            if a.y == b.y {
+                assert!((project(a).y - project(b).y).abs() < 1e-6);
+            }
+        }
+    }
+}
+
+#[test]
 fn camera_settles_after_the_claw_stops_without_overshooting() {
     let mut app = movement_app(8 * LANE_UNIT, &[]);
     app.add_systems(FixedUpdate, follow_glider.after(move_glider));

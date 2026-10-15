@@ -113,12 +113,7 @@ impl Web {
                 .is_some_and(|first| self.vertices.iter().all(|vertex| vertex[1] == first[1]))
     }
     pub(crate) fn camera_rotation(&self) -> Quat {
-        Quat::from_euler(
-            EulerRot::YXZ,
-            if self.horizontal_plane() { 0. } else { 0.105 },
-            0.06,
-            0.,
-        )
+        Quat::from_rotation_x(0.06)
     }
     pub(crate) fn orientation(&self, lane: usize) -> Quat {
         Quat::from_rotation_z(f32::from(self.orientations[lane]) * std::f32::consts::TAU / 256.0)
