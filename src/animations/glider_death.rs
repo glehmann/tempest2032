@@ -94,10 +94,19 @@ fn zap_mesh() -> Mesh {
         (6., 8.),
     ]
     .map(|(x, y)| Vec3::new((x - 9.0) * 0.075, (y - 9.0) * 0.075, 0.0));
+    // Intersect adjacent stroke edges so every peak has a single pointed join.
+    let corners: [_; 10] = std::array::from_fn(|index| {
+        let p = points[index];
+        let incoming = (p - points[(index + points.len() - 1) % points.len()]).normalize();
+        let outgoing = (points[(index + 1) % points.len()] - p).normalize();
+        let normal = outgoing.cross(Vec3::Z);
+        let miter = (incoming.cross(Vec3::Z) + normal).normalize();
+        let offset = miter * (0.012 / miter.dot(normal));
+        [p - offset, p + offset]
+    });
     colored_mesh((0..points.len()).flat_map(|index| {
-        let (a, b) = (points[index], points[(index + 1) % points.len()]);
-        let side = (b - a).normalize().cross(Vec3::Z) * 0.012;
-        let quad = [a - side, a + side, b + side, b - side].map(|point| (point, Color::WHITE));
+        let (a, b) = (corners[index], corners[(index + 1) % points.len()]);
+        let quad = [a[0], a[1], b[1], b[0]].map(|point| (point, Color::WHITE));
         [[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
     }))
 }

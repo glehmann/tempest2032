@@ -19,6 +19,7 @@ pub(crate) struct HudAssets {
     life: Vec<Triangle>,
     mesh: Handle<Mesh>,
     previous: Option<(u32, u16, u8, f32)>,
+    icons: [f32; 11],
 }
 
 pub(crate) fn setup(
@@ -44,6 +45,7 @@ pub(crate) fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             unlit: true,
             cull_mode: None,
+            alpha_mode: AlphaMode::Blend,
             ..default()
         })),
         RenderLayers::layer(3),
@@ -53,6 +55,7 @@ pub(crate) fn setup(
         life,
         mesh,
         previous: None,
+        icons: [0.; 11],
     });
 }
 
@@ -83,6 +86,7 @@ impl Default for FpsMeter {
 }
 
 pub(crate) fn update_hud(
+    time: Res<Time<Virtual>>,
     game: Res<Game>,
     upgrades: Res<crate::powerups::Upgrades>,
     glyphs: Res<Glyphs>,
@@ -95,7 +99,25 @@ pub(crate) fn update_hud(
         .next()
         .map_or(384., |w| 240. * w.width() / w.height().max(1.));
     let state = (game.score, game.lives, upgrades.warp_tokens(), width);
-    if assets.previous == Some(state) {
+    let mut animating = false;
+    let initialized = assets.previous.is_some();
+    for (i, progress) in assets.icons.iter_mut().enumerate() {
+        let visible = if i < 8 {
+            i < usize::from(game.lives.saturating_sub(1).min(8))
+        } else {
+            i - 8 < usize::from(upgrades.warp_tokens().min(3))
+        };
+        let target = if visible { 1. } else { 0. };
+        let previous = *progress;
+        *progress = if initialized {
+            let step = time.delta_secs() / 0.25;
+            *progress + (target - *progress).clamp(-step, step)
+        } else {
+            target
+        };
+        animating |= *progress != previous;
+    }
+    if assets.previous == Some(state) && !animating {
         return;
     }
     let mut triangles = Vec::new();
@@ -120,20 +142,31 @@ pub(crate) fn update_hud(
                 }),
         );
     }
-    for life in 0..game.lives.saturating_sub(1).min(8) {
+    for (life, &progress) in assets.icons[..8].iter().enumerate() {
+        if progress == 0. {
+            continue;
+        }
+        let fade = progress * progress * (3. - 2. * progress);
+        let scale = 0.75 + 0.25 * fade;
         triangles.extend(assets.life.iter().map(|triangle| {
             triangle.map(|(p, color)| {
+                let p = (p - Vec3::new(13., 8., 0.)) * scale + Vec3::new(13., 8., 0.);
                 (
-                    point(p.truncate() * fit + Vec2::new(left + f32::from(life) * 32. * fit, 30.))
+                    point(p.truncate() * fit + Vec2::new(left + life as f32 * 32. * fit, 30.))
                         + Vec3::Z * p.z * fit,
-                    color,
+                    color.with_alpha(fade),
                 )
             })
         }));
     }
     // makepyr: 31x20, centre 352/320/288, base y=27, tip y=7, hub y=19.
-    for token in 0..upgrades.warp_tokens().min(3) {
-        let center = width - (32. + f32::from(token) * 32.) * fit;
+    for (token, &progress) in assets.icons[8..].iter().enumerate() {
+        if progress == 0. {
+            continue;
+        }
+        let fade = progress * progress * (3. - 2. * progress);
+        let scale = 0.75 + 0.25 * fade;
+        let center = width - (32. + token as f32 * 32.) * fit;
         let vertices = [
             Vec2::new(-15., 20.),
             Vec2::ZERO,
@@ -147,10 +180,22 @@ pub(crate) fn update_hud(
             Color::WHITE,
         ];
         for face in [[0, 1, 3], [1, 2, 3], [2, 0, 3]] {
-            triangles
-                .push(face.map(|i| (point(vertices[i] * fit + Vec2::new(center, 7.)), colors[i])));
+            triangles.push(face.map(|i| {
+                let p = (vertices[i] - Vec2::new(0., 10.)) * scale + Vec2::new(0., 10.);
+                (
+                    point(p * fit + Vec2::new(center, 7.)),
+                    colors[i].with_alpha(fade),
+                )
+            }));
         }
     }
+    // Blended meshes do not write depth, so draw rear faces before front faces.
+    triangles.sort_by(|a, b| {
+        a.iter()
+            .map(|(p, _)| p.z)
+            .sum::<f32>()
+            .total_cmp(&b.iter().map(|(p, _)| p.z).sum::<f32>())
+    });
     *meshes.get_mut(&assets.mesh).unwrap() = geometry::mesh(triangles);
     assets.previous = Some(state);
 }

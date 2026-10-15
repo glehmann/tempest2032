@@ -24,6 +24,9 @@ fn vector_app() -> App {
     app.world_mut()
         .spawn((Window::default(), bevy::window::PrimaryWindow));
     app.update();
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .advance_by(Duration::from_millis(250));
     app
 }
 
@@ -33,6 +36,52 @@ fn hud_vertices(app: &App) -> usize {
         .get(&app.world().resource::<super::HudAssets>().mesh)
         .unwrap()
         .count_vertices()
+}
+
+#[test]
+fn icons_fade_in_and_out_and_reverse_without_popping() {
+    use bevy::mesh::VertexAttributeValues;
+    let mut app = vector_app();
+    app.world_mut()
+        .resource_mut::<crate::powerups::Upgrades>()
+        .seed_warp_tokens(1);
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .advance_by(Duration::from_millis(100));
+    app.update();
+    let icons = app.world().resource::<super::HudAssets>().icons;
+    assert!((icons[8] - 0.4).abs() < 1e-6);
+    let mesh = app
+        .world()
+        .resource::<Assets<Mesh>>()
+        .get(&app.world().resource::<super::HudAssets>().mesh)
+        .unwrap();
+    let Some(VertexAttributeValues::Float32x4(colors)) = mesh.attribute(Mesh::ATTRIBUTE_COLOR)
+    else {
+        panic!("HUD must contain vertex colors")
+    };
+    assert!(colors.iter().any(|c| c[3] > 0. && c[3] < 1.));
+    app.world_mut()
+        .resource_mut::<crate::powerups::Upgrades>()
+        .seed_warp_tokens(0);
+    app.world_mut().resource_mut::<crate::game::Game>().lives = 1;
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .advance_by(Duration::from_millis(50));
+    app.update();
+    let icons = app.world().resource::<super::HudAssets>().icons;
+    assert!((icons[8] - 0.2).abs() < 1e-6);
+    assert!((icons[0] - 0.8).abs() < 1e-6);
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .advance_by(Duration::ZERO);
+    app.update();
+    assert_eq!(app.world().resource::<super::HudAssets>().icons, icons);
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .advance_by(Duration::from_millis(250));
+    app.update();
+    assert_eq!(app.world().resource::<super::HudAssets>().icons, [0.; 11]);
 }
 
 #[test]

@@ -1340,6 +1340,8 @@ original's more substantial 3D appearance. Their silhouettes and shading are gen
 anti-aliasing and no transparency fringe or low-resolution shading texture.
 Up to eight spare-life icons and three warp pyramids are displayed. The active
 life is excluded, so the last playable life has no life icon in the HUD.
+Life icons and warp pyramids fade and scale in or out over 0.25 seconds when
+their counts change. These presentation transitions freeze while paused.
 Score and spare lives use the same 16-unit outer margin on the left as the
 warp pyramids on the right, scaled together in narrow windows.
 New runs start with three spare lives plus the active life, for four lives total.
@@ -1584,7 +1586,9 @@ Only then is the life deducted and the wave reset. Restart in the pause menu can
 restarts immediately.
 
 An enemy-shot hit shows "SHOT YOU!" and replaces the glider with `zap`'s
-ten-point starburst outline. `draw_z` draws four copies with hues separated by
+ten-point starburst outline. Its stroke uses shared mitered corners, keeping
+the peaks sharp without overlapping rectangular segment ends.
+`draw_z` draws four copies with hues separated by
 17 palette entries. Following `zap_player`, the burst spins by 12 angle units
 per tick, its copies spread apart by half a depth unit per tick, and its centre
 moves toward the viewer by a quarter unit per tick. The camera moves toward
