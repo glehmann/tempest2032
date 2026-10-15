@@ -3,6 +3,7 @@
 
 import argparse
 import functools
+import hashlib
 import http.server
 from pathlib import Path
 import shutil
@@ -11,6 +12,9 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "target/web"
+# The page and the game call into each other, so a cached script from an older
+# build breaks the new one. These reference each other and are left out of the hash.
+PAGE = {"index.html", "browser.js"}
 
 
 def build(profile):
@@ -41,7 +45,31 @@ def build(profile):
         shutil.copy2(ROOT / name, OUTPUT / name)
     shutil.copy2(ROOT / "assets/steam/icon.png", OUTPUT / "favicon.png")
     shutil.copy2(ROOT / "assets/preview.png", OUTPUT / "preview.png")
-    print(f"Browser build written to {OUTPUT}")
+    version = tag(OUTPUT)
+    replace(OUTPUT / "index.html", 'src="browser.js"', f'src="browser.js?v={version}"')
+    replace(OUTPUT / "browser.js", "'./tempest2032.js'", f"'./tempest2032.js?v={version}'")
+    print(f"Browser build written to {OUTPUT} (version {version})")
+
+
+def tag(directory):
+    """Summarizes everything the build produced, so the page and the game stay one version."""
+    digest = hashlib.sha256()
+    for path in sorted(directory.iterdir()):
+        if path.is_file() and path.name not in PAGE:
+            digest.update(path.name.encode())
+            digest.update(path.read_bytes())
+    # The published page and loader carry the tag, so hash the templates they are cut from.
+    for name in sorted(PAGE):
+        digest.update(name.encode())
+        digest.update((ROOT / "web" / name).read_bytes())
+    return digest.hexdigest()[:8]
+
+
+def replace(path, old, new):
+    text = path.read_text()
+    if old not in text:
+        raise SystemExit(f"{path.name} no longer contains {old}")
+    path.write_text(text.replace(old, new))
 
 
 def main():

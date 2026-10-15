@@ -113,8 +113,10 @@ The workflow publishes `target/web/`, including LICENSE and NOTICE, to the
 the branch's root through GitHub Pages, with Jekyll disabled. Alongside the page
 it publishes `assets/preview.png` as `preview.png`, cropped from the Steam
 gameplay screenshot, which link unfurlers such as Slack use for a site preview.
-The source stays
-in `tempest2032/tempest2032`. The `Tempest 2032 Pages` GitHub App, installed
+The build tags the page and the loader with a hash of everything it produced,
+including their own templates, because the game calls into the loader and a
+cached loader from an older build breaks the newer game. The source stays in
+`tempest2032/tempest2032`. The `Tempest 2032 Pages` GitHub App, installed
 only on the website repository with Contents write access, authenticates
 publishing. The publish job exchanges the app's private key for a token that is
 limited to that repository and expires after an hour. The token cannot change
