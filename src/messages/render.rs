@@ -199,14 +199,46 @@ pub(super) fn draw(
             1.
         };
         for glyph in layout.iter() {
-            triangles.push(std::array::from_fn(|index| {
-                let local = glyph.origin
-                    + cell_point(glyph.points[index], glyph.cell, Vec2::splat(scale), 0.);
-                (
-                    (center + Vec2::new(local.x, -local.y)).extend(0.),
-                    glyph.colors[index].with_alpha(alpha),
-                )
-            }));
+            let layers = if id == super::Id::OneUp && glyph.depth_layers {
+                6
+            } else {
+                1
+            };
+            for layer in 0..layers {
+                let depth = 290. - age + (1. - layer as f32) * age / 4.;
+                if depth <= 4. {
+                    continue;
+                }
+                let layered = layers > 1;
+                let scale = if layered {
+                    age / 16. * 128. / depth
+                } else {
+                    scale
+                };
+                triangles.push(std::array::from_fn(|index| {
+                    let offset = if layered {
+                        Vec2::new(0., -18.)
+                    } else {
+                        Vec2::ZERO
+                    };
+                    let local = glyph.origin
+                        + cell_point(
+                            glyph.points[index] - offset,
+                            glyph.cell - offset,
+                            Vec2::splat(scale),
+                            0.,
+                        )
+                        + if layered {
+                            Vec2::new(0., -8. * 128. / depth)
+                        } else {
+                            Vec2::ZERO
+                        };
+                    (
+                        (center + Vec2::new(local.x, -local.y)).extend(0.),
+                        glyph.colors[index].with_alpha(alpha),
+                    )
+                }));
+            }
         }
     }
     let visible = !triangles.is_empty();

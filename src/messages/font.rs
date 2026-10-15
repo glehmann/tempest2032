@@ -55,6 +55,7 @@ struct WordArt {
 }
 
 pub(super) struct GlyphTriangle {
+    pub(super) depth_layers: bool,
     pub(super) points: [Vec2; 3],
     pub(super) origin: Vec2,
     pub(super) colors: [Color; 3],
@@ -155,6 +156,7 @@ impl Font {
                 .triangles(id.text())
                 .into_iter()
                 .map(|glyph| GlyphTriangle {
+                    depth_layers: false,
                     points: glyph.points.map(|p| p + glyph.origin),
                     cell: glyph.cell + glyph.origin,
                     origin: Vec2::ZERO,
@@ -176,18 +178,21 @@ impl Font {
                     };
                     let mut cells = pixel_cells(art, min_intensity, 1., Vec2::ZERO);
                     if let Some(numeral) = &art.numeral {
-                        cells.extend(pixel_cells(
-                            numeral,
-                            min_intensity,
-                            0.5,
-                            Vec2::new(0., -18.),
-                        ));
+                        cells.extend(
+                            pixel_cells(numeral, min_intensity, 0.5, Vec2::new(0., -18.))
+                                .into_iter()
+                                .map(|mut glyph| {
+                                    glyph.depth_layers = true;
+                                    glyph
+                                }),
+                        );
                     }
                     return cells;
                 }
                 art.triangles
                     .iter()
                     .map(|triangle| GlyphTriangle {
+                        depth_layers: false,
                         points: triangle.map(|p| p - art.size / 2.),
                         origin: Vec2::ZERO,
                         colors: triangle.map(|p| {
@@ -214,6 +219,7 @@ impl Font {
                             .into_iter()
                             .flat_map(move |glyph| {
                                 glyph.triangles.iter().map(move |triangle| GlyphTriangle {
+                                    depth_layers: false,
                                     points: triangle.points.map(|p| p - Vec2::new(7.5, 9.)),
                                     colors: triangle
                                         .points
@@ -250,6 +256,7 @@ fn pixel_cells(art: &WordArt, min_intensity: u8, scale: f32, offset: Vec2) -> Ve
                 [corners[0], corners[2], corners[3]],
             ]
             .map(|points| GlyphTriangle {
+                depth_layers: false,
                 points,
                 origin: Vec2::ZERO,
                 colors: [color; 3],

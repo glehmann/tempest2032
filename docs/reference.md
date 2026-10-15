@@ -1594,8 +1594,10 @@ approach animation. 2000 omits cells with CRY intensity below 32 to trim its
 darkest shading. Their cells separate
 in both directions as they grow, keeping the playfield visible through the gaps.
 1UP combines the original UP pixels with a half-sized 1 above them, excluding
-CRY intensities at or below 80. It uses the same separated squares as 2000 and
-EXCELLENT, with no solid foreground or overlapping trails filling the gaps.
+CRY intensities at or below 80. Following `draw_oneup`, UP has one particle
+plane while the numeral has six depth-separated copies. Their spacing grows
+by a quarter unit each tick, with each plane projected independently. Cells
+remain separate squares as the copies approach and spread apart.
 The 250/500/750 score labels use their shorter cell expansion and fade.
 They coexist with ordinary announcements. Score-based extra
 lives trigger a 1UP effect for each award. Game over clears
