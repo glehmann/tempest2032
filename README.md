@@ -21,7 +21,7 @@ These are the deliberate differences from the original:
 - **Sound effects overlap.** While the music played, the original could mix only
   two effects, so busy scenes cut each other off. The effect draws from a
   pool of sixteen voices, so explosions and announcements stay audible.
-  - **One welcome screen.** The original cycled through title, attract, and
+- **One welcome screen.** The original cycled through title, attract, and
   level-select screens. Here one screen carries the high-score table, the player
   Key and starting web, and the settings, over a slowly rotating wireframe of
   the selected web. High scores, Keys, and difficulty are kept separately for
