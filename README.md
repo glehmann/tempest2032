@@ -16,7 +16,7 @@ These are the deliberate differences from the original:
   window size and aspect ratio, well beyond 4K. The original drew a 384×240
   framebuffer. Antialiasing smooths geometry and switches off automatically
   if frame rates stay below 60 FPS.
-- **More visible warp gates.** Gate flight shows three solid gates and five
+- **More visible warp gates.** Gate flight shows three solid gates and three
   more that fade with distance, reducing sudden pop-in on high-resolution displays.
 - **Sound effects overlap.** While the music played, the original could mix only
   two effects, so busy scenes cut each other off. The effect draws from a

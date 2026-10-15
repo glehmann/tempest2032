@@ -313,11 +313,11 @@ fn gate_opacity(gates: &[super::Gate], rank: usize) -> f32 {
     if rank < 3 {
         return 1.;
     }
-    if rank >= 8 {
+    if rank >= 6 {
         return 0.;
     }
     let near = gates[2].distance;
-    let far = gates.get(8).map_or_else(
+    let far = gates.get(6).map_or_else(
         || {
             let last = gates.last().unwrap().distance;
             last + (last - gates[gates.len() - 2].distance).max(1)
@@ -503,7 +503,7 @@ pub(crate) fn draw(
     let Some(session) = session else { return };
     let gates = gate_views(session);
     if session.kind == ZoneKind::GateFlight {
-        for (rank, gate) in gates.iter().take(8).enumerate() {
+        for (rank, gate) in gates.iter().take(6).enumerate() {
             if let Some(material) = materials.get_mut(&assets.gate_materials[gate.index]) {
                 let alpha = gate_opacity(&gates, rank);
                 material.base_color = Color::srgba(1., 1., 1., alpha);
@@ -597,7 +597,7 @@ pub(crate) fn draw(
                 if session.kind != ZoneKind::GateFlight {
                     continue;
                 }
-                let Some(gate) = gates.iter().take(8).find(|g| g.index == index) else {
+                let Some(gate) = gates.iter().take(6).find(|g| g.index == index) else {
                     continue;
                 };
                 let (x, y, kind) = session.spec(index);
@@ -638,7 +638,7 @@ mod tests {
     use crate::warp::{Gate, Session, ZoneKind};
 
     #[test]
-    fn three_gates_are_opaque_then_five_fade_by_distance_and_the_rest_are_hidden() {
+    fn three_gates_are_opaque_then_three_fade_by_distance_and_the_rest_are_hidden() {
         let gates: Vec<_> = [10, 20, 40, 60, 100, 150, 210, 280, 360, 450]
             .into_iter()
             .enumerate()
@@ -652,11 +652,11 @@ mod tests {
             .map(|rank| gate_opacity(&gates, rank))
             .collect();
         assert_eq!(&opacity[..3], &[1.; 3]);
-        assert!(opacity[3..8].iter().all(|alpha| *alpha > 0. && *alpha < 1.));
-        assert!(opacity[2..9].windows(2).all(|pair| pair[0] > pair[1]));
-        assert_eq!(&opacity[8..], &[0., 0.]);
-        assert_eq!(opacity[3], 300. / 320.);
-        assert_eq!(opacity[7], 80. / 320.);
+        assert!(opacity[3..6].iter().all(|alpha| *alpha > 0. && *alpha < 1.));
+        assert!(opacity[2..7].windows(2).all(|pair| pair[0] > pair[1]));
+        assert_eq!(&opacity[6..], &[0.; 4]);
+        assert_eq!(opacity[3], 150. / 170.);
+        assert_eq!(opacity[5], 60. / 170.);
         let mut farther = gates.clone();
         farther[3].distance = 80;
         assert!(gate_opacity(&farther, 3) < opacity[3]);
@@ -664,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn gate_and_icon_materials_share_opacity_and_no_more_than_eight_gates_are_drawn() {
+    fn gate_and_icon_materials_share_opacity_and_no_more_than_six_gates_are_drawn() {
         let mut app = App::new();
         app.init_resource::<Assets<Mesh>>()
             .init_resource::<Assets<StandardMaterial>>()
@@ -687,7 +687,7 @@ mod tests {
                 continue;
             };
             assert_eq!(material.0, assets.gate_materials[index]);
-            if index >= 8 {
+            if index >= 6 {
                 assert_eq!(*visibility, Visibility::Hidden);
             } else {
                 if matches!(node, WarpNode::Gate(_)) {
@@ -704,7 +704,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(visible_gates, 8);
+        assert_eq!(visible_gates, 6);
     }
 
     #[test]
