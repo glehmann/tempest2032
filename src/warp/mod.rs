@@ -391,7 +391,10 @@ pub(crate) fn advance(
             512 + boosts as u16 * 5,
         );
     }
-    if was_flying && matches!(session.phase, Phase::Failure(_)) {
+    if was_flying
+        && session.kind != ZoneKind::GateFlight
+        && matches!(session.phase, Phase::Failure(_))
+    {
         crate::sound::play(&mut commands, crate::sound::Effect::LargeExplosion);
     }
     if let Some(mut rings) = session.rings.take() {
