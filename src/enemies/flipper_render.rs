@@ -58,29 +58,16 @@ pub(crate) fn flipper_mesh(color: [u8; 3]) -> Mesh {
     }))
 }
 
-pub(crate) fn flipper_dot_color(color: [u8; 3], intensity: u16) -> Color {
-    let [r, g, b] = color.map(|channel| {
-        (u32::from(channel) * 254 * u32::from(intensity) / (240 * 256)).min(255) as u8
-    });
-    Color::srgb_u8(r, g, b)
-}
-
 pub(crate) fn update_enemy_colors(
     level: Res<Level>,
     assets: Res<FlipperAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if !level.is_changed() {
         return;
     }
     if let Some(body) = meshes.get_mut(&assets.body) {
         *body = flipper_mesh(level.appearance.flipper);
-    }
-    for (intensity, handle) in assets.point_shades.iter().enumerate() {
-        if let Some(material) = materials.get_mut(handle) {
-            material.base_color = flipper_dot_color(level.appearance.flipper, intensity as u16);
-        }
     }
 }
 

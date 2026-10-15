@@ -1411,6 +1411,9 @@ In `fverts` they sit halfway between the centre and a tip, which makes each arm
 about a quarter as wide as it is long. The reference measures the same ratio,
 so here they move to `(8, 8)` and `(24, 8)`, again halfway out.
 Flippers first approach as small red points from beyond the rear opening.
+Approach hues come from `draw_pel`'s `pixcols` table, independently of the
+level's body palette: Flippers and Beasties use `$f0`, Tankers `$0f`, Fuseballs
+`$80`, Pulsars `$ff`, Mirrors `$88`, and Alien Droids `$55`.
 The point is a camera-facing square, kept at two original framebuffer pixels
 across. This matches `draw_pel` and `snglpix`, which draw a 2-by-2 block with
 depth-cued intensity rather than a shrinking, full-brightness sphere. It starts

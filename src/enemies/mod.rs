@@ -4,7 +4,6 @@
 use crate::animations::glider_death as shot_death;
 use crate::animations::level_exit as exit;
 use crate::enemies::flipper_render::FlipperAssets;
-use crate::enemies::flipper_render::flipper_dot_color;
 use crate::enemies::flipper_render::flipper_mesh;
 use crate::enemies::shots::enemy_shot_mesh;
 use crate::explosion;
@@ -66,10 +65,10 @@ pub(crate) fn setup(
             cull_mode: None,
             ..default()
         }),
-        point_shades: (0..=255u16)
+        point_shades: (0..=255)
             .map(|intensity| {
                 materials.add(StandardMaterial {
-                    base_color: flipper_dot_color(level.appearance.flipper, intensity),
+                    base_color: crate::cry::color(0xf0, intensity),
                     unlit: true,
                     cull_mode: None,
                     ..default()

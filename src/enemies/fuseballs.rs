@@ -122,7 +122,7 @@ pub(crate) fn setup(
         shades: (0..=255)
             .map(|i| {
                 materials.add(StandardMaterial {
-                    base_color: cry::color(15, i),
+                    base_color: cry::color(0x80, i),
                     unlit: true,
                     cull_mode: None,
                     ..default()
