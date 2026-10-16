@@ -46,6 +46,8 @@ redistribution license has been established for them in this project:
   assets/messages/hud.bin               Extracted score numerals/life icon
   assets/messages/wordart.bin           Extracted artwork contours/pixels
   assets/messages/game-over.cry         Original game-over bitmap
+  assets/messages/warp-victory.cry      Original warp-completion bitmap
+  assets/messages/warp-five.cry         Extracted warp-completion lettering
 
   assets/warp/beasty6.cry               Original texture
   assets/warp/crosshair.cry              Extracted original sprite

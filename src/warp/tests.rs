@@ -410,6 +410,24 @@ fn success_awards_once_and_skips_four_extra_webs_except_in_the_late_game() {
             .phase = Phase::Success(1);
         ticks(&mut app, 1);
         assert_eq!(app.world().resource::<Game>().score, 20_000);
+        assert_eq!(
+            app.world()
+                .resource::<Game>()
+                .bonus
+                .as_ref()
+                .unwrap()
+                .warp_five,
+            destination < 90
+        );
+        assert_eq!(
+            app.world()
+                .resource::<Game>()
+                .announcements
+                .iter()
+                .filter(|event| event.id == crate::messages::Id::WarpFive)
+                .count(),
+            usize::from(destination < 90)
+        );
         assert_eq!(app.world().resource::<Game>().lives, 5);
         ticks(&mut app, 10);
         assert_eq!(app.world().resource::<Game>().score, 20_000);
@@ -421,7 +439,46 @@ fn success_awards_once_and_skips_four_extra_webs_except_in_the_late_game() {
             .unwrap()
             .phase = Phase::Victory(1);
         ticks(&mut app, 1);
+        assert!(matches!(
+            app.world().resource::<Game>().bonus.as_ref().unwrap().phase,
+            Phase::Fade(151)
+        ));
+        ticks(&mut app, 151);
         assert_eq!(app.world().resource::<Level>().number, expected);
+    }
+}
+
+#[test]
+fn completion_runs_the_source_scene_fade_victory_and_final_melt_timers() {
+    for kind in [ZoneKind::GateFlight, ZoneKind::Rings] {
+        let mut app = app(1);
+        app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+            kind,
+            course: Some(1),
+            destination: 1,
+        });
+        ticks(&mut app, 1);
+        app.world_mut()
+            .resource_mut::<Game>()
+            .bonus
+            .as_mut()
+            .unwrap()
+            .phase = Phase::Success(151);
+        for (duration, expected) in [(151, Phase::Victory(401)), (401, Phase::Fade(151))] {
+            ticks(&mut app, duration - 1);
+            assert!(app.world().resource::<Game>().bonus.is_some());
+            ticks(&mut app, 1);
+            assert_eq!(
+                app.world().resource::<Game>().bonus.as_ref().unwrap().phase,
+                expected
+            );
+        }
+        ticks(&mut app, 150);
+        assert_eq!(app.world().resource::<Game>().score, 20_000);
+        assert!(app.world().resource::<Game>().bonus.is_some());
+        ticks(&mut app, 1);
+        assert!(app.world().resource::<Game>().bonus.is_none());
+        assert_eq!(app.world().resource::<Level>().number, 6);
     }
 }
 

@@ -460,6 +460,7 @@ fn add_systems(app: &mut App) {
         )
         .add_systems(Update, sync_web.after(load_level))
         .add_systems(Update, warp::failure::draw.after(warp::render::draw))
+        .add_systems(Update, warp::victory::draw.after(warp::render::draw))
         .add_systems(
             Update,
             warp::render::draw

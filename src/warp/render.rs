@@ -29,7 +29,6 @@ pub(crate) enum WarpNode {
     Ground,
     Gate(usize),
     Icon(usize),
-    Victory,
     Tunnel,
     Rings,
 }
@@ -334,6 +333,7 @@ pub(crate) fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     super::failure::setup(&mut commands, &mut images);
+    super::victory::setup(&mut commands, &mut images);
     let gates = [meshes.add(gate_mesh(false)), meshes.add(gate_mesh(true))];
     let icons = std::array::from_fn(|kind| meshes.add(icon_mesh(kind)));
     let material = materials.add(StandardMaterial {
@@ -420,14 +420,6 @@ pub(crate) fn setup(
             RenderLayers::layer(1),
         ));
     }
-    commands.spawn((
-        WarpNode::Victory,
-        Mesh3d(icons[4].clone()),
-        MeshMaterial3d(material.clone()),
-        Transform::default(),
-        Visibility::Hidden,
-        RenderLayers::layer(1),
-    ));
     commands.insert_resource(WarpAssets {
         ground,
         tunnel,
@@ -494,7 +486,7 @@ pub(crate) fn draw(
     for mut visible in &mut crosshairs {
         *visible = if session.is_some_and(|s| {
             s.kind != ZoneKind::Tunnel
-                && (matches!(s.phase, Phase::Flying)
+                && (matches!(s.phase, Phase::Flying | Phase::Success(_))
                     || s.kind == ZoneKind::GateFlight && matches!(s.phase, Phase::Failure(_)))
         }) {
             Visibility::Visible
@@ -518,7 +510,7 @@ pub(crate) fn draw(
         }
     }
     let failure_age = if session.kind == ZoneKind::GateFlight {
-        if let Phase::Failure(ticks) = session.phase {
+        if let Phase::Failure(ticks) | Phase::Success(ticks) = session.phase {
             151 - ticks.min(151)
         } else {
             0
@@ -526,6 +518,11 @@ pub(crate) fn draw(
     } else {
         0
     };
+    if session.kind != ZoneKind::Tunnel
+        && matches!(session.phase, Phase::Victory(_) | Phase::Fade(_))
+    {
+        return;
+    }
     for mut window in &mut windows {
         window.title = format!(
             "Tempest 2032 | {} | Course {}",
@@ -618,14 +615,6 @@ pub(crate) fn draw(
                 } else if kind > 0 {
                     pose.translation.z += 0.01;
                     mesh.0 = assets.icons[usize::from(kind)].clone();
-                    *visible = Visibility::Visible;
-                }
-            }
-            WarpNode::Victory => {
-                if session.kind != ZoneKind::Tunnel && matches!(session.phase, Phase::Victory(_)) {
-                    *pose = Transform::from_xyz(position.x * SCALE, -position.y * SCALE, -4.)
-                        .with_rotation(Quat::from_rotation_y(session.tick as f32 * 0.02))
-                        .with_scale(Vec3::splat(2.));
                     *visible = Visibility::Visible;
                 }
             }

@@ -14,6 +14,7 @@ pub(crate) mod failure;
 pub(crate) mod render;
 mod rings;
 mod tunnel;
+pub(crate) mod victory;
 
 const UNIT: i32 = 1 << 16;
 pub(crate) const SCALE: f32 = 0.1;
@@ -53,12 +54,13 @@ impl ZoneKind {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Phase {
     Flying,
     Failure(u16),
     Success(u16),
     Victory(u16),
+    Fade(u16),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -119,6 +121,7 @@ pub(crate) struct Session {
     pub(crate) passed: usize,
     pub(crate) tick: u32,
     pub(crate) notice: &'static str,
+    pub(crate) warp_five: bool,
     pub(crate) tunnel: Option<tunnel::Tunnel>,
     pub(crate) rings: Option<rings::Rings>,
     announcements: Vec<crate::messages::Event>,
@@ -164,6 +167,7 @@ impl Session {
             gates: VecDeque::new(),
             passed: 0,
             tick: 0,
+            warp_five: false,
             notice: if kind == ZoneKind::Tunnel {
                 "STAY ON THE GREEN TRACK"
             } else if kind == ZoneKind::Rings {
@@ -343,7 +347,10 @@ pub(crate) fn advance(
                 game.add_score(session.step_flight(horizontal, vertical));
             }
         }
-        Phase::Failure(1) | Phase::Victory(1) => {
+        Phase::Victory(1) if session.kind != ZoneKind::Tunnel => {
+            session.phase = Phase::Fade(151);
+        }
+        Phase::Failure(1) | Phase::Victory(1) | Phase::Fade(1) => {
             game.load = Some(LoadReason::ReturnWarp {
                 destination: session.destination,
             });
@@ -352,7 +359,8 @@ pub(crate) fn advance(
         Phase::Success(1) => {
             crate::sound::play(&mut commands, crate::sound::Effect::Excellent);
             let tunnel = session.kind == ZoneKind::Tunnel;
-            if !tunnel || levels.0[session.destination].number < 91 {
+            session.warp_five = levels.0[session.destination].number < 91;
+            if session.warp_five {
                 game.announce(crate::messages::Id::WarpFive);
             }
             if !tunnel {
@@ -376,6 +384,7 @@ pub(crate) fn advance(
         }
         Phase::Success(ticks) => session.phase = Phase::Success(ticks - 1),
         Phase::Victory(ticks) => session.phase = Phase::Victory(ticks - 1),
+        Phase::Fade(ticks) => session.phase = Phase::Fade(ticks - 1),
     }
     for index in passed..session.passed {
         let boosts = (0..=index)

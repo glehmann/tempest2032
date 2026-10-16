@@ -47,6 +47,27 @@ def contours(mask):
 
 def main():
     source, output = map(Path, sys.argv[1:])
+    if output.name == "warp-victory.cry":
+        pixels = (source / "images/beasty3.cry").read_bytes()
+        output.write_bytes(b"".join(
+            pixels[((110 + y) * 320 + 137) * 2:((110 + y) * 320 + 315) * 2]
+            for y in range(68)
+        ))
+        print(f"{output}: original 178x68 vicbon CRY bitmap")
+        return
+    if output.name == "warp-five.cry":
+        table = (source / "afont.s").read_text().split("afont:", 1)[1]
+        values = [int(v, 16) for v in re.findall(r"dc\.l\s+\$([0-9a-f]+)", table, re.I)]
+        pixels = (source / "images/beasty4.cry").read_bytes()
+        binary = bytearray()
+        for y in range(18):
+            for c in "WARP 5 LEVELS!":
+                offset = values[ord(c) - 32 + 1]
+                start = (((offset >> 16) + y) * 320 + (offset & 65535)) * 2
+                binary.extend(pixels[start:start + 30] + bytes(4))
+        output.write_bytes(binary)
+        print(f"{output}: original 238x18 Warp 5 Levels CRY bitmap")
+        return
     if output.name == "hud.bin":
         pixels = (source / "images/beasty4.cry").read_bytes()
         binary = bytearray(b"T32H")

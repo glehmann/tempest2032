@@ -1965,6 +1965,23 @@ The source's ring-score lookup is preserved: combined integer axis errors
 Missing a ring costs no life; completion awards 20,000 points and uses the
 same extra-web advance rule as gate flight.
 
+Gate flight and rings finish through `vicend`/`viccount`'s 151-tick,
+zero-rotation scene fade, followed by the 401-tick `vicbon` screen
+(`yak.s:5128–5134`, `yak.s:5273–5278`, `yak.s:4696–4799`). The crosshair stays
+sharp during that first fade and disappears when the completion screen starts.
+The original EXCELLENT / 20000 BONUS bitmap pulses and shears at `rex` depth 34
+over `makepyr`'s glowing three-face pyramid. Both accumulate in a 384×240 CRY
+feedback image. `versiondraw` uses scale 494/256, a triangular-wave rotation,
+and a drifting source center; `bobo` sets the following frame's intensity loss
+to 27, after the initial eight-unit loss (`yak.s:3023–3103`, `yak.s:4749–4788`).
+The whole operation advances at 15 Hz, independently of the 60 Hz phase timers.
+WARP 5 LEVELS! stays sharp above this bitmap when the destination advances.
+The final 151-tick `ofade`/`ffade` melt merges that lettering into the bitmap
+before returning to web entry. Its initial rotation ranges from -3 through 4
+brads and settles one step toward zero every four feedback frames. This
+presentation-only choice uses the completion clock instead of consuming gameplay
+randomness. The green-track tunnel retains its separate completion sequence.
+
 Start a bonus directly for testing:
 
 ```sh

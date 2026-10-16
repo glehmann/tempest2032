@@ -1,4 +1,4 @@
-//! failfade reprocesses the last displayed bitmap, like the game-over feedback.
+//! failfade reprocesses the last displayed bitmap on a missed or final gate.
 
 use super::{Phase, ZoneKind};
 use crate::{
@@ -64,7 +64,7 @@ impl Feedback {
         self.scratch = vec![0; WIDTH * HEIGHT];
     }
 
-    fn advance(&mut self, age: u16) {
+    fn advance(&mut self, age: u16, angle: i32) {
         if self.pixels.is_empty() {
             return;
         }
@@ -73,7 +73,7 @@ impl Feedback {
                 &mut self.pixels,
                 &mut self.scratch,
                 UVec2::new(WIDTH as u32, HEIGHT as u32),
-                1,
+                angle,
                 Vec2::splat(500. / 256.),
                 -8 * 65536,
             );
@@ -154,7 +154,7 @@ pub(crate) fn draw(
         .as_ref()
         .filter(|session| game.status == Status::Bonus && session.kind == ZoneKind::GateFlight)
         .and_then(|session| match session.phase {
-            Phase::Failure(ticks) => {
+            Phase::Failure(ticks) | Phase::Success(ticks) => {
                 let age = 151 - ticks.min(151);
                 Some((session.tick.saturating_sub(u32::from(age)), age))
             }
@@ -215,7 +215,12 @@ pub(crate) fn draw(
     }
     *canvas.1 = Visibility::Hidden;
     let Some((_, age)) = failure else { return };
-    feedback.advance(age);
+    let angle = i32::from(
+        game.bonus
+            .as_ref()
+            .is_some_and(|s| matches!(s.phase, Phase::Failure(_))),
+    );
+    feedback.advance(age, angle);
     if feedback.pixels.is_empty() {
         return;
     }
@@ -272,21 +277,21 @@ mod tests {
         let mut feedback = Feedback::default();
         feedback.capture(&frame());
         let original = feedback.pixels.clone();
-        feedback.advance(0);
+        feedback.advance(0, 1);
         assert_ne!(original, feedback.pixels);
         let first = feedback.pixels.clone();
-        feedback.advance(3);
+        feedback.advance(3, 1);
         assert_eq!(first, feedback.pixels);
-        feedback.advance(4);
+        feedback.advance(4, 1);
         let second = feedback.pixels.clone();
-        feedback.advance(7);
+        feedback.advance(7, 1);
         assert_eq!(second, feedback.pixels);
         for tick in 8..=80 {
-            feedback.advance(tick);
+            feedback.advance(tick, 1);
         }
         let mut skipped = Feedback::default();
         skipped.capture(&frame());
-        skipped.advance(80);
+        skipped.advance(80, 1);
         assert_eq!(feedback.pixels, skipped.pixels);
         assert!(
             feedback
@@ -296,8 +301,26 @@ mod tests {
                 .sum::<u64>()
                 < original.iter().map(|p| u64::from(p & 255)).sum::<u64>()
         );
-        feedback.advance(150);
+        feedback.advance(150, 1);
         assert!(feedback.pixels.iter().all(|p| p & 255 == 0));
+    }
+
+    #[test]
+    fn final_gate_fades_the_scene_without_the_missed_gate_rotation() {
+        let mut feedback = Feedback::default();
+        feedback.capture(&frame());
+        let mut expected = feedback.pixels.clone();
+        let mut scratch = feedback.scratch.clone();
+        cry::feedback(
+            &mut expected,
+            &mut scratch,
+            UVec2::new(WIDTH as u32, HEIGHT as u32),
+            0,
+            Vec2::splat(500. / 256.),
+            -8 * 65536,
+        );
+        feedback.advance(0, 0);
+        assert_eq!(feedback.pixels, expected);
     }
 
     #[test]

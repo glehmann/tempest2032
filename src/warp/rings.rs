@@ -168,6 +168,13 @@ impl Rings {
         phase: Phase,
     ) {
         if !matches!(phase, Phase::Flying) {
+            let age = match phase {
+                Phase::Failure(ticks) | Phase::Success(ticks) => 151 - ticks.min(151),
+                _ => return,
+            };
+            if !age.is_multiple_of(4) {
+                return;
+            }
             self.feedback(
                 if matches!(phase, Phase::Failure(_)) {
                     1

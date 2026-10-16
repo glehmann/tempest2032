@@ -85,3 +85,14 @@ Regenerate with:
 ```sh
 python tools/message_font.py /path/to/tempest2000/src assets/messages/afont.bin
 ```
+
+`warp-victory.cry` is `vicbon`'s full 178x68 source rectangle from
+`beasty3.cry` at 137,110. It includes both EXCELLENT and 20000 BONUS.
+`warp-five.cry` stores the 238x18 original afont message merged into the final
+completion fade. During the completion screen, that message uses the native
+3D lettering above the bitmap feedback.
+
+```sh
+python3 tools/message_font.py /path/to/tempest2000/src assets/messages/warp-victory.cry
+python3 tools/message_font.py /path/to/tempest2000/src assets/messages/warp-five.cry
+```

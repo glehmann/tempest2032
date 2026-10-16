@@ -80,6 +80,18 @@ pub(crate) fn feedback(
     scale: Vec2,
     fade: i32,
 ) {
+    feedback_from(pixels, scratch, size, angle, scale, fade, Vec2::ZERO);
+}
+
+pub(crate) fn feedback_from(
+    pixels: &mut Vec<u16>,
+    scratch: &mut Vec<u16>,
+    size: UVec2,
+    angle: i32,
+    scale: Vec2,
+    fade: i32,
+    offset: Vec2,
+) {
     let sin = crate::sines::sine(angle) as f32 / 256.;
     let cos = crate::sines::sine(angle + 64) as f32 / 256.;
     let center = size.as_vec2() / 2.;
@@ -89,7 +101,8 @@ pub(crate) fn feedback(
         let mut source = Vec2::new(
             source.x * cos * scale.x - source.y * sin * scale.y,
             source.x * sin * scale.x + source.y * cos * scale.y,
-        ) + center;
+        ) + center
+            + offset;
         for x in 0..size.x as usize {
             let sx = source.x.floor() as i32;
             let sy = source.y.floor() as i32;
