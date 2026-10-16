@@ -7,18 +7,29 @@ use crate::{
 };
 use bevy::{
     asset::RenderAssetUsages,
+    camera::{RenderTarget, visibility::RenderLayers},
+    core_pipeline::tonemapping::Tonemapping,
     prelude::*,
     render::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         view::screenshot::{Screenshot, ScreenshotCaptured},
     },
 };
-use std::collections::HashMap;
+use std::sync::OnceLock;
 
 const WIDTH: usize = 384;
 const HEIGHT: usize = 240;
 // Like gofeed, pace completed feedback frames at 15 Hz, independently of rendering.
 const TICKS_PER_FRAME: u16 = 4;
+
+fn palette() -> &'static [u16] {
+    static PALETTE: OnceLock<Vec<u16>> = OnceLock::new();
+    PALETTE.get_or_init(|| {
+        (0..32768)
+            .map(|i| encode([10, 5, 0].map(|shift| (((i >> shift) & 31) * 255 / 31) as u8)))
+            .collect()
+    })
+}
 
 #[derive(Resource, Default)]
 pub(crate) struct Feedback {
@@ -36,7 +47,7 @@ impl Feedback {
             .try_into_dynamic()
             .expect("failure frame must be readable")
             .to_rgb8();
-        let mut colors = HashMap::new();
+        let palette = palette();
         self.pixels = (0..WIDTH * HEIGHT)
             .map(|i| {
                 let pixel = image
@@ -45,7 +56,9 @@ impl Feedback {
                         ((i / WIDTH) as u32 * image.height()) / HEIGHT as u32,
                     )
                     .0;
-                *colors.entry(pixel).or_insert_with(|| encode(pixel))
+                palette[pixel
+                    .into_iter()
+                    .fold(0, |i, c| (i << 5) | usize::from(c >> 3))]
             })
             .collect();
         self.scratch = vec![0; WIDTH * HEIGHT];
@@ -55,7 +68,7 @@ impl Feedback {
         if self.pixels.is_empty() {
             return;
         }
-        while self.age < age / TICKS_PER_FRAME {
+        while self.age < 1 + age / TICKS_PER_FRAME {
             cry::feedback(
                 &mut self.pixels,
                 &mut self.scratch,
@@ -69,7 +82,7 @@ impl Feedback {
     }
 }
 
-// The modern renderer produces RGB; choose the nearest CRY hue and intensity once.
+// Find the nearest CRY hue and intensity for each five-bit RGB lookup entry.
 fn encode(rgb: [u8; 3]) -> u16 {
     let rgb = rgb.map(i32::from);
     (0..256)
@@ -95,6 +108,8 @@ fn encode(rgb: [u8; 3]) -> u16 {
 pub(crate) struct Canvas;
 
 pub(crate) fn setup(commands: &mut Commands, images: &mut Assets<Image>) {
+    // Build the RGB lookup before gameplay, rather than searching 256 hues per pixel on failure.
+    palette();
     let mut image = Image::new_fill(
         Extent3d {
             width: WIDTH as u32,
@@ -128,6 +143,11 @@ pub(crate) fn draw(
     mut feedback: ResMut<Feedback>,
     mut images: ResMut<Assets<Image>>,
     mut canvas: Single<(&ImageNode, &mut Visibility), With<Canvas>>,
+    cameras: Query<
+        (&Camera, &Transform, &Projection, &RenderLayers, &Msaa),
+        With<crate::camera::WebCamera>,
+    >,
+    window: Option<Single<&Window, With<bevy::window::PrimaryWindow>>>,
 ) {
     let failure = game
         .bonus
@@ -148,8 +168,44 @@ pub(crate) fn draw(
         feedback.age = 0;
         if source.is_some() {
             let generation = feedback.generation;
-            commands.spawn(Screenshot::primary_window()).observe(
-                move |event: On<ScreenshotCaptured>, mut feedback: ResMut<Feedback>| {
+            // Render only the scene, without UI, so the crosshair never enters the feedback bitmap.
+            let size = window.map_or(UVec2::new(WIDTH as u32, HEIGHT as u32), |w| {
+                w.resolution.physical_size()
+            });
+            let mut image =
+                Image::new_target_texture(size.x, size.y, TextureFormat::Rgba8UnormSrgb, None);
+            image.texture_descriptor.usage |=
+                bevy::render::render_resource::TextureUsages::COPY_SRC;
+            let target = images.add(image);
+            let snapshots: Vec<_> = cameras
+                .iter()
+                .map(|(camera, pose, projection, layers, msaa)| {
+                    commands
+                        .spawn((
+                            Camera3d::default(),
+                            crate::messages::geometry::OverlayCamera,
+                            Camera {
+                                order: camera.order - 2,
+                                clear_color: camera.clear_color,
+                                ..default()
+                            },
+                            RenderTarget::Image(target.clone().into()),
+                            *pose,
+                            projection.clone(),
+                            layers.clone(),
+                            *msaa,
+                            Tonemapping::None,
+                        ))
+                        .id()
+                })
+                .collect();
+            commands.spawn(Screenshot::image(target)).observe(
+                move |event: On<ScreenshotCaptured>,
+                      mut feedback: ResMut<Feedback>,
+                      mut commands: Commands| {
+                    for &entity in &snapshots {
+                        commands.entity(entity).despawn();
+                    }
                     if feedback.source.is_some() && feedback.generation == generation {
                         feedback.capture(&event.image);
                     }
@@ -216,13 +272,15 @@ mod tests {
         let mut feedback = Feedback::default();
         feedback.capture(&frame());
         let original = feedback.pixels.clone();
-        feedback.advance(3);
-        assert_eq!(original, feedback.pixels);
-        feedback.advance(4);
+        feedback.advance(0);
         assert_ne!(original, feedback.pixels);
         let first = feedback.pixels.clone();
-        feedback.advance(7);
+        feedback.advance(3);
         assert_eq!(first, feedback.pixels);
+        feedback.advance(4);
+        let second = feedback.pixels.clone();
+        feedback.advance(7);
+        assert_eq!(second, feedback.pixels);
         for tick in 8..=80 {
             feedback.advance(tick);
         }
@@ -260,7 +318,31 @@ mod tests {
         let mut game = app.world_mut().resource_mut::<Game>();
         game.status = Status::Bonus;
         game.bonus = Some(session);
+        for layer in 0..=1 {
+            app.world_mut().spawn((
+                Camera3d::default(),
+                crate::camera::WebCamera,
+                Camera {
+                    order: layer as isize,
+                    ..default()
+                },
+                Transform::default(),
+                Projection::default(),
+                RenderLayers::layer(layer),
+                Msaa::Sample4,
+            ));
+        }
         app.update();
+        let snapshots: Vec<_> = app.world_mut()
+            .query_filtered::<(Entity, &Camera, &RenderTarget), With<crate::messages::geometry::OverlayCamera>>()
+            .iter(app.world())
+            .map(|(entity, camera, target)| {
+                assert!(camera.order < 0);
+                assert!(matches!(target, RenderTarget::Image(_)));
+                entity
+            })
+            .collect();
+        assert_eq!(snapshots.len(), 2);
         let request = app
             .world_mut()
             .query_filtered::<Entity, With<Screenshot>>()
@@ -271,6 +353,11 @@ mod tests {
             image: frame(),
         });
         app.update();
+        assert!(
+            snapshots
+                .iter()
+                .all(|&entity| app.world().get_entity(entity).is_err())
+        );
         assert_eq!(
             app.world_mut()
                 .query::<&Screenshot>()
@@ -292,7 +379,7 @@ mod tests {
         session.tick += 20;
         session.phase = Phase::Failure(131);
         app.update();
-        assert_eq!(app.world().resource::<Feedback>().age, 5);
+        assert_eq!(app.world().resource::<Feedback>().age, 6);
         app.world_mut().resource_mut::<Game>().status = Status::Playing;
         app.update();
         assert_eq!(

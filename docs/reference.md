@@ -2115,14 +2115,17 @@ This records 15 seconds and injects an enemy shot six seconds into the capture,
 showing entry, the starburst, camera retreat, and re-entry.
 
 Gate-flight failures retain the missed-gate scene for the 151-tick `failcount`
-interval. The renderer captures the displayed frame once, downsamples it to
-384 by 240, and converts RGB to the nearest CRY hue and intensity. It then uses
+interval. The renderer captures the scene once without UI, downsamples it to
+384 by 240, and converts RGB to CRY through a five-bit-per-channel lookup built
+at startup. This avoids a per-pixel hue search interrupting the transition. It uses
 the same bitmap feedback operation as GAME OVER, rather than moving the camera.
 `failfade`'s one-brad rotation, 500/256 sampling scale combined with the original
 signed-byte sine table, and eight-unit intensity loss reprocess the previous
 bitmap on each feedback frame (`yak.s:5027-5032`, `yak.s:5312-5336`). Nearest-neighbor
 resampling accumulates the pixel smearing and distortion. Feedback runs at
-15 Hz, like GAME OVER, while the failure timer retains its 60 Hz timing. The
+15 Hz, like GAME OVER, with the first feedback step applied as soon as the capture
+arrives, while the failure timer retains its 60 Hz timing. The crosshair stays
+visible and sharp above the feedback throughout the failure. The
 overlay is cleared on return to normal gameplay; delayed captures from an
 interrupted failure cannot appear in a later session.
 

@@ -448,7 +448,7 @@ pub(crate) fn setup(
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            GlobalZIndex(20),
+            GlobalZIndex(31),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -492,9 +492,11 @@ pub(crate) fn draw(
         *visible = Visibility::Hidden;
     }
     for mut visible in &mut crosshairs {
-        *visible = if session
-            .is_some_and(|s| s.kind != ZoneKind::Tunnel && matches!(s.phase, Phase::Flying))
-        {
+        *visible = if session.is_some_and(|s| {
+            s.kind != ZoneKind::Tunnel
+                && (matches!(s.phase, Phase::Flying)
+                    || s.kind == ZoneKind::GateFlight && matches!(s.phase, Phase::Failure(_)))
+        }) {
             Visibility::Visible
         } else {
             Visibility::Hidden
@@ -854,6 +856,17 @@ mod tests {
             values.clone()
         };
         let frozen_uvs = uvs(&app);
+        let crosshair = app
+            .world_mut()
+            .query_filtered::<Entity, With<Crosshair>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(
+            app.world().get::<Visibility>(crosshair),
+            Some(&Visibility::Visible)
+        );
+        let parent = app.world().get::<ChildOf>(crosshair).unwrap().parent();
+        assert!(app.world().get::<GlobalZIndex>(parent).unwrap().0 > 30);
         let mut game = app.world_mut().resource_mut::<Game>();
         let session = game.bonus.as_mut().unwrap();
         session.tick += 20;
@@ -867,6 +880,16 @@ mod tests {
         };
         assert_eq!(projection.fov, 1.2);
         assert_eq!(frozen_uvs, uvs(&app));
+        assert_eq!(
+            app.world().get::<Visibility>(crosshair),
+            Some(&Visibility::Visible)
+        );
+        app.world_mut().resource_mut::<Game>().status = Status::Playing;
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(crosshair),
+            Some(&Visibility::Hidden)
+        );
     }
 
     #[test]
