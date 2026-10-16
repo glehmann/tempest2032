@@ -83,7 +83,7 @@ Every frame counts, so a single hitch appears at the next refresh and stays
 in the range until it ages out. The same line reports this process's average
 CPU usage as a percentage of total CPU capacity and its resident memory in
 MiB, once their first readings arrive. It also reports the current antialiasing
-step as `AA 4x`, `AA fxaa`, or `AA off`.
+step as `AA full`, `AA fxaa`, or `AA off`.
 
 Presentation uses FIFO VSync to avoid tearing. With `--fps`, late application
 updates also produce warnings when their interval exceeds 1.5 display refresh

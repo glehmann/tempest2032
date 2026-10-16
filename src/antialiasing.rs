@@ -47,7 +47,7 @@ impl Quality {
 
     pub(crate) fn label(self) -> &'static str {
         match self {
-            Self::Full => "4x",
+            Self::Full => "full",
             Self::Fxaa => "fxaa",
             Self::Off => "off",
         }

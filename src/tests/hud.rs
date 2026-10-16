@@ -217,43 +217,43 @@ fn the_label_waits_for_a_half_second_sample_and_then_reports_the_frame_times() {
     run(&mut app, Duration::from_nanos(16_666_667), 10);
     assert_eq!(label(&mut app), "");
     run(&mut app, Duration::from_nanos(16_666_667), 20);
-    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA 4x");
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA full");
 }
 
 #[test]
 fn one_slow_frame_shows_up_in_the_range_at_the_next_refresh() {
     let mut app = fps_app();
     run(&mut app, Duration::from_nanos(16_666_667), 30);
-    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA 4x");
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA full");
     run(&mut app, Duration::from_millis(100), 1);
-    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA 4x");
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA full");
     run(&mut app, Duration::from_nanos(16_666_667), 25);
-    assert_eq!(label(&mut app), "50 FPS  16.7-100.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "50 FPS  16.7-100.0 ms  AA full");
 }
 
 #[test]
 fn the_frame_times_span_the_last_two_seconds_and_forget_older_frames() {
     let mut app = fps_app();
     run(&mut app, Duration::from_nanos(10_000_000), 60);
-    assert_eq!(label(&mut app), "100 FPS  10.0-10.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "100 FPS  10.0-10.0 ms  AA full");
     run(&mut app, Duration::from_nanos(33_333_333), 50);
-    assert_eq!(label(&mut app), "30 FPS  10.0-33.3 ms  AA 4x");
+    assert_eq!(label(&mut app), "30 FPS  10.0-33.3 ms  AA full");
     run(&mut app, Duration::from_nanos(33_333_333), 50);
-    assert_eq!(label(&mut app), "30 FPS  33.3-33.3 ms  AA 4x");
+    assert_eq!(label(&mut app), "30 FPS  33.3-33.3 ms  AA full");
 }
 
 #[test]
 fn the_processor_and_memory_readings_are_added_once_the_diagnostics_have_values() {
     let mut app = fps_app();
     run(&mut app, Duration::from_nanos(16_666_667), 30);
-    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA 4x");
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA full");
     report(
         &mut app,
         &SystemInformationDiagnosticsPlugin::PROCESS_CPU_USAGE,
         &[10.0, 30.0],
     );
     run(&mut app, Duration::from_nanos(16_666_667), 30);
-    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA 4x  CPU 20%");
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA full  CPU 20%");
     report(
         &mut app,
         &SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE,
@@ -262,7 +262,7 @@ fn the_processor_and_memory_readings_are_added_once_the_diagnostics_have_values(
     run(&mut app, Duration::from_nanos(16_666_667), 30);
     assert_eq!(
         label(&mut app),
-        "60 FPS  16.7-16.7 ms  AA 4x  CPU 20%  MEM 1290 MiB"
+        "60 FPS  16.7-16.7 ms  AA full  CPU 20%  MEM 1290 MiB"
     );
 }
 
@@ -270,7 +270,7 @@ fn the_processor_and_memory_readings_are_added_once_the_diagnostics_have_values(
 fn the_antialiasing_state_follows_the_frame_rate_fallback() {
     let mut app = fps_app();
     run(&mut app, Duration::from_nanos(16_666_667), 30);
-    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA 4x");
+    assert_eq!(label(&mut app), "60 FPS  16.7-16.7 ms  AA full");
     app.world_mut()
         .resource_mut::<crate::antialiasing::Antialiasing>()
         .quality = crate::antialiasing::Quality::Off;
@@ -282,11 +282,11 @@ fn the_antialiasing_state_follows_the_frame_rate_fallback() {
 fn refresh_deadlines_keep_the_remainder_from_previous_frames() {
     let mut app = fps_app();
     run(&mut app, Duration::from_millis(300), 2);
-    assert_eq!(label(&mut app), "3 FPS  300.0-300.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "3 FPS  300.0-300.0 ms  AA full");
     run(&mut app, Duration::from_millis(200), 1);
-    assert_eq!(label(&mut app), "3 FPS  300.0-300.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "3 FPS  300.0-300.0 ms  AA full");
     run(&mut app, Duration::from_millis(200), 1);
-    assert_eq!(label(&mut app), "5 FPS  200.0-300.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "5 FPS  200.0-300.0 ms  AA full");
 }
 
 #[test]
@@ -297,9 +297,9 @@ fn the_rolling_window_keeps_its_precision_after_a_long_session() {
         .update_with_duration(Duration::from_secs(7 * 24 * 60 * 60));
     run(&mut app, Duration::from_millis(100), 1);
     run(&mut app, Duration::from_millis(10), 40);
-    assert_eq!(label(&mut app), "82 FPS  10.0-100.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "82 FPS  10.0-100.0 ms  AA full");
     run(&mut app, Duration::from_millis(10), 160);
-    assert_eq!(label(&mut app), "100 FPS  10.0-100.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "100 FPS  10.0-100.0 ms  AA full");
     run(&mut app, Duration::from_millis(10), 50);
-    assert_eq!(label(&mut app), "100 FPS  10.0-10.0 ms  AA 4x");
+    assert_eq!(label(&mut app), "100 FPS  10.0-10.0 ms  AA full");
 }
