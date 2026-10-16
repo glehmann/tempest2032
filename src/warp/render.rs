@@ -567,16 +567,22 @@ pub(crate) fn draw(
     {
         // Updating the texture replaces its GPU view; refresh the material binding too.
         let _ = materials.get_mut(&assets.feedback_material);
-        let data = image
+        image
             .data
             .get_or_insert_with(|| vec![0; super::rings::WIDTH * super::rings::HEIGHT * 4]);
-        for (pixel, rgba) in rings.pixels.iter().zip(data.as_chunks_mut::<4>().0) {
-            let hue = (pixel >> 8) as usize;
-            for (channel, table) in [&cry::RED, &cry::GREEN, &cry::BLUE].iter().enumerate() {
-                rgba[channel] = ((u16::from(table[hue >> 4][hue & 15]) * (pixel & 255)) >> 8) as u8;
-            }
-            rgba[3] = 255;
+        let mut next = rings.clone();
+        let phase = match session.phase {
+            Phase::Failure(ticks) | Phase::Success(ticks) => (151 - ticks.min(151)) % 4,
+            _ => 0,
+        };
+        if phase != 0 {
+            next.feedback(
+                i32::from(matches!(session.phase, Phase::Failure(_))),
+                Vec2::splat(500. / 256.),
+                -8 * super::UNIT,
+            );
         }
+        cry::write_feedback(image, &rings.pixels, &next.pixels, u32::from(phase));
     }
     for (node, mut pose, mut mesh, mut visible) in &mut nodes {
         match *node {

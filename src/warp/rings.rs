@@ -39,7 +39,7 @@ impl Rings {
         self.fade = 0x1c0000;
     }
 
-    fn feedback(&mut self, angle: i32, scale: Vec2, fade: i32) {
+    pub(super) fn feedback(&mut self, angle: i32, scale: Vec2, fade: i32) {
         crate::cry::feedback(
             &mut self.pixels,
             &mut self.scratch,

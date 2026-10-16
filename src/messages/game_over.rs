@@ -14,10 +14,10 @@ const ART_WIDTH: usize = 145;
 const ART_HEIGHT: usize = 68;
 const ART: &[u8] = include_bytes!("../../assets/messages/game-over.cry");
 // gofeed advances per completed GPU frame, not per gameplay/VBlank tick.
-// Pace the full feedback operation at 15 Hz within the 60 Hz simulation.
+// Retain 15 Hz feedback checkpoints and interpolate their presentation at 60 Hz.
 const TICKS_PER_FRAME: u32 = 4;
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 struct Feedback {
     pixels: Vec<u16>,
     scratch: Vec<u16>,
@@ -150,6 +150,7 @@ fn advance(messages: Res<Messages>, mut feedback: ResMut<Feedback>) {
 }
 
 fn draw(
+    messages: Res<Messages>,
     feedback: Res<Feedback>,
     handle: Res<ImageHandle>,
     mut images: ResMut<Assets<Image>>,
@@ -171,30 +172,62 @@ fn draw(
             Canvas::Feedback => transform.scale = Vec3::splat((viewport / WIDTH as f32).min(1.)),
         }
     }
-    if feedback.age.is_none() || !feedback.is_changed() {
+    if feedback.age.is_none() || !messages.is_changed() {
         return;
     }
     if let Some(image) = images.get_mut(&handle.0) {
-        for (pixel, rgba) in feedback
-            .pixels
-            .iter()
-            .zip(image.data.as_mut().unwrap().as_chunks_mut::<4>().0)
-        {
-            let hue = (pixel >> 8) as usize;
-            for (channel, table) in [&crate::cry::RED, &crate::cry::GREEN, &crate::cry::BLUE]
-                .iter()
-                .enumerate()
-            {
-                rgba[channel] = ((u16::from(table[hue >> 4][hue & 15]) * (pixel & 255)) >> 8) as u8;
-            }
-            rgba[3] = 255;
+        let phase = messages.game_over.unwrap().age % TICKS_PER_FRAME;
+        let mut next = feedback.clone();
+        if phase != 0 {
+            next.update(feedback.age.unwrap() + 1);
         }
+        crate::cry::write_feedback(image, &feedback.pixels, &next.pixels, phase);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn presentation_changes_each_tick_and_preserves_feedback_checkpoints() {
+        let mut app = App::new();
+        app.init_resource::<Messages>()
+            .init_resource::<Feedback>()
+            .init_resource::<Assets<Image>>()
+            .add_systems(Startup, setup)
+            .add_systems(Update, (advance, draw).chain());
+        let mut previous = Vec::new();
+        for tick in 0..=12 {
+            app.world_mut().resource_mut::<Messages>().game_over = Some(super::super::Active {
+                event: super::super::Id::GameOver.into(),
+                age: tick,
+            });
+            app.update();
+            let handle = app.world().resource::<ImageHandle>().0.clone();
+            let image = app
+                .world()
+                .resource::<Assets<Image>>()
+                .get(&handle)
+                .unwrap();
+            assert_ne!(*image.data.as_ref().unwrap(), previous);
+            if tick % 4 == 0 {
+                let mut expected = image.clone();
+                let mut reference = Feedback::default();
+                reference.update(tick / 4);
+                crate::cry::write_feedback(&mut expected, &reference.pixels, &reference.pixels, 0);
+                assert_eq!(image.data, expected.data);
+            }
+            previous.clone_from(image.data.as_ref().unwrap());
+            app.update();
+            let image = app
+                .world()
+                .resource::<Assets<Image>>()
+                .get(&handle)
+                .unwrap();
+            assert_eq!(*image.data.as_ref().unwrap(), previous);
+        }
+    }
 
     #[test]
     fn feedback_runs_at_fifteen_hz_and_holds_on_intermediate_ticks() {

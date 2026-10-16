@@ -19,7 +19,7 @@ const ART: &[u8; 178 * 68 * 2] = include_bytes!("../../assets/messages/warp-vict
 const WARP: &[u8; 238 * 18 * 2] = include_bytes!("../../assets/messages/warp-five.cry");
 const TICKS_PER_FRAME: u32 = 4;
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub(crate) struct Feedback {
     source: Option<u32>,
     pixels: Vec<u16>,
@@ -220,7 +220,6 @@ pub(crate) fn draw(
         .iter()
         .next()
         .map_or(384., |w| 240. * w.width() / w.height().max(1.));
-    let previous = (feedback.source, feedback.frame);
     if let Some((session, age)) = active {
         feedback.update(session.tick.saturating_sub(age), age, session.warp_five);
     } else {
@@ -237,23 +236,20 @@ pub(crate) fn draw(
             continue;
         }
         pose.scale = Vec3::splat((viewport / WIDTH as f32).min(1.));
-        if active.is_none() || previous == (feedback.source, feedback.frame) {
+        let Some((session, age)) = active else {
             continue;
-        }
+        };
         if let Some(image) = images.get_mut(&sprite.image) {
-            for (pixel, rgba) in feedback
-                .pixels
-                .iter()
-                .zip(image.data.as_mut().unwrap().as_chunks_mut::<4>().0)
-            {
-                let color = cry::color((pixel >> 8) as u8, *pixel as u8).to_srgba();
-                *rgba = [
-                    (color.red * 255.) as u8,
-                    (color.green * 255.) as u8,
-                    (color.blue * 255.) as u8,
-                    255,
-                ];
+            let phase = if age < 401 { age } else { age - 401 } % TICKS_PER_FRAME;
+            let mut next = feedback.clone();
+            if phase != 0 {
+                next.update(
+                    feedback.source.unwrap(),
+                    age + TICKS_PER_FRAME - phase,
+                    session.warp_five,
+                );
             }
+            cry::write_feedback(image, &feedback.pixels, &next.pixels, phase);
         }
     }
 }

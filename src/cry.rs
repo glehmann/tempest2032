@@ -72,6 +72,25 @@ pub(crate) fn color(hue: u8, intensity: u8) -> Color {
     Color::srgb_u8(channel(&RED), channel(&GREEN), channel(&BLUE))
 }
 
+// Blend decoded RGB, never packed CRY hues. Every fourth tick is an exact feedback frame.
+pub(crate) fn write_feedback(image: &mut Image, pixels: &[u16], next: &[u16], phase: u32) {
+    for ((pixel, next), rgba) in pixels
+        .iter()
+        .zip(next)
+        .zip(image.data.as_mut().unwrap().as_chunks_mut::<4>().0)
+    {
+        for (channel, table) in [&RED, &GREEN, &BLUE].iter().enumerate() {
+            let decode = |pixel: u16| {
+                (u32::from(table[(pixel >> 12) as usize][((pixel >> 8) & 15) as usize])
+                    * u32::from(pixel & 255))
+                    >> 8
+            };
+            rgba[channel] = ((decode(*pixel) * (4 - phase) + decode(*next) * phase) / 4) as u8;
+        }
+        rgba[3] = 255;
+    }
+}
+
 pub(crate) fn feedback(
     pixels: &mut Vec<u16>,
     scratch: &mut Vec<u16>,

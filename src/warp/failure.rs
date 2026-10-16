@@ -19,7 +19,7 @@ use std::sync::OnceLock;
 
 const WIDTH: usize = 384;
 const HEIGHT: usize = 240;
-// Like gofeed, pace completed feedback frames at 15 Hz, independently of rendering.
+// Like gofeed, retain 15 Hz checkpoints and interpolate their presentation at 60 Hz.
 const TICKS_PER_FRAME: u16 = 4;
 
 fn palette() -> &'static [u16] {
@@ -31,7 +31,7 @@ fn palette() -> &'static [u16] {
     })
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub(crate) struct Feedback {
     source: Option<u32>,
     generation: u64,
@@ -226,17 +226,12 @@ pub(crate) fn draw(
     }
     *canvas.1 = Visibility::Visible;
     if let Some(image) = images.get_mut(&canvas.0.image) {
-        for (pixel, rgba) in feedback
-            .pixels
-            .iter()
-            .zip(image.data.as_mut().unwrap().as_chunks_mut::<4>().0)
-        {
-            let hue = (pixel >> 8) as usize;
-            for (channel, table) in [&cry::RED, &cry::GREEN, &cry::BLUE].iter().enumerate() {
-                rgba[channel] = ((u16::from(table[hue >> 4][hue & 15]) * (pixel & 255)) >> 8) as u8;
-            }
-            rgba[3] = 255;
+        let phase = age % TICKS_PER_FRAME;
+        let mut next = feedback.clone();
+        if phase != 0 {
+            next.advance(age + TICKS_PER_FRAME - phase, angle);
         }
+        cry::write_feedback(image, &feedback.pixels, &next.pixels, u32::from(phase));
     }
 }
 

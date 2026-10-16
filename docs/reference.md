@@ -1856,9 +1856,12 @@ remain separate squares as the copies approach and spread apart.
 The 250/500/750 score labels use their shorter cell expansion and fade.
 They coexist with ordinary announcements. Score-based extra
 lives trigger a 1UP effect for each award. Game over clears
-ordinary messages and keeps the slower 15 Hz pulse and scale-and-rotate CRY
-feedback. Its lettering and fading trails use the previous bitmap rendering;
-there is no separate sharp 3D foreground. The score stays visible until restart.
+ordinary messages and keeps the pulse and scale-and-rotate CRY feedback.
+The 15 Hz feedback checkpoints are blended in decoded RGB at 60 Hz, preserving
+their exact colors, trail buildup, pulse speed, and fade duration while smoothing
+the intervening frames. Its lettering and fading trails use the previous bitmap
+rendering; there is no separate sharp 3D foreground. The score stays visible until
+restart.
 
 The tunnel instruction lasts 200 ticks at its original lower-screen anchor.
 SPEED BOOST is shown in gate flight, matching its suppression in psychedelic
@@ -1978,7 +1981,8 @@ over `makepyr`'s glowing three-face pyramid. Both accumulate in a 384×240 CRY
 feedback image. `versiondraw` uses scale 494/256, a triangular-wave rotation,
 and a drifting source center; `bobo` sets the following frame's intensity loss
 to 27, after the initial eight-unit loss (`yak.s:3023–3103`, `yak.s:4749–4788`).
-The whole operation advances at 15 Hz, independently of the 60 Hz phase timers.
+Feedback checkpoints advance at 15 Hz and are blended at 60 Hz, as on GAME OVER.
+The 60 Hz phase timers retain their existing timing.
 WARP 5 LEVELS! stays sharp at the bottom of the screen when the destination
 advances. Its top sits at logical row 202, matching the original display strip.
 The final 151-tick `ofade`/`ffade` melt merges that lettering into the bitmap
@@ -2152,10 +2156,12 @@ the same bitmap feedback operation as GAME OVER, rather than moving the camera.
 `failfade`'s one-brad rotation, 500/256 sampling scale combined with the original
 signed-byte sine table, and eight-unit intensity loss reprocess the previous
 bitmap on each feedback frame (`yak.s:5027-5032`, `yak.s:5312-5336`). Nearest-neighbor
-resampling accumulates the pixel smearing and distortion. Feedback runs at
-15 Hz, like GAME OVER, with the first feedback step applied as soon as the capture
-arrives, while the failure timer retains its 60 Hz timing. The crosshair stays
-visible and sharp above the feedback throughout the failure. The
+resampling accumulates the pixel smearing and distortion. Feedback retains its
+15 Hz checkpoints, blended in decoded RGB at 60 Hz like GAME OVER, with the first
+feedback step applied as soon as the capture arrives. The same smoothing applies
+to the psychedelic rings' failure and final-gate fades. The failure timer retains
+its 60 Hz timing. The crosshair stays visible and sharp above the feedback
+throughout the failure. The
 overlay is cleared on return to normal gameplay; delayed captures from an
 interrupted failure cannot appear in a later session.
 
