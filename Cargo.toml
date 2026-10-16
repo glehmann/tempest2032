@@ -20,13 +20,14 @@ bevy = { version = "0.18", default-features = false, features = [
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rodio = { version = "0.20", default-features = false, features = ["mp3", "flac", "vorbis", "wav"] }
 crc32fast = "1"
 dirs = "6"
 keyvalues-parser = "0.2"
 steamlocate = "2.1"
 sysinfo = "0.37"
 tempfile = "3"
-bevy = { version = "0.18", default-features = false, features = ["multi_threaded", "x11", "wayland", "sysinfo_plugin"] }
+bevy = { version = "0.18", default-features = false, features = ["multi_threaded", "x11", "wayland", "sysinfo_plugin", "mp3", "flac", "vorbis", "wav"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy = { version = "0.18", default-features = false, features = ["web", "webgl2"] }

@@ -765,6 +765,17 @@ Welcome, Configuration, and initials entry use `tune13.mod`. The original
 `rreset` title-screen setup requests `modnum = 1` at `yak.s:1018`; entry one in
 `images_sounds.s:63-70` is `tune13.mod`, also used by game over.
 
+Native level overrides can set a top-level `soundtrack = "music/song.mp3"`.
+Relative paths resolve beside the TOML file; absolute paths are accepted.
+MP3, FLAC, Ogg Vorbis, and WAV are supported. At startup, each distinct path is
+read once and checked with the audio decoder. Missing, unreadable, or invalid
+files log a warning and fall back to that level's embedded track. Omitting the
+setting also keeps the original music. Custom files loop, obey pause and volume
+settings, and use the normal fade-out on track changes. Levels referencing the
+same resolved path keep playback continuous. Menu, game-over, and warp music
+still use the embedded modules. Restart to reload changed files. Browser builds
+remain self-contained and do not load local soundtracks.
+
 Regenerate the embedded modules from the original source tree or cartridge:
 
 ```sh
@@ -773,6 +784,10 @@ python3 tools/music.py "/path/to/Tempest 2000.j64" assets/music
 ```
 
 ## Editable levels
+
+The runnable [custom-level demo](../examples/custom-level/) includes a TOML file
+and a field-by-field guide to geometry, enemies, colors, power-ups, and music.
+Run `cargo run --release -- --levels examples/custom-level --level 1` to try it.
 
 All shipped levels are embedded in the executable. At startup, TOML files in
 `levels/`, or the directory selected by `--levels`, take priority over embedded

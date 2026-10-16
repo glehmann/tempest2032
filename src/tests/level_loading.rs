@@ -120,3 +120,33 @@ fn an_existing_file_instead_of_a_directory_is_an_error() {
     directory.write("catalog", "not a directory");
     assert!(Levels::load(&directory.0.join("catalog")).is_err());
 }
+
+#[test]
+fn soundtrack_paths_are_relative_to_the_level_file_and_need_not_exist() {
+    let directory = Directory::new();
+    for path in [
+        PathBuf::from("music/song.flac"),
+        directory.0.join("absolute.mp3"),
+    ] {
+        let setting = toml::Value::String(path.to_str().unwrap().to_owned());
+        directory.write("01.toml", &format!("soundtrack = {setting}\n{FIRST}"));
+        let levels = Levels::load(&directory.0).unwrap();
+        assert_eq!(levels.0[0].soundtrack, Some(directory.0.join(path)));
+        assert!(levels.0[1].soundtrack.is_none());
+        assert!(!levels.is_standard());
+    }
+    assert!(Level::parse(&format!("soundtrack = \"\"\n{FIRST}"), "empty").is_err());
+}
+
+#[test]
+fn demo_is_a_valid_partial_override() {
+    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/custom-level");
+    let levels = Levels::load(&directory).unwrap();
+    assert_eq!(levels.0.len(), BUNDLED_LEVELS.len());
+    assert_eq!(levels.0[0].web.lanes(), 8);
+    assert_eq!(
+        levels.0[0].soundtrack,
+        Some(directory.join("soundtrack.ogg"))
+    );
+    assert!(levels.0[1..] == Levels::load(&directory.join("missing")).unwrap().0[1..]);
+}

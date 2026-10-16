@@ -14,6 +14,7 @@ include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 #[derive(Resource, Clone, PartialEq)]
 pub(crate) struct Level {
     pub(crate) number: usize,
+    pub(crate) soundtrack: Option<std::path::PathBuf>,
     pub(crate) web: Web,
     pub(crate) flippers: Flippers,
     pub(crate) appearance: Appearance,
@@ -185,6 +186,7 @@ impl Default for PowerUps {
 #[serde(deny_unknown_fields)]
 struct Definition {
     pub(crate) number: usize,
+    soundtrack: Option<std::path::PathBuf>,
     #[serde(default)]
     pub(crate) enemy_count: Option<u16>,
     #[serde(default)]
@@ -290,6 +292,13 @@ impl Level {
         let web = &def.web;
         if def.number == 0 {
             return fail("number must be positive");
+        }
+        if def
+            .soundtrack
+            .as_ref()
+            .is_some_and(|path| path.as_os_str().is_empty())
+        {
+            return fail("soundtrack must be a nonempty file path");
         }
         let enemy_shots = def.enemy_shots.unwrap_or(((def.number - 1) / 8).min(3) + 1);
         if !(1..=16).contains(&enemy_shots) {
@@ -405,6 +414,7 @@ impl Level {
         }
         Ok(Self {
             number: def.number,
+            soundtrack: def.soundtrack,
             web: def.web,
             flippers: Flippers {
                 enabled: f.enabled,
@@ -473,10 +483,11 @@ impl Levels {
                     }
                     let source = std::fs::read_to_string(&path)
                         .map_err(|err| format!("{}: {err}", path.display()))?;
-                    levels.push((
-                        path.clone(),
-                        Level::parse(&source, &path.display().to_string())?,
-                    ));
+                    let mut level = Level::parse(&source, &path.display().to_string())?;
+                    if let Some(soundtrack) = &mut level.soundtrack {
+                        *soundtrack = directory.join(&*soundtrack);
+                    }
+                    levels.push((path, level));
                 }
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}

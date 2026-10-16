@@ -9,16 +9,18 @@ fn app() -> App {
         .init_resource::<Time>()
         .init_resource::<MusicVolume>()
         .init_resource::<Assets<Track>>()
+        .init_resource::<Assets<AudioSource>>()
+        .init_resource::<crate::level::Levels>()
         .insert_resource(GlobalVolume::new(Volume::Linear(0.6)))
         .add_systems(Startup, setup)
         .add_systems(Update, update);
     app
 }
 
-fn current(app: &mut App) -> (Entity, usize) {
+fn current(app: &mut App) -> (Entity, Selection) {
     let mut query = app.world_mut().query::<(Entity, &Playing)>();
     let (entity, playing) = query.single(app.world()).unwrap();
-    (entity, playing.track)
+    (entity, playing.track.clone())
 }
 
 #[test]
@@ -90,7 +92,7 @@ fn same_track_is_preserved_and_new_tracks_replace_it_after_a_fade() {
     let mut app = app();
     app.update();
     let original = current(&mut app);
-    assert_eq!(original.1, 4);
+    assert_eq!(original.1, Selection::Original(4));
     app.world_mut().resource_mut::<Level>().number = 2;
     for _ in 0..100 {
         app.update();
@@ -110,7 +112,7 @@ fn same_track_is_preserved_and_new_tracks_replace_it_after_a_fade() {
         .advance_by(Duration::from_millis(500));
     app.update();
     let next = current(&mut app);
-    assert_eq!(next.1, 1);
+    assert_eq!(next.1, Selection::Original(1));
     assert_ne!(next.0, original.0);
     assert!(app.world().get_entity(original.0).is_err());
     app.world_mut().resource_mut::<MusicVolume>().0 = 0.0;
@@ -133,10 +135,92 @@ fn welcome_and_configuration_use_the_original_title_screen_module() {
         Vec::new(),
     ));
     app.update();
-    assert_eq!(current(&mut app).1, 0);
+    assert_eq!(current(&mut app).1, Selection::Original(0));
     app.world_mut()
         .resource_mut::<crate::menu::FrontEnd>()
         .screen = crate::menu::Screen::Configuration;
     app.update();
-    assert_eq!(current(&mut app).1, 0);
+    assert_eq!(current(&mut app).1, Selection::Original(0));
+}
+
+fn wav() -> Vec<u8> {
+    let samples = [0_i16, 1000, -1000, 2000];
+    let size = (samples.len() * 2) as u32;
+    let mut bytes = b"RIFF".to_vec();
+    bytes.extend((36 + size).to_le_bytes());
+    bytes.extend(b"WAVEfmt ");
+    bytes.extend(16_u32.to_le_bytes());
+    bytes.extend(1_u16.to_le_bytes()); // PCM
+    bytes.extend(1_u16.to_le_bytes()); // mono
+    bytes.extend(8000_u32.to_le_bytes());
+    bytes.extend(16000_u32.to_le_bytes());
+    bytes.extend(2_u16.to_le_bytes());
+    bytes.extend(16_u16.to_le_bytes());
+    bytes.extend(b"data");
+    bytes.extend(size.to_le_bytes());
+    for sample in samples {
+        bytes.extend(sample.to_le_bytes());
+    }
+    bytes
+}
+
+#[test]
+fn external_music_loops_and_stays_live_across_levels_using_the_same_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("song.wav");
+    std::fs::write(&path, wav()).unwrap();
+    let mut app = app();
+    app.world_mut().resource_mut::<Level>().soundtrack = Some(path.clone());
+    app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack = Some(path);
+    app.update();
+    let original = current(&mut app);
+    let Selection::Custom(handle) = &original.1 else {
+        panic!("expected custom music")
+    };
+    let source = app
+        .world()
+        .resource::<Assets<AudioSource>>()
+        .get(handle)
+        .unwrap();
+    assert_eq!(source.decoder().collect::<Vec<_>>(), [0, 1000, -1000, 2000]);
+    assert!(matches!(
+        app.world()
+            .get::<PlaybackSettings>(original.0)
+            .unwrap()
+            .mode,
+        bevy::audio::PlaybackMode::Loop
+    ));
+    app.world_mut().resource_mut::<Level>().number = 17;
+    app.update();
+    assert_eq!(current(&mut app), original);
+    // Warp and game-over music must override the custom level track.
+    app.world_mut().resource_mut::<Game>().bonus =
+        Some(crate::warp::Session::new(ZoneKind::Tunnel, 0, None, 0));
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_secs(1));
+    app.update();
+    assert_eq!(current(&mut app).1, Selection::Original(3));
+    app.world_mut().resource_mut::<Game>().status = Status::GameOver;
+    app.update();
+    assert_eq!(current(&mut app).1, Selection::Original(0));
+}
+
+#[test]
+fn missing_or_invalid_music_uses_the_levels_embedded_track() {
+    let directory = tempfile::tempdir().unwrap();
+    let invalid = directory.path().join("invalid.mp3");
+    std::fs::write(&invalid, b"not an audio file").unwrap();
+    for path in [
+        directory.path().join("missing.flac"),
+        invalid,
+        directory.path().to_owned(),
+    ] {
+        let mut app = app();
+        app.world_mut().resource_mut::<Level>().soundtrack = Some(path.clone());
+        app.world_mut().resource_mut::<Level>().number = 33;
+        app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack = Some(path);
+        app.update();
+        assert_eq!(current(&mut app).1, Selection::Original(5));
+    }
 }
