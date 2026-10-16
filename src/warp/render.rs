@@ -183,7 +183,13 @@ fn icon_mesh(kind: usize) -> Mesh {
             let (x, y) = points[face[i]];
             let point =
                 Vec3::new(x - 9., 9. - y, 0.) * POLYGON_SCALE * if kind == 2 { -1. } else { 1. };
-            (point, cry::color(hue, [255, 192, 128][i]))
+            let intensity = if matches!(kind, 1 | 2) {
+                // Shared arrow corners must have the same shade across triangle edges.
+                (255. - (y - 3.) * 12.7) as u8
+            } else {
+                [255, 192, 128][i]
+            };
+            (point, cry::color(hue, intensity))
         })
     }))
 }

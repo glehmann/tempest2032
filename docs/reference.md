@@ -1931,6 +1931,8 @@ Gate flight draws the nearest three gates in full color and the next three with
 progressively lower opacity, reducing visible pop-in on modern displays. Opacity
 falls linearly with distance between the third gate and the hidden seventh gate;
 all gates beyond the sixth are invisible. Icons share their gate's opacity.
+Yellow up/down icons shade along the arrow's height, with matching colors at
+shared triangle corners so their shafts have no diagonal seam.
 The previews extend beyond the original 255-unit generation distance and
 follow the generator's distance counters and current speed, including
 rotation continuity when a preview becomes a live gate. Only rendering looks
