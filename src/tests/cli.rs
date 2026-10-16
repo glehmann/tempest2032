@@ -60,6 +60,45 @@ fn direct_warp_selection_validates_zone_course_and_capture_options() {
         assert!(crate::cli::Cli::try_parse_from(args).is_err());
     }
 }
+
+#[test]
+fn starting_gate_requires_a_gate_zone_and_a_one_based_gate_number() {
+    for zone in [
+        "gate-flight",
+        "gate",
+        "1",
+        "rings",
+        "psychedelic-rings",
+        "3",
+    ] {
+        for gate in ["1", "27", "53"] {
+            let args =
+                Cli::try_parse_from(["tempest2032", "--warp-zone", zone, "--warp-gate", gate])
+                    .unwrap();
+            assert_eq!(args.warp_gate, Some(gate.parse().unwrap()));
+            assert!(args.validate().is_ok());
+            assert!(args.direct_start());
+        }
+    }
+    for args in [
+        vec!["tempest2032", "--warp-gate", "53"],
+        vec!["tempest2032", "--warp-zone", "gate", "--warp-gate", "0"],
+        vec!["tempest2032", "--warp-zone", "rings", "--warp-gate", "54"],
+    ] {
+        assert!(Cli::try_parse_from(args).is_err());
+    }
+    for zone in ["tunnel", "green-track", "2"] {
+        let args =
+            Cli::try_parse_from(["tempest2032", "--warp-zone", zone, "--warp-gate", "53"]).unwrap();
+        assert!(args.validate().is_err());
+    }
+    assert!(
+        Cli::try_parse_from(["tempest2032"])
+            .unwrap()
+            .warp_gate
+            .is_none()
+    );
+}
 use clap::{CommandFactory, error::ErrorKind};
 use std::path::PathBuf;
 

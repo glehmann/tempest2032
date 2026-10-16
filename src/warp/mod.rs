@@ -184,6 +184,29 @@ impl Session {
             generation_wait: 0,
         }
     }
+    pub(crate) fn start_at_gate(&mut self, gate: u8) {
+        let index = usize::from(gate - 1);
+        for previous in 0..index {
+            if self.spec(previous).2 == 3 {
+                self.speed += self.speed >> 3;
+            }
+            if let Some(rings) = &mut self.rings {
+                rings.pass();
+            }
+        }
+        self.cursor = index;
+        self.passed = index;
+        let (x, y, _) = self.spec(index);
+        self.x = Axis {
+            position: (160 + i32::from(x)) * UNIT,
+            velocity: 0,
+        };
+        self.y = Axis {
+            position: i32::from(y) * 8 * UNIT,
+            velocity: 0,
+        };
+    }
+
     pub(crate) fn position(&self) -> Vec2 {
         Vec2::new(
             (self.x.position - 160 * UNIT) as f32 / UNIT as f32,

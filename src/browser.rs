@@ -89,6 +89,7 @@ pub(crate) fn options() -> crate::cli::Cli {
         "level",
         "warp-zone",
         "warp-course",
+        "warp-gate",
         "volume",
         "music-volume",
     ] {

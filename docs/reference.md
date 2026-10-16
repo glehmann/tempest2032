@@ -269,7 +269,7 @@ python3 tools/web.py serve --port 8000
 
 For development, `python3 tools/web.py build --profile dev` uses the normal Cargo
 development profile. The page accepts `fps`, `aa`, `level`, `warp-zone`,
-`warp-course`, `volume`, and `music-volume` URL parameters, for example:
+`warp-course`, `warp-gate`, `volume`, and `music-volume` URL parameters, for example:
 
 ```text
 http://127.0.0.1:8000/?fps
@@ -1987,6 +1987,7 @@ Start a bonus directly for testing:
 ```sh
 cargo run --release -- --warp-zone gate-flight
 cargo run --release -- --warp-zone gate-flight --warp-course 8 --level 65
+cargo run -- --warp-zone gate-flight --warp-course 1 --warp-gate 53
 cargo run --release -- --warp-zone tunnel --warp-course 7 --level 17
 cargo run --release -- --warp-zone rings --warp-course 3 --level 33
 ```
@@ -1994,6 +1995,13 @@ cargo run --release -- --warp-zone rings --warp-course 3 --level 33
 `--warp-zone gate` and `--warp-zone 1` select gate flight; `green-track` and
 `2` select the tunnel; `psychedelic-rings` and `3` select rings. `--warp-course` chooses
 the original course number from 1 to 8 and requires direct warp startup.
+`--warp-gate 1..53` chooses the first gate to fly through in gate flight or rings.
+It aligns the player with that gate and starts with zero steering velocity,
+retaining earlier speed boosts but awarding no points for skipped gates. Omit it
+for the ordinary course entry. Gate 53 is the final pyramid, so this command
+lets you watch the completion animation without steering through a whole course.
+The tunnel has no gates and rejects this option. Browser launches accept the
+same `warp-gate` URL parameter, for example `?warp-zone=gate-flight&warp-gate=53`.
 `--level` is the web reached after a failed direct-start run; success adds
 four to that destination subject to the late-game restriction. Direct entry
 does not require or consume tokens. Restart in the pause menu cancels the bonus and restarts level one.

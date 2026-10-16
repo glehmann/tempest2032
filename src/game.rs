@@ -374,28 +374,29 @@ pub(crate) fn load_level(
         LoadReason::Warp {
             kind,
             course,
+            gate,
             destination,
-        } => Some((kind, course, destination, false)),
+        } => Some((kind, course, gate, destination, false)),
         LoadReason::Advance if level.number < 99 && upgrades.warp_tokens() == 3 => {
             let destination = (game.level_index + 1) % levels.0.len();
             let kind = crate::warp::ZoneKind::for_web(levels.0[destination].number);
-            Some((kind, None, destination, true))
+            Some((kind, None, None, destination, true))
         }
         _ => None,
     };
-    if let Some((kind, course, destination, spend)) = bonus {
+    if let Some((kind, course, gate, destination, spend)) = bonus {
         if spend {
             upgrades.take_warp_tokens();
         }
         let index = kind.index();
         let attempt = game.bonus_attempts[index];
         game.bonus_attempts[index] = attempt.wrapping_add(1);
-        game.bonus = Some(crate::warp::Session::new(
-            kind,
-            attempt,
-            course,
-            destination % levels.0.len(),
-        ));
+        let mut session =
+            crate::warp::Session::new(kind, attempt, course, destination % levels.0.len());
+        if let Some(gate) = gate {
+            session.start_at_gate(gate);
+        }
+        game.bonus = Some(session);
         if kind == crate::warp::ZoneKind::Tunnel {
             game.announce(crate::messages::Id::GreenTrack);
         }

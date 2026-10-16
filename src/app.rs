@@ -50,6 +50,7 @@ struct StartingLevel(usize);
 struct StartingWarp {
     kind: warp::ZoneKind,
     course: Option<u8>,
+    gate: Option<u8>,
 }
 
 fn normal_scene(game: Res<Game>) -> bool {
@@ -92,6 +93,9 @@ fn toggle_fullscreen(
 }
 
 pub(crate) fn run(args: cli::Cli) {
+    if let Err(error) = args.validate() {
+        error.exit();
+    }
     let mut app = App::new();
     let antialiasing = args
         .antialiasing
@@ -234,6 +238,7 @@ pub(crate) fn run(args: cli::Cli) {
         app.insert_resource(StartingWarp {
             kind,
             course: args.warp_course,
+            gate: args.warp_gate,
         });
     }
     app.insert_resource(ClearColor(Color::BLACK))
@@ -311,6 +316,7 @@ fn add_systems(app: &mut App) {
             .map(|start| crate::level::LoadReason::Warp {
                 kind: start.kind,
                 course: start.course,
+                gate: start.gate,
                 destination: index,
             });
     app.init_resource::<Level>()

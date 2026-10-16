@@ -10,7 +10,7 @@ use std::path::PathBuf;
 #[command(group(ArgGroup::new("preview").args(["message_preview", "menu_preview"])))]
 #[command(group(ArgGroup::new("game_options").multiple(true).args([
     "level", "levels", "fullscreen", "fps", "antialiasing", "volume", "music_volume",
-    "difficulty", "starfield", "warp_zone", "warp_course", "message_preview", "message_tick",
+    "difficulty", "starfield", "warp_zone", "warp_course", "warp_gate", "message_preview", "message_tick",
     "message_size", "menu_preview", "screenshot", "record_motion", "record_exit", "record_shot_hit", "seconds",
 ])))]
 pub(crate) struct Cli {
@@ -70,6 +70,10 @@ pub(crate) struct Cli {
     #[arg(long,requires="warp_zone",value_parser=clap::value_parser!(u8).range(1..=8))]
     pub(crate) warp_course: Option<u8>,
 
+    /// Start at gate 1..53 in gate flight or rings, aligned with the selected gate
+    #[arg(long, requires = "warp_zone", value_name = "NUMBER", value_parser = clap::value_parser!(u8).range(1..=53))]
+    pub(crate) warp_gate: Option<u8>,
+
     /// Preview an original animated announcement or reward
     #[arg(long, value_enum, value_name = "MESSAGE", conflicts_with_all=["record_exit","record_shot_hit"])]
     pub(crate) message_preview: Option<crate::messages::Id>,
@@ -108,6 +112,17 @@ pub(crate) struct Cli {
 }
 
 impl Cli {
+    pub(crate) fn validate(&self) -> Result<(), clap::Error> {
+        use clap::CommandFactory;
+        if self.warp_gate.is_some() && self.warp_zone == Some(crate::warp::ZoneKind::Tunnel) {
+            return Err(Self::command().error(
+                clap::error::ErrorKind::ArgumentConflict,
+                "--warp-gate requires gate-flight or rings; the tunnel has no gates",
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn direct_start(&self) -> bool {
         self.level.is_some()
             || self.warp_zone.is_some()

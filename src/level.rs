@@ -538,6 +538,7 @@ pub(crate) enum LoadReason {
     Warp {
         kind: crate::warp::ZoneKind,
         course: Option<u8>,
+        gate: Option<u8>,
         destination: usize,
     },
     ReturnWarp {

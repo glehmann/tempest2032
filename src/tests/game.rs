@@ -264,6 +264,7 @@ fn keys_record_survived_exits_and_successful_warps_but_not_retries_or_failed_war
         crate::warp::advance.before(crate::game::load_level),
     );
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+        gate: None,
         kind: crate::warp::ZoneKind::Tunnel,
         course: None,
         destination: 17,

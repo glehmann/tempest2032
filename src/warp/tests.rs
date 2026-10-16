@@ -30,6 +30,7 @@ fn enter(app: &mut App, destination: usize, course: Option<u8>) {
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
         kind: ZoneKind::GateFlight,
         course,
+        gate: None,
         destination,
     });
     ticks(app, 1);
@@ -59,6 +60,81 @@ fn all_original_courses_have_fifty_three_gates_and_a_final_pyramid() {
     assert_eq!(session.spec(12), (-16, 17, 0));
     assert_eq!(Session::new(ZoneKind::GateFlight, 1, None, 1).course, 5);
     assert_eq!(Session::new(ZoneKind::GateFlight, 1, Some(8), 1).course, 7);
+}
+
+#[test]
+fn selected_gate_is_next_and_inherits_prior_boosts_without_score_announcements() {
+    for kind in [ZoneKind::GateFlight, ZoneKind::Rings] {
+        for course in 1..=8 {
+            let mut played = Session::new(kind, 0, Some(course), 0);
+            for gate in 1..=53 {
+                let mut selected = Session::new(kind, 0, Some(course), 0);
+                selected.start_at_gate(gate);
+                assert_eq!(selected.speed, played.speed);
+                assert_eq!(selected.passed, usize::from(gate - 1));
+                assert_eq!(selected.step_flight(0, 0), 0);
+                assert_eq!(selected.gates.front().unwrap().index, usize::from(gate - 1));
+                let (x, y, _) = selected.spec(usize::from(gate - 1));
+                assert_eq!(selected.position(), Vec2::new(f32::from(x), f32::from(y)));
+                assert_eq!((selected.x.velocity, selected.y.velocity), (0, 0));
+                assert!(selected.announcements.is_empty());
+                aim(&mut played, usize::from(gate - 1), 0, 0);
+                played.pass(usize::from(gate - 1));
+            }
+        }
+    }
+}
+
+#[test]
+fn final_gate_start_reaches_completion_without_input_and_only_awards_the_final_gate() {
+    for kind in [ZoneKind::GateFlight, ZoneKind::Rings] {
+        for course in 1..=8 {
+            let mut app = app(1);
+            app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
+                kind,
+                course: Some(course),
+                gate: Some(53),
+                destination: 0,
+            });
+            ticks(&mut app, 1);
+            assert_eq!(app.world().resource::<Game>().score, 0);
+            for _ in 0..1000 {
+                if matches!(
+                    app.world().resource::<Game>().bonus.as_ref().unwrap().phase,
+                    Phase::Success(_)
+                ) {
+                    break;
+                }
+                ticks(&mut app, 1);
+            }
+            let game = app.world().resource::<Game>();
+            let session = game.bonus.as_ref().unwrap();
+            assert!(matches!(session.phase, Phase::Success(_)));
+            assert_eq!(session.passed, GATES);
+            assert_eq!(
+                game.score,
+                if kind == ZoneKind::GateFlight {
+                    750
+                } else {
+                    250
+                }
+            );
+            ticks(&mut app, 151);
+            assert!(matches!(
+                app.world().resource::<Game>().bonus.as_ref().unwrap().phase,
+                Phase::Victory(_)
+            ));
+            assert_eq!(
+                app.world().resource::<Game>().score,
+                20_000
+                    + if kind == ZoneKind::GateFlight {
+                        750
+                    } else {
+                        250
+                    }
+            );
+        }
+    }
 }
 
 #[test]
@@ -112,6 +188,7 @@ fn all_ring_courses_complete_and_settle_the_shared_completion_reward_once() {
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
         kind: ZoneKind::Rings,
         course: Some(1),
+        gate: None,
         destination: 32,
     });
     ticks(&mut app, 1);
@@ -378,6 +455,7 @@ fn tunnel_returns_preserving_lives_and_points_and_success_has_no_gate_completion
         app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
             kind: ZoneKind::Tunnel,
             course: Some(1),
+            gate: None,
             destination,
         });
         ticks(&mut app, 1);
@@ -455,6 +533,7 @@ fn completion_runs_the_source_scene_fade_victory_and_final_melt_timers() {
         app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
             kind,
             course: Some(1),
+            gate: None,
             destination: 1,
         });
         ticks(&mut app, 1);
@@ -702,6 +781,7 @@ fn warp_announcements_follow_original_triggers_without_repeated_frame_messages()
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Warp {
         kind: ZoneKind::Tunnel,
         course: Some(1),
+        gate: None,
         destination: 16,
     });
     ticks(&mut app, 1);
