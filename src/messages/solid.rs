@@ -137,7 +137,7 @@ fn draw(
         };
         let anchor = match active.event.id {
             Id::GreenTrack => -60.,
-            Id::WarpFive => 45.,
+            Id::WarpFive => -91.,
             _ => 40.,
         };
         for (line, text) in text.lines().enumerate() {

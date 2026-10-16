@@ -157,7 +157,7 @@ impl Feedback {
         for (i, bytes) in WARP.as_chunks::<2>().0.iter().enumerate() {
             let pixel = u16::from_be_bytes(*bytes);
             if pixel != 0 {
-                self.pixels[(75 + i / 238) * WIDTH + (WIDTH - 238) / 2 + i % 238] = pixel;
+                self.pixels[(202 + i / 238) * WIDTH + (WIDTH - 238) / 2 + i % 238] = pixel;
             }
         }
     }

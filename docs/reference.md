@@ -1975,7 +1975,8 @@ feedback image. `versiondraw` uses scale 494/256, a triangular-wave rotation,
 and a drifting source center; `bobo` sets the following frame's intensity loss
 to 27, after the initial eight-unit loss (`yak.s:3023–3103`, `yak.s:4749–4788`).
 The whole operation advances at 15 Hz, independently of the 60 Hz phase timers.
-WARP 5 LEVELS! stays sharp above this bitmap when the destination advances.
+WARP 5 LEVELS! stays sharp at the bottom of the screen when the destination
+advances. Its top sits at logical row 202, matching the original display strip.
 The final 151-tick `ofade`/`ffade` melt merges that lettering into the bitmap
 before returning to web entry. Its initial rotation ranges from -3 through 4
 brads and settles one step toward zero every four feedback frames. This
