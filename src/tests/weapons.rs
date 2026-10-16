@@ -38,7 +38,7 @@ fn particle_rings_have_four_separate_screen_sized_dots_and_change_color_with_dep
             .as_float3()
             .unwrap();
         assert_eq!(vertices.len(), 24);
-        for dot in vertices.chunks_exact(6) {
+        for dot in vertices.as_chunks::<6>().0 {
             let local = |index| camera.rotation.inverse() * Vec3::from_array(dot[index]);
             let width = (local(1) - local(0)).length();
             let distance = -(camera.rotation.inverse() * (position - camera.translation)).z;

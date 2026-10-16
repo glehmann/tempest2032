@@ -58,7 +58,7 @@ jobs:
             libx11-dev libxi-dev libxrandr-dev libxcursor-dev \
             libxkbcommon-dev libwayland-dev
       - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --target "$BUILD_TARGET"
+        run: rustup toolchain install stable --profile minimal --component clippy --target "$BUILD_TARGET"
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -70,3 +70,52 @@ jobs:
         run: cargo +stable build --locked --all-targets --target "$BUILD_TARGET"
       - name: Run tests
         run: cargo +stable test --locked --all-targets --target "$BUILD_TARGET"
+      - name: Check Rust lints
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo +stable clippy --locked --all-targets --target "$BUILD_TARGET" -- -D warnings
+
+  tooling:
+    name: Formatting and packaging/browser tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Rust formatter
+        run: rustup toolchain install stable --profile minimal --component rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt --check
+      - name: Test packaging and browser build tools
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: Test browser startup and suspension
+        run: node --test tools/test_browser.mjs
+
+  browser:
+    name: Check browser target
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Rust with the WASM target
+        run: rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+      - name: Cache browser dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: checks-wasm32-unknown-unknown
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+      - name: Check browser game
+        run: cargo check --locked --target wasm32-unknown-unknown --bin tempest2032

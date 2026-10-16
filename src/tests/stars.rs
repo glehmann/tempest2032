@@ -392,9 +392,10 @@ fn warp_draws_four_depth_spaced_samples_and_returns_to_single_dots() {
             .add_systems(Update, draw_stars);
         if entering {
             let warp = std::mem::take(&mut *app.world_mut().resource_mut::<Warp>());
-            let mut animation = Animation::default();
-            animation.entry_warp = warp;
-            app.insert_resource(animation);
+            app.insert_resource(Animation {
+                entry_warp: warp,
+                ..default()
+            });
         }
         app.world_mut().spawn((
             Camera3d::default(),
@@ -418,7 +419,9 @@ fn warp_draws_four_depth_spaced_samples_and_returns_to_single_dots() {
         assert_eq!(colors.len(), 24);
         assert!(
             colors
-                .chunks_exact(6)
+                .as_chunks::<6>()
+                .0
+                .iter()
                 .map(|dot| dot[0][0])
                 .collect::<Vec<_>>()
                 .windows(2)

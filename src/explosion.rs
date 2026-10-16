@@ -253,19 +253,22 @@ pub(crate) fn age_explosions(
             commands.entity(entity).despawn();
             continue;
         }
-        if let Some(frame) = assets.frames.get(explosion.age as usize - 1)
-            && let Some(mut geometry) = meshes.get(frame).cloned()
-        {
-            if let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() {
-                if sphere.is_some() {
-                    geometry = sphere_mesh(
-                        explosion.age,
-                        frames.0,
-                        explosion.centre,
-                        camera,
-                        projection,
-                    );
-                } else {
+        if let Some(frame) = assets.frames.get(explosion.age as usize - 1) {
+            let geometry = if let (Some(_), Some((camera, Projection::Perspective(projection)))) =
+                (sphere, cameras.iter().next())
+            {
+                sphere_mesh(
+                    explosion.age,
+                    frames.0,
+                    explosion.centre,
+                    camera,
+                    projection,
+                )
+            } else {
+                let Some(mut geometry) = meshes.get(frame).cloned() else {
+                    continue;
+                };
+                if let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() {
                     let distance =
                         -(camera.rotation.inverse() * (explosion.centre - camera.translation)).z;
                     let dot_size =
@@ -273,7 +276,8 @@ pub(crate) fn age_explosions(
                             / 384.0;
                     resize_dots(&mut geometry, dot_size / DOT_SIZE);
                 }
-            }
+                geometry
+            };
             if let Some(handle) = &explosion.mesh {
                 if let Some(existing) = meshes.get_mut(handle) {
                     *existing = geometry;

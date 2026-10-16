@@ -16,6 +16,7 @@ xmrsplayer = { version = "0.15", default-features = false, features = ["std"] }
 self_cell = "1"
 bevy = { version = "0.18", default-features = false, features = [
     "std", "async_executor", "bevy_asset", "bevy_log",
+    # Bevy 0.18's AA plugin requires the post-process render-graph nodes at startup.
     "bevy_winit", "bevy_pbr", "bevy_post_process", "bevy_anti_alias", "bevy_ui_render",
     "default_font", "bevy_sprite_render", "bevy_audio", "bevy_gilrs", "png",
 ] }

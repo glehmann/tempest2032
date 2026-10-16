@@ -346,8 +346,10 @@ fn new_runs_and_retries_recharge_silently_but_web_transitions_announce() {
 #[test]
 fn level_loading_distinguishes_advancing_retrying_and_restarting() {
     let mut app = app();
-    let mut second = Level::default();
-    second.number = 2;
+    let mut second = Level {
+        number: 2,
+        ..default()
+    };
     second.web.start_lane = 3;
     second.web.depth = 180;
     second.flippers.count = 10;

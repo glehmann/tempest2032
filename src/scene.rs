@@ -104,26 +104,35 @@ pub(crate) fn animate_surface(
         let Some(mesh) = meshes.get_mut(&handle.0) else {
             continue;
         };
-        let Some(bevy::mesh::VertexAttributeValues::Float32x3(points)) =
-            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
+        let (mut points, mut colors) = (None, None);
+        for (attribute, values) in mesh.attributes_mut() {
+            match (attribute.id, values) {
+                (id, bevy::mesh::VertexAttributeValues::Float32x3(values))
+                    if id == Mesh::ATTRIBUTE_POSITION.id =>
+                {
+                    points = Some(values)
+                }
+                (id, bevy::mesh::VertexAttributeValues::Float32x4(values))
+                    if id == Mesh::ATTRIBUTE_COLOR.id =>
+                {
+                    colors = Some(values)
+                }
+                _ => {}
+            }
+        }
+        let (Some(points), Some(colors)) = (points, colors) else {
             continue;
         };
-        let colors = points
-            .iter()
-            .enumerate()
-            .map(|(index, point)| {
-                lane_color(
-                    &surface.hues,
-                    index / (SURFACE_SECTIONS * 6),
-                    -point[2] / surface.depth,
-                    *frame,
-                )
-                .to_linear()
-                .to_f32_array()
-            })
-            .collect::<Vec<_>>();
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        for ((index, point), color) in points.iter().enumerate().zip(colors) {
+            *color = lane_color(
+                &surface.hues,
+                index / (SURFACE_SECTIONS * 6),
+                -point[2] / surface.depth,
+                *frame,
+            )
+            .to_linear()
+            .to_f32_array();
+        }
     }
 }
 

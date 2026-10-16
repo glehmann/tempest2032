@@ -72,6 +72,8 @@ class Packages(unittest.TestCase):
         package.flatpak(self.output, revision)
         manifest = json.loads((self.output / f"{package.APP_ID}.json").read_text())
         self.assertEqual(manifest["modules"][0]["sources"][0]["commit"], revision)
+        self.assertEqual(manifest["modules"][0]["sources"][0]["url"],
+                         "https://github.com/tempest2032/tempest2032.git")
         self.assertEqual(manifest["command"], "tempest2032-fullscreen")
         sources = json.loads((self.output / "cargo-sources.json").read_text())
         archives = [source for source in sources if source["type"] == "archive"]

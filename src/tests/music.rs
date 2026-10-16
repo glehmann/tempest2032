@@ -34,7 +34,13 @@ fn all_seven_original_modules_generate_stereo_music_at_normal_speed() {
         let audio: Vec<_> = decoder.by_ref().take(RATE as usize * 2).collect();
         assert_eq!(audio.len(), RATE as usize * 2);
         assert!(audio.iter().any(|sample| sample.unsigned_abs() > 1000));
-        assert!(audio.chunks_exact(2).any(|pair| pair[0] != pair[1]));
+        assert!(
+            audio
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .any(|pair| pair[0] != pair[1])
+        );
     }
 }
 

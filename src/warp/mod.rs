@@ -120,12 +120,10 @@ pub(crate) struct Session {
     pub(crate) gates: VecDeque<Gate>,
     pub(crate) passed: usize,
     pub(crate) tick: u32,
-    pub(crate) notice: &'static str,
     pub(crate) warp_five: bool,
     pub(crate) tunnel: Option<tunnel::Tunnel>,
     pub(crate) rings: Option<rings::Rings>,
     announcements: Vec<crate::messages::Event>,
-    notice_ticks: u16,
     cursor: usize,
     generation_distance: i32,
     generation_wait: i16,
@@ -168,17 +166,9 @@ impl Session {
             passed: 0,
             tick: 0,
             warp_five: false,
-            notice: if kind == ZoneKind::Tunnel {
-                "STAY ON THE GREEN TRACK"
-            } else if kind == ZoneKind::Rings {
-                "FLY THROUGH EVERY RING"
-            } else {
-                "FLY THROUGH EVERY GATE"
-            },
             tunnel: (kind == ZoneKind::Tunnel).then(tunnel::Tunnel::default),
             rings: (kind == ZoneKind::Rings).then(rings::Rings::default),
             announcements: Vec::new(),
-            notice_ticks: 180,
             cursor: 0,
             generation_distance: 0,
             generation_wait: 0,
@@ -231,41 +221,23 @@ impl Session {
         let dy = (self.y.position >> 19) - i32::from(y);
         if dx.abs() >= 8 || dy.abs() >= 8 {
             self.phase = Phase::Failure(151);
-            self.notice = "WARP FAILED";
             return None;
         }
         let error = dx.abs() + dy.abs();
         self.passed += 1;
-        self.notice = match kind {
-            1 => {
-                self.y.velocity = -0x80000;
-                "UP BOOST"
-            }
-            2 => {
-                self.y.velocity = 0x80000;
-                "DOWN BOOST"
-            }
+        match kind {
+            1 => self.y.velocity = -0x80000,
+            2 => self.y.velocity = 0x80000,
             3 => {
                 if self.kind == ZoneKind::GateFlight {
                     self.announcements
                         .push(crate::messages::Id::SpeedBoost.into());
                 }
                 self.speed += self.speed >> 3;
-                "SPEED BOOST"
             }
-            4 => {
-                self.phase = Phase::Success(151);
-                "COURSE COMPLETE"
-            }
-            _ => {
-                if self.kind == ZoneKind::Rings {
-                    "RING PASSED"
-                } else {
-                    "GATE PASSED"
-                }
-            }
-        };
-        self.notice_ticks = 120;
+            4 => self.phase = Phase::Success(151),
+            _ => {}
+        }
         if let Some(rings) = &mut self.rings {
             rings.pass();
             return Some([250, 500, 750, 1][(error >> 2) as usize]);
@@ -286,10 +258,6 @@ impl Session {
         Some(score)
     }
     fn step_flight(&mut self, horizontal: i32, vertical: i32) -> u32 {
-        self.notice_ticks = self.notice_ticks.saturating_sub(1);
-        if self.notice_ticks == 0 {
-            self.notice = "";
-        }
         self.x
             .step(horizontal, 0x1000, 0x800, 0x20000, 0, 320 * UNIT);
         self.y
@@ -360,11 +328,6 @@ pub(crate) fn advance(
                 game.add_score(score);
                 if let Some(phase) = phase {
                     session.phase = phase;
-                    session.notice = if matches!(phase, Phase::Failure(_)) {
-                        "WARP FAILED"
-                    } else {
-                        "COURSE COMPLETE"
-                    };
                 }
             } else {
                 game.add_score(session.step_flight(horizontal, vertical));
@@ -391,17 +354,6 @@ pub(crate) fn advance(
             }
             if levels.0[session.destination].number < 91 {
                 session.destination = (session.destination + 4) % levels.0.len();
-                session.notice = if tunnel {
-                    "EXCELLENT!  WARP FIVE LEVELS"
-                } else {
-                    "EXCELLENT!  +20000  WARP FIVE LEVELS"
-                };
-            } else {
-                session.notice = if tunnel {
-                    "EXCELLENT!"
-                } else {
-                    "EXCELLENT!  +20000"
-                };
             }
             session.phase = Phase::Victory(if tunnel { 301 } else { 401 });
         }

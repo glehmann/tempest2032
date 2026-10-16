@@ -137,7 +137,7 @@ def flatpak(output, revision):
     })
     (output / "cargo-sources.json").write_text(json.dumps(sources, indent=2) + "\n")
     manifest["modules"][0]["sources"] = [
-        {"type": "git", "url": "https://github.com/glehmann/tempest2032.git", "commit": revision},
+        {"type": "git", "url": "https://github.com/tempest2032/tempest2032.git", "commit": revision},
         "cargo-sources.json",
     ]
     (output / f"{APP_ID}.json").write_text(json.dumps(manifest, indent=2) + "\n")

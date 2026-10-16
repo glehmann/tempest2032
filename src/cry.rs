@@ -72,6 +72,26 @@ pub(crate) fn color(hue: u8, intensity: u8) -> Color {
     Color::srgb_u8(channel(&RED), channel(&GREEN), channel(&BLUE))
 }
 
+#[derive(Default)]
+pub(crate) struct FeedbackPreview {
+    key: Option<(u64, u32)>,
+    pixels: Vec<u16>,
+}
+
+impl FeedbackPreview {
+    pub(crate) fn get_or_update(
+        &mut self,
+        key: (u64, u32),
+        build: impl FnOnce() -> Vec<u16>,
+    ) -> &[u16] {
+        if self.key != Some(key) {
+            self.pixels = build();
+            self.key = Some(key);
+        }
+        &self.pixels
+    }
+}
+
 // Blend decoded RGB, never packed CRY hues. Every fourth tick is an exact feedback frame.
 pub(crate) fn write_feedback(image: &mut Image, pixels: &[u16], next: &[u16], phase: u32) {
     for ((pixel, next), rgba) in pixels

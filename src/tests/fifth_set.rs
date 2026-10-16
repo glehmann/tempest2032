@@ -4,6 +4,7 @@ use super::Levels;
 use std::path::Path;
 
 #[rustfmt::skip]
+#[allow(clippy::type_complexity)]
 const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
     // Level, Super Flippers, Mirrors, Alien Droids, Fuseballs, Pulsar Tankers, Beasties, Spikers.
     (65, 21, 0, 701, 0, 0, 0, 0),

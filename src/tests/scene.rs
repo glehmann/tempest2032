@@ -108,12 +108,16 @@ fn surface_shading_cycles_without_changing_geometry_or_allocating_meshes() {
         else {
             panic!("missing colors")
         };
-        colors.clone()
+        (colors.as_ptr(), colors.clone())
     };
     let initial = colors(&app);
     ticks(&mut app, 64);
     let changed = colors(&app);
-    assert_ne!(changed, initial);
+    assert_eq!(
+        changed.0, initial.0,
+        "surface color storage should be reused"
+    );
+    assert_ne!(changed.1, initial.1);
     ticks(&mut app, 256);
     assert_eq!(colors(&app), changed);
     assert_eq!(app.world().resource::<Assets<Mesh>>().len(), 1);

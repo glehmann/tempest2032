@@ -242,34 +242,33 @@ pub(crate) fn draw_stars(
     };
     let particles = bonus.is_some_and(|session| session.kind != crate::warp::ZoneKind::GateFlight);
     let triangles = stars.iter().filter(|_| !particles).flat_map(|star| {
-        (0..=warp.copies).flat_map(move |index| {
-            let star = Star {
-                position: star.position,
-                depth: (star.depth - warp.distance + i32::from(index) * warp.spacing)
-                    .rem_euclid(DEPTH_WRAP),
-                color: star.color,
-            };
-            let centre = if bonus.is_some() {
-                star.projected(Vec2::ZERO) * pixel
-            } else {
-                let Some(centre) = star.background_position(camera) else {
-                    return Vec::new();
+        (0..=warp.copies)
+            .filter_map(move |index| {
+                let star = Star {
+                    position: star.position,
+                    depth: (star.depth - warp.distance + i32::from(index) * warp.spacing)
+                        .rem_euclid(DEPTH_WRAP),
+                    color: star.color,
                 };
-                centre
-            };
-            if centre.x.abs() > half_width || centre.y.abs() > half_height {
-                return Vec::new();
-            }
-            let color = star.color();
-            let quad = [
-                Vec2::new(-0.5, -0.5),
-                Vec2::new(0.5, -0.5),
-                Vec2::new(0.5, 0.5),
-                Vec2::new(-0.5, 0.5),
-            ]
-            .map(|corner| ((centre + corner * pixel).extend(0.0), color));
-            vec![[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
-        })
+                let centre = if bonus.is_some() {
+                    star.projected(Vec2::ZERO) * pixel
+                } else {
+                    star.background_position(camera)?
+                };
+                if centre.x.abs() > half_width || centre.y.abs() > half_height {
+                    return None;
+                }
+                let color = star.color();
+                let quad = [
+                    Vec2::new(-0.5, -0.5),
+                    Vec2::new(0.5, -0.5),
+                    Vec2::new(0.5, 0.5),
+                    Vec2::new(-0.5, 0.5),
+                ]
+                .map(|corner| ((centre + corner * pixel).extend(0.0), color));
+                Some([[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]])
+            })
+            .flatten()
     });
     let geometry = colored_mesh(triangles);
     for (mesh, mut transform) in &mut fields {

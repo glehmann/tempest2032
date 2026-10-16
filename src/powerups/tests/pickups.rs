@@ -75,8 +75,10 @@ fn collecting_during_exit_grants_a_droid_on_the_next_webs_first_pickup() {
             .chain()
             .before(load_level),
     );
-    let mut second = Level::default();
-    second.number = 2;
+    let second = Level {
+        number: 2,
+        ..default()
+    };
     app.world_mut()
         .resource_mut::<crate::level::Levels>()
         .0
@@ -146,8 +148,10 @@ fn a_surprise_pickup_can_end_the_web_with_enemies_and_spawns_remaining() {
             .chain()
             .before(load_level),
     );
-    let mut second = Level::default();
-    second.number = 2;
+    let second = Level {
+        number: 2,
+        ..default()
+    };
     app.world_mut()
         .resource_mut::<crate::level::Levels>()
         .0

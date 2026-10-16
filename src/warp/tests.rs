@@ -13,10 +13,9 @@ use crate::{
 fn app(number: usize) -> App {
     let mut app = crate::test_support::app();
     let catalog = (1..=100)
-        .map(|number| {
-            let mut level = Level::default();
-            level.number = number;
-            level
+        .map(|number| Level {
+            number,
+            ..default()
         })
         .collect::<Vec<_>>();
     app.insert_resource(catalog[number - 1].clone())

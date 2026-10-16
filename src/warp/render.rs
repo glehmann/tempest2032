@@ -282,15 +282,19 @@ fn screen_mesh(aspect_ratio: f32) -> Mesh {
 }
 
 fn gate_views(session: &super::Session) -> Vec<super::Gate> {
-    let mut gates: Vec<_> = session.gates.iter().copied().collect();
     if session.kind != ZoneKind::GateFlight {
-        return gates;
+        return Vec::new();
     }
+    // Six visible gates plus the seventh gate used as the opacity endpoint.
+    let mut gates: Vec<_> = session.gates.iter().take(7).copied().collect();
     let mut distance = session.generation_distance;
     let mut wait = session.generation_wait;
     let mut travel = 0;
     let mut ticks = 0_u16;
     for index in session.cursor..GATES {
+        if gates.len() == 7 {
+            break;
+        }
         loop {
             ticks = ticks.wrapping_add(1);
             travel += session.speed;
@@ -570,19 +574,21 @@ pub(crate) fn draw(
         image
             .data
             .get_or_insert_with(|| vec![0; super::rings::WIDTH * super::rings::HEIGHT * 4]);
-        let mut next = rings.clone();
         let phase = match session.phase {
             Phase::Failure(ticks) | Phase::Success(ticks) => (151 - ticks.min(151)) % 4,
             _ => 0,
         };
-        if phase != 0 {
+        if phase == 0 {
+            cry::write_feedback(image, &rings.pixels, &rings.pixels, 0);
+        } else {
+            let mut next = rings.clone();
             next.feedback(
                 i32::from(matches!(session.phase, Phase::Failure(_))),
                 Vec2::splat(500. / 256.),
                 -8 * super::UNIT,
             );
+            cry::write_feedback(image, &rings.pixels, &next.pixels, u32::from(phase));
         }
-        cry::write_feedback(image, &rings.pixels, &next.pixels, u32::from(phase));
     }
     for (node, mut pose, mut mesh, mut visible) in &mut nodes {
         match *node {
@@ -711,17 +717,17 @@ mod tests {
     }
 
     #[test]
-    fn distant_gate_previews_cover_the_course_and_join_live_gates_without_popping() {
+    fn distant_gate_previews_cover_the_visible_range_and_join_live_gates_without_popping() {
         for course in 1..=8 {
             let mut session = Session::new(ZoneKind::GateFlight, 0, Some(course), 0);
             let previews = gate_views(&session);
-            assert_eq!(previews.len(), GATES);
+            assert_eq!(previews.len(), 7);
             assert!(
                 previews
                     .windows(2)
                     .all(|gates| gates[0].distance < gates[1].distance)
             );
-            assert!(previews.last().unwrap().distance > 10 * 255 * super::super::UNIT);
+            assert!(previews.last().unwrap().distance > 255 * super::super::UNIT);
             assert!(session.gates.is_empty());
             assert_eq!(
                 session.cursor, 0,

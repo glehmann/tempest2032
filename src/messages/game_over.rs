@@ -156,13 +156,15 @@ fn draw(
     mut images: ResMut<Assets<Image>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut canvases: Query<(&Canvas, &mut Sprite, &mut Transform, &mut Visibility)>,
+    mut preview: Local<crate::cry::FeedbackPreview>,
 ) {
+    let age = messages.game_over.map(|active| active.age);
     let viewport = windows
         .iter()
         .next()
-        .map_or(384., |w| 240. * w.width() / w.height());
+        .map_or(384., |w| 240. * w.width() / w.height().max(1.));
     for (canvas, mut sprite, mut transform, mut visible) in &mut canvases {
-        *visible = if feedback.age.is_some() {
+        *visible = if age.is_some() {
             Visibility::Visible
         } else {
             Visibility::Hidden
@@ -172,22 +174,63 @@ fn draw(
             Canvas::Feedback => transform.scale = Vec3::splat((viewport / WIDTH as f32).min(1.)),
         }
     }
-    if feedback.age.is_none() || !messages.is_changed() {
+    let Some(age) = age else { return };
+    let frame = age / TICKS_PER_FRAME;
+    if feedback.age != Some(frame) || !messages.is_changed() {
         return;
     }
     if let Some(image) = images.get_mut(&handle.0) {
-        let phase = messages.game_over.unwrap().age % TICKS_PER_FRAME;
-        let mut next = feedback.clone();
-        if phase != 0 {
-            next.update(feedback.age.unwrap() + 1);
-        }
-        crate::cry::write_feedback(image, &feedback.pixels, &next.pixels, phase);
+        let phase = age % TICKS_PER_FRAME;
+        let next = if phase == 0 {
+            &feedback.pixels
+        } else {
+            preview.get_or_update((u64::from(messages.epoch), frame), || {
+                let mut next = feedback.clone();
+                next.update(frame + 1);
+                next.pixels
+            })
+        };
+        crate::cry::write_feedback(image, &feedback.pixels, next, phase);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clearing_game_over_before_another_fixed_tick_hides_the_cached_canvas() {
+        let mut app = App::new();
+        app.init_resource::<Messages>()
+            .init_resource::<Feedback>()
+            .init_resource::<Assets<Image>>()
+            .add_systems(Startup, setup)
+            .add_systems(FixedUpdate, advance)
+            .add_systems(Update, draw);
+        app.update();
+        app.world_mut().resource_mut::<Messages>().game_over = Some(super::super::Active {
+            event: super::super::Id::GameOver.into(),
+            age: 61,
+        });
+        app.world_mut().run_schedule(FixedUpdate);
+        app.update();
+        assert!(
+            app.world_mut()
+                .query::<&Visibility>()
+                .iter(app.world())
+                .all(|v| *v == Visibility::Visible)
+        );
+        // Initials entry clears messages while gameplay fixed updates are stopped.
+        app.world_mut().resource_mut::<Messages>().game_over = None;
+        app.update();
+        assert!(app.world().resource::<Feedback>().age.is_some());
+        assert!(
+            app.world_mut()
+                .query::<&Visibility>()
+                .iter(app.world())
+                .all(|v| *v == Visibility::Hidden)
+        );
+    }
 
     #[test]
     fn presentation_changes_each_tick_and_preserves_feedback_checkpoints() {
@@ -211,13 +254,13 @@ mod tests {
                 .get(&handle)
                 .unwrap();
             assert_ne!(*image.data.as_ref().unwrap(), previous);
-            if tick % 4 == 0 {
-                let mut expected = image.clone();
-                let mut reference = Feedback::default();
-                reference.update(tick / 4);
-                crate::cry::write_feedback(&mut expected, &reference.pixels, &reference.pixels, 0);
-                assert_eq!(image.data, expected.data);
-            }
+            let mut expected = image.clone();
+            let mut reference = Feedback::default();
+            reference.update(tick / 4);
+            let mut next = reference.clone();
+            next.update(tick / 4 + 1);
+            crate::cry::write_feedback(&mut expected, &reference.pixels, &next.pixels, tick % 4);
+            assert_eq!(image.data, expected.data);
             previous.clone_from(image.data.as_ref().unwrap());
             app.update();
             let image = app

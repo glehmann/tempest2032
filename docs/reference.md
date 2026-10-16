@@ -26,6 +26,9 @@ expansion point, the web's depth rails, and the exit flight share one vanishing
 point. Web coordinates retain the original `(8, 8)` origin; asymmetric shapes
 and the tracking camera can place the finite web opening away from the screen
 center. The camera does not recenter each web by its bounding box.
+Star quads are generated without per-star heap allocations, and animated web
+surfaces update their existing color buffers in place. Mesh builders reserve
+space for known triangle counts and keep collapsed triangles' normals finite.
 
 Horizontal plane webs, including level 3's `web1`, use the original half-claw
 viewpoint and 30-unit front distance. Their lens follows the original
@@ -260,7 +263,8 @@ native release profile's LTO settings. `tools/web.py` checks the bindings versio
 removes the release WASM's debugging name section, and generates the complete
 static site in `target/web/`, including license and
 attribution files. No server-side game code is needed. The local server binds only
-to `127.0.0.1`. These commands also work without Make:
+to all interfaces, allowing a phone on the same LAN to reach it. These commands
+also work without Make:
 
 ```sh
 python3 tools/web.py build
@@ -462,6 +466,9 @@ Neither preview writes player data.
 GitHub Actions builds all Cargo targets and runs the tests on Windows x86_64,
 macOS arm64, Linux x86_64, and Linux arm64 using native runners and stable Rust.
 Checks run on pushes, pull requests, and manual workflow dispatches.
+They also check Rust formatting, Linux Clippy lints, WASM compilation, and the
+Python packaging/build and JavaScript browser tests. The tagged-release workflow
+reuses these checks before building and publishing packages.
 Cargo downloads and compiled dependencies are cached separately for each target,
 Rust version, and build configuration. Default-branch pushes populate the caches;
 pull requests reuse them. Dependency changes reuse compatible cached artifacts.
@@ -1872,6 +1879,10 @@ their exact colors, trail buildup, pulse speed, and fade duration while smoothin
 the intervening frames. Its lettering and fading trails use the previous bitmap
 rendering; there is no separate sharp 3D foreground. The score stays visible until
 restart.
+Look-ahead feedback frames are cached between checkpoints rather than recomputed
+for each blended frame. Clearing GAME OVER hides its cached canvas immediately,
+including when entering or confirming initials while gameplay fixed updates are
+stopped.
 
 The tunnel instruction lasts 200 ticks at its original lower-screen anchor.
 SPEED BOOST is shown in gate flight, matching its suppression in psychedelic
@@ -1951,6 +1962,8 @@ follow the generator's distance counters and current speed, including
 rotation continuity when a preview becomes a live gate. Only rendering looks
 ahead; gate checks, course spacing, boosts, and scoring retain their original
 simulation timing. Gates on the opposite side of the surface remain hidden.
+Rendering predicts only the six visible gates and their seventh-gate opacity
+endpoint, rather than simulating previews for the remainder of the course.
 Gate-score popups use readable numeral lettering split into fixed-size cells,
 matching the square breakup effect of 2000 and EXCELLENT.
 They stay centered on screen while steering, rather than projecting from a

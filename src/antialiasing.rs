@@ -466,8 +466,10 @@ mod tests {
 
     #[test]
     fn one_hitch_inside_a_window_does_not_reduce_antialiasing() {
-        let mut state = Antialiasing::default();
-        state.warmup = Duration::ZERO;
+        let mut state = Antialiasing {
+            warmup: Duration::ZERO,
+            ..default()
+        };
         frames(&mut state, 12, 1. / 60.);
         frames(&mut state, 1, 0.2);
         frames(&mut state, 6, 1. / 60.);
@@ -735,8 +737,10 @@ mod tests {
 
     #[test]
     fn occasional_fifty_ms_hitches_do_not_lower_quality() {
-        let mut state = Antialiasing::default();
-        state.warmup = Duration::ZERO;
+        let mut state = Antialiasing {
+            warmup: Duration::ZERO,
+            ..default()
+        };
         for _ in 0..4 {
             frames(&mut state, 1, 0.050);
             frames(&mut state, 120, 1. / 60.);

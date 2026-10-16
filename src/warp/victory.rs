@@ -206,6 +206,7 @@ pub(crate) fn draw(
     mut images: ResMut<Assets<Image>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut canvases: Query<(&mut Sprite, &mut Transform, &mut Visibility), With<Canvas>>,
+    mut preview: Local<cry::FeedbackPreview>,
 ) {
     let session = game
         .bonus
@@ -241,15 +242,26 @@ pub(crate) fn draw(
         };
         if let Some(image) = images.get_mut(&sprite.image) {
             let phase = if age < 401 { age } else { age - 401 } % TICKS_PER_FRAME;
-            let mut next = feedback.clone();
-            if phase != 0 {
-                next.update(
-                    feedback.source.unwrap(),
-                    age + TICKS_PER_FRAME - phase,
-                    session.warp_five,
-                );
-            }
-            cry::write_feedback(image, &feedback.pixels, &next.pixels, phase);
+            let next = if phase == 0 {
+                &feedback.pixels
+            } else {
+                preview.get_or_update(
+                    (
+                        u64::from(feedback.source.unwrap()) << 1 | u64::from(session.warp_five),
+                        feedback.frame,
+                    ),
+                    || {
+                        let mut next = feedback.clone();
+                        next.update(
+                            feedback.source.unwrap(),
+                            age + TICKS_PER_FRAME - phase,
+                            session.warp_five,
+                        );
+                        next.pixels
+                    },
+                )
+            };
+            cry::write_feedback(image, &feedback.pixels, next, phase);
         }
     }
 }

@@ -137,6 +137,7 @@ pub(crate) fn setup(commands: &mut Commands, images: &mut Assets<Image>) {
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn draw(
     mut commands: Commands,
     game: Res<Game>,
@@ -148,6 +149,7 @@ pub(crate) fn draw(
         With<crate::camera::WebCamera>,
     >,
     window: Option<Single<&Window, With<bevy::window::PrimaryWindow>>>,
+    mut preview: Local<cry::FeedbackPreview>,
 ) {
     let failure = game
         .bonus
@@ -227,11 +229,16 @@ pub(crate) fn draw(
     *canvas.1 = Visibility::Visible;
     if let Some(image) = images.get_mut(&canvas.0.image) {
         let phase = age % TICKS_PER_FRAME;
-        let mut next = feedback.clone();
-        if phase != 0 {
-            next.advance(age + TICKS_PER_FRAME - phase, angle);
-        }
-        cry::write_feedback(image, &feedback.pixels, &next.pixels, u32::from(phase));
+        let next = if phase == 0 {
+            &feedback.pixels
+        } else {
+            preview.get_or_update((feedback.generation, u32::from(feedback.age)), || {
+                let mut next = feedback.clone();
+                next.advance(age + TICKS_PER_FRAME - phase, angle);
+                next.pixels
+            })
+        };
+        cry::write_feedback(image, &feedback.pixels, next, u32::from(phase));
     }
 }
 

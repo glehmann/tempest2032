@@ -149,10 +149,7 @@ pub(crate) fn resolve_hits(
             )
             .collect::<Vec<_>>();
         hits.sort_unstable_by_key(|hit| hit.1);
-        let nearest = hits
-            .iter()
-            .min_by_key(|(_, depth, _, _)| *depth)
-            .map(|hit| hit.0);
+        let nearest = hits.first().map(|hit| hit.0);
         for (entity, depth, points, centre) in hits {
             if particle.is_none() && Some(entity) != nearest {
                 continue;
