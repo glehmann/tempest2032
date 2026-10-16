@@ -58,6 +58,9 @@ window.tempestBrowser = {
     status.textContent = `${touch.enabled ? 'Tap' : 'Click'} Play to enable sound and focus the game.${controls()}`;
     play.disabled = false;
     fullscreen.disabled = false;
+    if (navigator.standalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone), (display-mode: minimal-ui)').matches) {
+      engage();
+    }
   },
   typingInitials: active => {
     typingInitials = active;
@@ -78,13 +81,18 @@ window.tempestBrowser = {
   },
 };
 
-function engage() {
-  if (!loaded || failed || document.hidden) return;
+function resumeAudio() {
   for (const context of audioContexts) {
+    if (context.state === 'running' || context.state === 'closed') continue;
     context.resume().catch(error => {
       console.warn('Could not resume audio:', error);
     });
   }
+}
+
+function engage() {
+  if (!loaded || failed || document.hidden) return;
+  resumeAudio();
   engaged = true;
   started = true;
   overlay.hidden = true;
@@ -104,6 +112,12 @@ function suspend() {
 }
 
 play.addEventListener('click', engage);
+// Installed apps can start before audio is allowed. Unlock it on normal input.
+for (const event of ['pointerdown', 'pointerup']) {
+  player.addEventListener(event, () => {
+    if (engaged) resumeAudio();
+  }, true);
+}
 window.addEventListener('blur', suspend);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) suspend();
@@ -115,6 +129,7 @@ canvas.addEventListener('pointerdown', () => {
   if (started) engage();
 });
 document.addEventListener('keydown', event => {
+  if (engaged) resumeAudio();
   if (!overlay.hidden && loaded && ['Enter', 'KeyP'].includes(event.code)) {
     event.preventDefault();
     event.stopImmediatePropagation();

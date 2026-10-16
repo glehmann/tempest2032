@@ -38,9 +38,14 @@ requests that restore original behavior are welcome.
 
 **[Play in your browser](https://tempest2032.github.io/)** with touch controls, a keyboard, or a controller.
 
-On Android, use the browser menu's **Install app** or **Add to Home screen** option.
-Launch the installed game from its icon to play fullscreen. After the game finishes
-caching, it also works offline.
+- **Android:** use the browser menu's **Install app** or **Add to Home screen** option.
+- **iPhone / iPad:** in Safari, use **Share → Add to Home Screen**, with **Open as
+  Web App** enabled if offered. iOS support is expected but has not been tested.
+
+Launch the installed game from its icon to open Welcome directly, without the
+browser's Play prompt. Sound may start on your first touch. The app hides browser
+controls; fullscreen depends on the platform. After the game finishes caching,
+it also works offline.
 
 Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
 Then:

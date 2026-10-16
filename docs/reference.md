@@ -148,6 +148,24 @@ browsers. Browsers that fall back to a standalone window still hide the page's
 fullscreen/GitHub footer. Portrait and landscape both remain available. Opening
 the website as a normal browser tab retains its usual footer and Fullscreen button.
 
+On iPhone or iPad, open the site in Safari and choose **Share → Add to Home
+Screen**. Leave **Open as Web App** enabled if offered, then launch from the new
+icon. iOS opens home-screen web apps in standalone mode rather than honoring the
+manifest's Android-style fullscreen request. System status or home indicators may
+remain visible. The page includes Apple's web-app metadata, a touch icon, and
+safe-area-aware touch controls. Recent Safari versions support the WebAssembly,
+WebGL2, Web Audio, and service-worker APIs used here, but iOS gameplay, audio,
+and offline launching have not been tested on a device. Safari does not support
+the vibration feedback used by the touch controls.
+
+Installed launches detected through the fullscreen, standalone, or minimal-ui
+display modes, or iOS's `navigator.standalone`, open Welcome as soon as the game
+is ready. They skip the HTML Play prompt without starting a run. Audio resume is
+attempted immediately; if autoplay policy blocks it, normal touches anywhere in
+the player or keyboard input retry it without consuming the input. Returning
+after suspension still requires Resume, so a backgrounded run cannot restart
+unexpectedly. Normal browser tabs retain the Play prompt.
+
 The first online visit installs a service worker and caches the complete game,
 including WASM, levels, music, and effects. Once that cache has finished installing,
 the installed game and browser page can launch offline. Player data still uses
@@ -168,7 +186,8 @@ scope, so builds also work below a URL subdirectory.
 Regenerate the committed installation icons from `logos/favicon.svg` with
 `uv run tools/web_icons.py`. Browser builds use those bundled PNGs without image
 conversion dependencies. Run `python3 -m unittest discover -s tools -p test_web.py`
-to check manifest icons, build versioning, and precache URLs.
+to check manifest icons, build versioning, and precache URLs. Run
+`node --test tools/test_browser.mjs` to check installed startup and audio unlocking.
 
 ### Build and serve
 
