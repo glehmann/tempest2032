@@ -14,6 +14,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid #ffdc72; outline-offs
 footer { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 6px 12px; background: #070b16; }
 footer a { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #a1aec4; }
 footer a:hover { color: #fff; }
+@media (display-mode: fullscreen), (display-mode: standalone), (display-mode: minimal-ui) {
+  body { grid-template-rows: minmax(0, 1fr); }
+  footer { display: none; }
+}
 #touch-controls { position: absolute; inset: 0; pointer-events: none; --key: clamp(44px, 11vh, 64px); }
 #touch-controls[hidden], #touch-controls button[hidden] { display: none; }
 #touch-controls { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }

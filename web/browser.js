@@ -151,5 +151,13 @@ document.addEventListener('fullscreenchange', () => {
 window.addEventListener('error', event => fail(event.error || event.message));
 window.addEventListener('unhandledrejection', event => fail(event.reason));
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(error => {
+      console.warn('Offline installation is unavailable:', error);
+    });
+  });
+}
+
 // Generated bindings cache the audio constructor, so import them after wrapping it.
 import('./tempest2032.js').then(({ default: init }) => init()).catch(fail);

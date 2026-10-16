@@ -5,6 +5,7 @@ import argparse
 import functools
 import hashlib
 import http.server
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,9 +13,10 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "target/web"
-# The page and the game call into each other, so a cached script from an older
-# build breaks the new one. These reference each other and are left out of the hash.
-PAGE = {"index.html", "browser.js"}
+# These generated files embed the build hash; hash their templates instead.
+# The page, loader, worker, and game must stay on the same version.
+PAGE = {"index.html", "browser.js", "sw.js"}
+VERSIONED = {"browser.js", "style.css", "touch.js", "tempest2032.js", "tempest2032_bg.wasm"}
 
 
 def build(profile):
@@ -63,14 +65,27 @@ def build(profile):
         shutil.copy2(ROOT / name, OUTPUT / name)
     shutil.copy2(ROOT / "assets/steam/icon.png", OUTPUT / "favicon.png")
     shutil.copy2(ROOT / "assets/preview.png", OUTPUT / "preview.png")
-    version = tag(OUTPUT)
-    replace(OUTPUT / "index.html", 'src="browser.js"', f'src="browser.js?v={version}"')
-    replace(
-        OUTPUT / "browser.js", "'./tempest2032.js'", f"'./tempest2032.js?v={version}'"
-    )
-    replace(OUTPUT / "browser.js", "'./touch.js'", f"'./touch.js?v={version}'")
-    replace(OUTPUT / "index.html", 'href="style.css"', f'href="style.css?v={version}"')
+    version = finalize(OUTPUT)
     print(f"Browser build written to {OUTPUT} (version {version})")
+
+
+def finalize(directory):
+    version = tag(directory)
+    replace(directory / "index.html", 'src="browser.js"', f'src="browser.js?v={version}"')
+    replace(
+        directory / "browser.js", "'./tempest2032.js'", f"'./tempest2032.js?v={version}'"
+    )
+    replace(directory / "browser.js", "'./touch.js'", f"'./touch.js?v={version}'")
+    replace(directory / "index.html", 'href="style.css"', f'href="style.css?v={version}"')
+    replace(directory / "tempest2032.js", "'tempest2032_bg.wasm'", f"'tempest2032_bg.wasm?v={version}'")
+    files = [
+        f"./{path.name}" + (f"?v={version}" if path.name in VERSIONED else "")
+        for path in sorted(directory.iterdir())
+        if path.is_file() and path.name != "sw.js"
+    ]
+    replace(directory / "sw.js", "__VERSION__", version)
+    replace(directory / "sw.js", "__PRECACHE__", json.dumps(files))
+    return version
 
 
 def tag(directory):

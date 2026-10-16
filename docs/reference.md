@@ -138,6 +138,40 @@ cache entry cannot read the app key.
 
 ## Local browser build
 
+### Install on a phone
+
+Open <https://tempest2032.github.io/> in Chrome on Android, then choose **Install
+app** or **Add to Home screen** from the browser menu and confirm installation.
+Launch Tempest 2032 from its home-screen or app-drawer icon. The manifest requests
+fullscreen, including hiding the status and browser bars on supported Android
+browsers. Browsers that fall back to a standalone window still hide the page's
+fullscreen/GitHub footer. Portrait and landscape both remain available. Opening
+the website as a normal browser tab retains its usual footer and Fullscreen button.
+
+The first online visit installs a service worker and caches the complete game,
+including WASM, levels, music, and effects. Once that cache has finished installing,
+the installed game and browser page can launch offline. Player data still uses
+the same origin's `localStorage`. Cache storage is separate from scores and Keys.
+PWA installation and service workers require HTTPS, or localhost for development;
+a plain HTTP LAN address can run the game but cannot install its offline worker.
+
+The generated worker caches one complete build under a content-hashed cache name.
+Navigation, including launch-option queries, uses that build's cached page, and
+the page, loader, touch module, stylesheet, and WASM all use matching versioned
+URLs. A new build downloads in the background and waits for all existing game
+tabs and installed-game windows to close before activating. Reopen the game to
+use the update. Activation removes the previous game cache without changing
+player storage. Service-worker or storage failures leave normal online play
+available. The worker only handles same-origin requests inside its deployment
+scope, so builds also work below a URL subdirectory.
+
+Regenerate the committed installation icons from `logos/favicon.svg` with
+`uv run tools/web_icons.py`. Browser builds use those bundled PNGs without image
+conversion dependencies. Run `python3 -m unittest discover -s tools -p test_web.py`
+to check manifest icons, build versioning, and precache URLs.
+
+### Build and serve
+
 The browser version uses Bevy's WebGL2 renderer and a single-threaded
 `wasm32-unknown-unknown` build. All levels, effects, music, and other game assets
 remain embedded. It requires a WebGL2-capable browser and supports touch controls,

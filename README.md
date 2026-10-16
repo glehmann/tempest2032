@@ -38,6 +38,10 @@ requests that restore original behavior are welcome.
 
 **[Play in your browser](https://tempest2032.github.io/)** with touch controls, a keyboard, or a controller.
 
+On Android, use the browser menu's **Install app** or **Add to Home screen** option.
+Launch the installed game from its icon to play fullscreen. After the game finishes
+caching, it also works offline.
+
 Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
 Then:
 
