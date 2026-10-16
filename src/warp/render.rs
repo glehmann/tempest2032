@@ -600,7 +600,12 @@ pub(crate) fn draw(
             WarpNode::Tunnel => {
                 if let Some(tunnel) = &session.tunnel {
                     if let Some(mesh) = meshes.get_mut(&assets.tunnel) {
-                        *mesh = pixel_mesh(tunnel.pixels(session.tick), 1.2);
+                        let tick = if let Phase::Failure(ticks) = session.phase {
+                            session.tick.saturating_sub(u32::from(151 - ticks.min(151)))
+                        } else {
+                            session.tick
+                        };
+                        *mesh = pixel_mesh(tunnel.pixels(tick), 1.2);
                     }
                     *visible = Visibility::Visible;
                 }

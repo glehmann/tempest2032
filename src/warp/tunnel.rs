@@ -203,7 +203,10 @@ impl Tunnel {
                 self.arcs[index][1] = self.patterns[1].advance();
                 self.segments += 1;
             }
-            Phase::Failure(ticks) => self.radius = ticks.saturating_sub(151).min(32) as u8,
+            Phase::Failure(ticks) => {
+                self.radius = ticks.saturating_sub(152).min(32) as u8;
+                self.viewpoint -= self.viewpoint.clamp(Vec2::splat(-0.25), Vec2::splat(0.25));
+            }
             _ => {}
         }
     }
@@ -318,6 +321,10 @@ impl Tunnel {
                 }
             }
         }
+        // claps returns before drawing the player tail once the collapse starts.
+        if self.tail < 0 {
+            return pixels;
+        }
         for (index, angle) in self
             .trail
             .iter()
@@ -348,6 +355,24 @@ impl Tunnel {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn early_failure_removes_the_tail_and_collapses_toward_screen_center() {
+        let mut tunnel = Tunnel {
+            tail: 0,
+            viewpoint: Vec2::new(2., -2.),
+            ..default()
+        };
+        tunnel.trail.push_front(128);
+        let flying = tunnel.pixels(0);
+        tunnel.tail = -UNIT;
+        assert_eq!(tunnel.pixels(0), flying[..flying.len() - 5]);
+        for ticks in (152..=183).rev() {
+            tunnel.settle(Phase::Failure(ticks));
+        }
+        assert_eq!(tunnel.radius, 0);
+        assert_eq!(tunnel.viewpoint, Vec2::ZERO);
+    }
 
     #[test]
     fn track_tolerance_wraps_and_tail_grows_drains_and_scores_in_source_tiers() {

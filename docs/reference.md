@@ -1982,6 +1982,11 @@ scrolling star planes, a trailing player marker, and the collapsing failure
 tunnel reproduce the source drawing routines.
 Tunnel failure has no explosion sound, matching the tail-exhaustion and collapse
 paths in `yak.s:4281-4290` and `yak.s:4319-4330`.
+An early failure removes the player tail and collapses the tunnel toward the
+screen center for 32 ticks, then freezes that scene for the 151-tick `ofade`/
+`ffade` bitmap melt before web entry (`yak.s:3964`, `yak.s:5069-5086`,
+`yak.s:5297-5336`). The melt retains its scale-and-rotate trails and 60 Hz blended
+presentation. This uses the existing 183-tick failure interval.
 
 Psychedelic rings use the same two-axis inertial controls as gate flight.
 The original courses are mirrored horizontally, every ring uses the original

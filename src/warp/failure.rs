@@ -1,4 +1,4 @@
-//! failfade reprocesses the last displayed bitmap on a missed or final gate.
+//! failfade/ffade reprocess the last scene on gate exits and after tunnel collapse.
 
 use super::{Phase, ZoneKind};
 use crate::{
@@ -65,10 +65,19 @@ impl Feedback {
     }
 
     fn advance(&mut self, age: u16, angle: i32) {
+        self.advance_melt(age, angle, false);
+    }
+
+    fn advance_melt(&mut self, age: u16, angle: i32, settle: bool) {
         if self.pixels.is_empty() {
             return;
         }
         while self.age < 1 + age / TICKS_PER_FRAME {
+            let angle = if settle {
+                angle.signum() * (angle.abs() - i32::from((self.age + 1) / 4)).max(0)
+            } else {
+                angle
+            };
             cry::feedback(
                 &mut self.pixels,
                 &mut self.scratch,
@@ -154,15 +163,19 @@ pub(crate) fn draw(
     let failure = game
         .bonus
         .as_ref()
-        .filter(|session| game.status == Status::Bonus && session.kind == ZoneKind::GateFlight)
-        .and_then(|session| match session.phase {
-            Phase::Failure(ticks) | Phase::Success(ticks) => {
+        .filter(|_| game.status == Status::Bonus)
+        .and_then(|session| match (session.kind, session.phase) {
+            (ZoneKind::GateFlight, Phase::Failure(ticks) | Phase::Success(ticks)) => {
                 let age = 151 - ticks.min(151);
-                Some((session.tick.saturating_sub(u32::from(age)), age))
+                Some((session.tick.saturating_sub(u32::from(age)), age, false))
+            }
+            (ZoneKind::Tunnel, Phase::Failure(ticks)) if ticks <= 151 => {
+                let age = 151 - ticks;
+                Some((session.tick.saturating_sub(u32::from(age)), age, true))
             }
             _ => None,
         });
-    let source = failure.map(|(source, _)| source);
+    let source = failure.map(|(source, _, _)| source);
     if source != feedback.source {
         feedback.source = source;
         feedback.generation = feedback.generation.wrapping_add(1);
@@ -216,13 +229,23 @@ pub(crate) fn draw(
         }
     }
     *canvas.1 = Visibility::Hidden;
-    let Some((_, age)) = failure else { return };
-    let angle = i32::from(
-        game.bonus
-            .as_ref()
-            .is_some_and(|s| matches!(s.phase, Phase::Failure(_))),
-    );
-    feedback.advance(age, angle);
+    let Some((source, age, settle)) = failure else {
+        return;
+    };
+    let angle = if settle {
+        ((source.wrapping_mul(0x9e3779b9) >> 16) & 7) as i32 - 3
+    } else {
+        i32::from(
+            game.bonus
+                .as_ref()
+                .is_some_and(|s| matches!(s.phase, Phase::Failure(_))),
+        )
+    };
+    if settle {
+        feedback.advance_melt(age, angle, true);
+    } else {
+        feedback.advance(age, angle);
+    }
     if feedback.pixels.is_empty() {
         return;
     }
@@ -234,7 +257,7 @@ pub(crate) fn draw(
         } else {
             preview.get_or_update((feedback.generation, u32::from(feedback.age)), || {
                 let mut next = feedback.clone();
-                next.advance(age + TICKS_PER_FRAME - phase, angle);
+                next.advance_melt(age + TICKS_PER_FRAME - phase, angle, settle);
                 next.pixels
             })
         };
@@ -323,6 +346,76 @@ mod tests {
         );
         feedback.advance(0, 0);
         assert_eq!(feedback.pixels, expected);
+    }
+
+    #[test]
+    fn tunnel_failure_captures_after_collapse_and_melts_before_returning() {
+        let mut app = App::new();
+        app.init_resource::<Game>()
+            .init_resource::<Assets<Image>>()
+            .add_systems(
+                Startup,
+                |mut commands: Commands, mut images: ResMut<Assets<Image>>| {
+                    setup(&mut commands, &mut images)
+                },
+            )
+            .add_systems(Update, draw);
+        let mut session = super::super::Session::new(ZoneKind::Tunnel, 0, Some(1), 0);
+        session.tick = 200;
+        session.phase = Phase::Failure(183);
+        let mut game = app.world_mut().resource_mut::<Game>();
+        game.status = Status::Bonus;
+        game.bonus = Some(session);
+        app.update();
+        assert!(app.world().resource::<Feedback>().source.is_none());
+        assert_eq!(
+            app.world_mut()
+                .query::<&Screenshot>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+
+        let mut game = app.world_mut().resource_mut::<Game>();
+        let session = game.bonus.as_mut().unwrap();
+        session.tick = 232;
+        session.phase = Phase::Failure(151);
+        app.update();
+        let request = app
+            .world_mut()
+            .query_filtered::<Entity, With<Screenshot>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut().trigger(ScreenshotCaptured {
+            entity: request,
+            image: frame(),
+        });
+        app.update();
+        assert!(
+            app.world()
+                .resource::<Feedback>()
+                .pixels
+                .iter()
+                .any(|p| p & 255 > 0)
+        );
+        let canvas = app
+            .world_mut()
+            .query_filtered::<Entity, With<Canvas>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(
+            app.world().get::<Visibility>(canvas),
+            Some(&Visibility::Visible)
+        );
+
+        let mut game = app.world_mut().resource_mut::<Game>();
+        let session = game.bonus.as_mut().unwrap();
+        session.tick = 382;
+        session.phase = Phase::Failure(1);
+        app.update();
+        let feedback = app.world().resource::<Feedback>();
+        assert_eq!(feedback.source, Some(232));
+        assert!(feedback.pixels.iter().all(|p| p & 255 == 0));
     }
 
     #[test]
