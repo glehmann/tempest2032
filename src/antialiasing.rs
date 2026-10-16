@@ -9,13 +9,10 @@ use std::time::Duration;
 const WARMUP: Duration = Duration::from_millis(1500);
 const WINDOW: Duration = Duration::from_millis(500);
 const SLOW_WINDOWS: u8 = 2;
-/// The simulation is fixed at 60 Hz, so a machine holding this rate is keeping up
-/// and only a clear shortfall is worth losing smoothing for. This accepts 59.94 Hz
-/// displays, high-refresh panels, and scheduling jitter well below a visible stall.
-const SLOW_FRAME: f64 = 1. / 50.;
-/// About one frame in ten is dropped from a window, and at least one, so a single
-/// stall cannot decide. Short windows keep the frame they drop.
-const TRIM: usize = 10;
+/// Allow 59.94 Hz displays and small scheduling variations, but react to a
+/// sustained shortfall from the 60 Hz simulation. Include stalls in the average;
+/// two consecutive slow windows keep an isolated hitch from deciding the step.
+const SLOW_FRAME: f64 = 1. / 57.;
 
 /// Antialiasing steps down only, so a slow device settles instead of flapping.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, ValueEnum)]
@@ -60,7 +57,7 @@ pub(crate) struct Antialiasing {
     start: Quality,
     warmup: Duration,
     elapsed: Duration,
-    frames: Vec<Duration>,
+    frames: u32,
     slow_windows: u8,
     /// Remaining configurations to apply once, so a later step-down finds its
     /// render targets and pipelines already built instead of compiling them mid-game.
@@ -90,7 +87,7 @@ impl Antialiasing {
             start,
             warmup: WARMUP,
             elapsed: Duration::ZERO,
-            frames: Vec::new(),
+            frames: 0,
             slow_windows: 0,
             prewarm,
         }
@@ -111,13 +108,13 @@ impl Antialiasing {
             return;
         }
         self.elapsed += delta;
-        self.frames.push(delta);
+        self.frames += 1;
         if self.elapsed < WINDOW {
             return;
         }
-        let mean = trimmed_mean(&self.frames);
+        let mean = self.elapsed / self.frames;
         self.elapsed = Duration::ZERO;
-        self.frames.clear();
+        self.frames = 0;
         if mean.as_secs_f64() > SLOW_FRAME {
             self.slow_windows += 1;
             if self.slow_windows >= SLOW_WINDOWS {
@@ -133,21 +130,6 @@ impl Antialiasing {
             self.slow_windows = 0;
         }
     }
-}
-
-/// Drops the slowest frames of a window before averaging. VSync quantizes times to
-/// refresh multiples, so a median reports the more common one and misses a choppy mix.
-fn trimmed_mean(frames: &[Duration]) -> Duration {
-    if frames.is_empty() {
-        return Duration::ZERO;
-    }
-    let mut sorted = frames.to_vec();
-    sorted.sort_unstable();
-    let dropped = (sorted.len() / TRIM).min(sorted.len() - 1);
-    let kept = &sorted[..sorted.len() - dropped];
-    Duration::from_secs_f64(
-        kept.iter().map(|frame| frame.as_secs_f64()).sum::<f64>() / kept.len() as f64,
-    )
 }
 
 /// Starts from the host's own signals; the browser reports its renderer and pointer.
@@ -211,7 +193,7 @@ mod tests {
         state.warmup = Duration::ZERO;
         for window in windows {
             state.elapsed = Duration::ZERO;
-            state.frames.clear();
+            state.frames = 0;
             for frame in window {
                 state.sample(*frame, true);
             }
@@ -250,7 +232,7 @@ mod tests {
     fn a_frame_rate_that_keeps_up_with_the_simulation_keeps_multisampling() {
         let mut state = Antialiasing::default();
         frames(&mut state, 90, 1. / 60.);
-        // A panel that reports 58 FPS now and then is still holding the simulation.
+        // Leave room for small scheduling variations around the 60 Hz target.
         frames(&mut state, 300, 1. / 58.);
         assert_eq!(state.quality, Quality::Full);
         frames(&mut state, 300, 1. / 120.);
@@ -264,6 +246,8 @@ mod tests {
         frames(&mut state, 12, 1. / 60.);
         frames(&mut state, 1, 0.2);
         frames(&mut state, 6, 1. / 60.);
+        assert_eq!(state.quality, Quality::Full);
+        frames(&mut state, 31, 1. / 60.);
         assert_eq!(state.quality, Quality::Full);
         assert_eq!(state.slow_windows, 0);
     }
@@ -440,16 +424,37 @@ mod tests {
     }
 
     #[test]
-    fn trimmed_windows_drop_the_slowest_tenth() {
-        let frames = vec![Duration::ZERO; 8];
-        assert_eq!(trimmed_mean(&frames), Duration::ZERO);
-        let mut with_hitch = window(18, 1. / 60.);
-        with_hitch.push(Duration::from_secs_f64(0.2));
-        assert!(trimmed_mean(&with_hitch) < Duration::from_millis(17));
-        assert_eq!(
-            trimmed_mean(&window(30, 1. / 30.)),
-            Duration::from_nanos(33_333_333)
-        );
-        assert_eq!(trimmed_mean(&[]), Duration::ZERO);
+    fn sustained_fifty_two_to_fifty_five_fps_lowers_quality() {
+        for rate in [52., 53., 54., 55., 56.] {
+            let mut state = Antialiasing::default();
+            measured(&mut state, &[window(30, 1. / rate), window(30, 1. / rate)]);
+            assert_eq!(state.quality, Quality::Fxaa, "{rate} FPS");
+        }
+    }
+
+    #[test]
+    fn recurring_six_to_fifty_ms_intervals_are_not_discarded() {
+        let mut state = Antialiasing::default();
+        // Mostly on time, with a brief catch-up frame after each recurring stall.
+        let mixed: Vec<Duration> = [1. / 60.; 7]
+            .into_iter()
+            .chain([0.050, 0.006])
+            .cycle()
+            .take(27)
+            .map(Duration::from_secs_f64)
+            .collect();
+        measured(&mut state, &[mixed.clone(), mixed]);
+        assert_eq!(state.quality, Quality::Fxaa);
+    }
+
+    #[test]
+    fn occasional_fifty_ms_hitches_do_not_lower_quality() {
+        let mut state = Antialiasing::default();
+        state.warmup = Duration::ZERO;
+        for _ in 0..4 {
+            frames(&mut state, 1, 0.050);
+            frames(&mut state, 120, 1. / 60.);
+        }
+        assert_eq!(state.quality, Quality::Full);
     }
 }

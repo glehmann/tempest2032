@@ -1422,16 +1422,15 @@ original bitmap feedback and particle effects retain their original resolution.
 
 Antialiasing starts at a step chosen per launch and only ever steps down:
 4× MSAA with FXAA, then FXAA alone, then nothing, for the rest of the session.
-After a 1.5-second warmup, two consecutive half-second windows slower than 50
+After a 1.5-second warmup, two consecutive half-second windows slower than 57
 rendered updates per second lower the step, and each step-down starts a fresh
 warmup, so a session needs roughly 2.5 seconds to reach FXAA and 5 seconds to
-reach no filtering. Each window drops its slowest tenth before averaging, so a
-single stall cannot lower the step and a mixture of met and missed refresh
-lengths still counts as slow. The 50 FPS bar sits well under the 60 Hz
-simulation: a panel reporting 58 FPS, or a high-refresh display running at
-100 FPS, is still keeping up, and losing smoothing there is a downgrade nobody
-asked for. The tolerance also accepts 59.94 Hz displays and small scheduling
-variations. Unfocused or hidden windows reset the measurement, warmup, and step
+reach no filtering. Each window averages all frame intervals, including stalls,
+so recurring 50 ms spikes cannot disappear from the measurement. Requiring two
+consecutive slow windows prevents an isolated hitch from lowering the step.
+The 57 FPS threshold catches sustained 52–55 FPS while tolerating 59.94 Hz
+displays and small scheduling variations around 60 Hz. Unfocused or hidden
+windows reset the measurement, warmup, and step
 to the launch state. `--antialiasing full`, `--antialiasing fxaa`, and
 `--antialiasing off` skip the measurement and start at that step,
 and the browser accepts the same values as `?aa=`, where `auto` is the default.
