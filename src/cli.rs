@@ -42,7 +42,7 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) fps: bool,
 
-    /// Antialiasing step to start with, instead of following the frame rate
+    /// Fix antialiasing quality instead of following the frame rate
     #[arg(long, value_enum, value_name = "QUALITY")]
     pub(crate) antialiasing: Option<crate::antialiasing::Quality>,
 

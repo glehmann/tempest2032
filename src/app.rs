@@ -100,7 +100,7 @@ pub(crate) fn run(args: cli::Cli) {
     let antialiasing = args
         .antialiasing
         .unwrap_or_else(crate::antialiasing::detected_start);
-    crate::antialiasing::add_systems(&mut app, antialiasing);
+    crate::antialiasing::add_systems(&mut app, antialiasing, args.antialiasing.is_none());
     let direct = args.direct_start();
     let mut store = crate::scores::Store::load();
     let difficulty = args.difficulty.unwrap_or(store.data.difficulty);

@@ -55,6 +55,7 @@ impl Quality {
 pub(crate) struct Antialiasing {
     pub(crate) quality: Quality,
     start: Quality,
+    automatic: bool,
     warmup: Duration,
     elapsed: Duration,
     frames: u32,
@@ -66,15 +67,15 @@ pub(crate) struct Antialiasing {
 
 impl Default for Antialiasing {
     fn default() -> Self {
-        Self::new(Quality::default())
+        Self::new(Quality::default(), true)
     }
 }
 
 impl Antialiasing {
-    pub(crate) fn new(start: Quality) -> Self {
+    pub(crate) fn new(start: Quality, automatic: bool) -> Self {
         let mut prewarm = VecDeque::new();
-        // Nothing follows a session that starts unfiltered, so it builds nothing.
-        if start != Quality::Off {
+        // Fixed-quality sessions never switch pipelines, so need no prewarming.
+        if automatic && start != Quality::Off {
             prewarm.push_back(start);
             for quality in [Quality::Fxaa, Quality::Off] {
                 if quality != start {
@@ -85,6 +86,7 @@ impl Antialiasing {
         Self {
             quality: start,
             start,
+            automatic,
             warmup: WARMUP,
             elapsed: Duration::ZERO,
             frames: 0,
@@ -94,11 +96,11 @@ impl Antialiasing {
     }
 
     fn sample(&mut self, delta: Duration, active: bool) {
-        if self.quality == Quality::Off {
+        if !self.automatic || self.quality == Quality::Off {
             return;
         }
         if !active {
-            *self = Self::new(self.start);
+            *self = Self::new(self.start, self.automatic);
             // The configurations are already built, so refocusing must not repeat them.
             self.prewarm.clear();
             return;
@@ -144,8 +146,8 @@ pub(crate) fn detected_start() -> Quality {
     }
 }
 
-pub(crate) fn add_systems(app: &mut App, start: Quality) {
-    app.insert_resource(Antialiasing::new(start))
+pub(crate) fn add_systems(app: &mut App, start: Quality, automatic: bool) {
+    app.insert_resource(Antialiasing::new(start, automatic))
         .add_systems(Update, update);
 }
 
@@ -265,7 +267,7 @@ mod tests {
 
     #[test]
     fn backgrounding_resets_the_measurement_to_the_starting_state() {
-        let mut state = Antialiasing::new(Quality::Fxaa);
+        let mut state = Antialiasing::new(Quality::Fxaa, true);
         frames(&mut state, 4, 0.5);
         assert_eq!(state.slow_windows, 1);
         assert_eq!(state.quality, Quality::Fxaa);
@@ -280,17 +282,49 @@ mod tests {
 
     #[test]
     fn a_starting_state_of_off_is_never_recovered() {
-        let mut state = Antialiasing::new(Quality::Off);
+        let mut state = Antialiasing::new(Quality::Off, true);
         frames(&mut state, 600, 1. / 120.);
         state.sample(Duration::from_secs(10), false);
         assert_eq!(state.quality, Quality::Off);
     }
 
     #[test]
+    fn fixed_quality_never_prewarms_or_falls_back_even_after_refocusing() {
+        for quality in [Quality::Full, Quality::Fxaa, Quality::Off] {
+            let mut app = App::new();
+            app.init_resource::<Time<Real>>();
+            add_systems(&mut app, quality, false);
+            let window = app
+                .world_mut()
+                .spawn((Window::default(), PrimaryWindow))
+                .id();
+            let camera = app
+                .world_mut()
+                .spawn((Camera::default(), Msaa::Sample4, Fxaa::default()))
+                .id();
+            for frame in 0..180 {
+                app.world_mut().get_mut::<Window>(window).unwrap().focused = frame != 90;
+                app.world_mut()
+                    .resource_mut::<Time<Real>>()
+                    .advance_by(Duration::from_secs_f64(1. / 30.));
+                app.update();
+                let state = app.world().resource::<Antialiasing>();
+                assert_eq!(state.quality, quality);
+                assert!(state.prewarm.is_empty());
+                assert_eq!(app.world().get::<Msaa>(camera), Some(&quality.samples()));
+                assert_eq!(
+                    app.world().get::<Fxaa>(camera).unwrap().enabled,
+                    quality.filtered()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn the_fallback_switches_all_camera_passes_and_the_final_filter_together() {
         let mut app = App::new();
         app.init_resource::<Time<Real>>();
-        add_systems(&mut app, Quality::Full);
+        add_systems(&mut app, Quality::Full, true);
         app.world_mut().spawn((
             Window {
                 focused: true,
@@ -330,7 +364,7 @@ mod tests {
     fn a_warm_window_spares_every_camera_pass() {
         let mut app = App::new();
         app.init_resource::<Time<Real>>();
-        add_systems(&mut app, Quality::Full);
+        add_systems(&mut app, Quality::Full, true);
         app.world_mut().spawn((
             Window {
                 focused: true,
@@ -356,7 +390,7 @@ mod tests {
     fn the_alternate_configurations_are_built_during_the_warmup() {
         let mut app = App::new();
         app.init_resource::<Time<Real>>();
-        add_systems(&mut app, Quality::Full);
+        add_systems(&mut app, Quality::Full, true);
         app.world_mut().spawn((
             Window {
                 focused: true,
@@ -396,7 +430,7 @@ mod tests {
     fn refocusing_does_not_rebuild_the_configurations() {
         let mut app = App::new();
         app.init_resource::<Time<Real>>();
-        add_systems(&mut app, Quality::Full);
+        add_systems(&mut app, Quality::Full, true);
         let window = app
             .world_mut()
             .spawn((

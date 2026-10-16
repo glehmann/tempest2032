@@ -1420,7 +1420,7 @@ FXAA pass on the final 3D overlay camera smooths remaining high-contrast edges
 after the scene layers are combined. UI text uses Bevy's font antialiasing;
 original bitmap feedback and particle effects retain their original resolution.
 
-Antialiasing starts at a step chosen per launch and only ever steps down:
+Automatic antialiasing starts at a step chosen per launch and only ever steps down:
 4× MSAA with FXAA, then FXAA alone, then nothing, for the rest of the session.
 After a 1.5-second warmup, two consecutive half-second windows slower than 57
 rendered updates per second lower the step, and each step-down starts a fresh
@@ -1432,7 +1432,8 @@ The 57 FPS threshold catches sustained 52–55 FPS while tolerating 59.94 Hz
 displays and small scheduling variations around 60 Hz. Unfocused or hidden
 windows reset the measurement, warmup, and step
 to the launch state. `--antialiasing full`, `--antialiasing fxaa`, and
-`--antialiasing off` skip the measurement and start at that step,
+`--antialiasing off` fix the quality for the entire session, disabling automatic
+reductions and alternate-pipeline prewarming,
 and the browser accepts the same values as `?aa=`, where `auto` is the default.
 
 The starting step comes from the host. Browsers report their unmasked WebGL
@@ -1446,7 +1447,7 @@ gameplay simulation. This measures application updates, not GPU timings or
 confirmed display presentations, and reducing antialiasing cannot fix every
 cause of slow rendering.
 
-The starting step and every step below it are each applied for one frame during
+In automatic mode, the starting step and every step below it are each applied for one frame during
 the warmup. The sample count is part of wgpu's pipeline key, so a first-time
 step-down otherwise compiles every pipeline of both camera passes in the frame
 it lands on, which reads as a freeze; building them during the warmup moves that
