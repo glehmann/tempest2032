@@ -1954,6 +1954,8 @@ life. Completion after 1,024 segments advances four additional webs below
 level 91, without the gate-flight 20,000-point award. Colored particle arcs,
 scrolling star planes, a trailing player marker, and the collapsing failure
 tunnel reproduce the source drawing routines.
+Tunnel failure has no explosion sound, matching the tail-exhaustion and collapse
+paths in `yak.s:4281-4290` and `yak.s:4319-4330`.
 
 Psychedelic rings use the same two-axis inertial controls as gate flight.
 The original courses are mirrored horizontally, every ring uses the original
