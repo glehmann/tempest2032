@@ -98,12 +98,6 @@ sudo apt install build-essential pkg-config libasound2-dev libudev-dev \
   libxkbcommon-dev libwayland-dev
 ```
 
-### Play in a local browser
-
-A WebGL2 browser build is available from source. Follow the
-[browser build instructions](docs/reference.md#local-browser-build), then open
-the local page and click Play. Settings and high scores stay in that browser.
-
 ### Add to Steam
 
 Choose **Install in Steam** in the welcome screen's configuration menu, then
