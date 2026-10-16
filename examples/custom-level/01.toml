@@ -1,9 +1,9 @@
 # An eight-lane practice web. All other levels use their embedded definitions.
 number = 1
 enemy_count = 12
-# Optional: put your own file beside this TOML, or change the path.
-# Missing or undecodable files fall back to this level's original music.
-soundtrack = "soundtrack.ogg"
+# Downloaded once and cached for later offline launches.
+# Unavailable or undecodable music falls back to this level's original track.
+soundtrack = "https://api.modarchive.org/downloads.php?moduleid=139997#acid_butcher.xm"
 
 [web]
 closed = true

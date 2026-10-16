@@ -27,7 +27,7 @@ fn current(app: &mut App) -> (Entity, Selection) {
 fn all_seven_original_modules_generate_stereo_music_at_normal_speed() {
     for index in 0..7 {
         assert_eq!(MODULES[index].get_num_channels(), 4);
-        let mut decoder = Track(index).decoder();
+        let mut decoder = Track(MODULES[index].clone()).decoder();
         assert_eq!(decoder.channels(), 2);
         assert_eq!(decoder.sample_rate(), 44_100);
         assert_eq!(decoder.total_duration(), None);
@@ -40,15 +40,19 @@ fn all_seven_original_modules_generate_stereo_music_at_normal_speed() {
 
 #[test]
 fn decoder_continues_after_song_end() {
-    let mut decoder = Track(4).decoder();
-    decoder.0.set_max_loop_count(1);
-    assert!(decoder.0.seek_seconds(decoder.0.duration_seconds() - 0.02));
+    let mut decoder = Track(MODULES[4].clone()).decoder();
+    decoder.0.with_dependent_mut(|_, player| {
+        player.set_max_loop_count(1);
+        assert!(player.seek_seconds(player.duration_seconds() - 0.02));
+    });
     assert_eq!(
         decoder.by_ref().take(RATE as usize * 4).count(),
         RATE as usize * 4
     );
     // rave4's own pattern jump repeats from inside the song, not its intro.
-    assert!(decoder.0.position_seconds() < decoder.0.duration_seconds() / 2.0);
+    decoder.0.with_dependent(|_, player| {
+        assert!(player.position_seconds() < player.duration_seconds() / 2.0);
+    });
 }
 
 #[test]
@@ -143,7 +147,7 @@ fn welcome_and_configuration_use_the_original_title_screen_module() {
     assert_eq!(current(&mut app).1, Selection::Original(0));
 }
 
-fn wav() -> Vec<u8> {
+pub(super) fn wav() -> Vec<u8> {
     let samples = [0_i16, 1000, -1000, 2000];
     let size = (samples.len() * 2) as u32;
     let mut bytes = b"RIFF".to_vec();
@@ -170,8 +174,9 @@ fn external_music_loops_and_stays_live_across_levels_using_the_same_file() {
     let path = directory.path().join("song.wav");
     std::fs::write(&path, wav()).unwrap();
     let mut app = app();
-    app.world_mut().resource_mut::<Level>().soundtrack = Some(path.clone());
-    app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack = Some(path);
+    app.world_mut().resource_mut::<Level>().soundtrack = Some(Soundtrack::File(path.clone()));
+    app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack =
+        Some(Soundtrack::File(path));
     app.update();
     let original = current(&mut app);
     let Selection::Custom(handle) = &original.1 else {
@@ -217,9 +222,10 @@ fn missing_or_invalid_music_uses_the_levels_embedded_track() {
         directory.path().to_owned(),
     ] {
         let mut app = app();
-        app.world_mut().resource_mut::<Level>().soundtrack = Some(path.clone());
+        app.world_mut().resource_mut::<Level>().soundtrack = Some(Soundtrack::File(path.clone()));
         app.world_mut().resource_mut::<Level>().number = 33;
-        app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack = Some(path);
+        app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack =
+            Some(Soundtrack::File(path));
         app.update();
         assert_eq!(current(&mut app).1, Selection::Original(5));
     }

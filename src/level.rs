@@ -14,7 +14,7 @@ include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 #[derive(Resource, Clone, PartialEq)]
 pub(crate) struct Level {
     pub(crate) number: usize,
-    pub(crate) soundtrack: Option<std::path::PathBuf>,
+    pub(crate) soundtrack: Option<Soundtrack>,
     pub(crate) web: Web,
     pub(crate) flippers: Flippers,
     pub(crate) appearance: Appearance,
@@ -32,6 +32,12 @@ pub(crate) struct Level {
     pub(crate) mirrors: Option<Generator>,
     pub(crate) extra_spikers: Option<Generator>,
     pub(crate) aliens: Option<Generator>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Soundtrack {
+    File(std::path::PathBuf),
+    Url(String),
 }
 
 #[derive(Clone, PartialEq)]
@@ -186,7 +192,7 @@ impl Default for PowerUps {
 #[serde(deny_unknown_fields)]
 struct Definition {
     pub(crate) number: usize,
-    soundtrack: Option<std::path::PathBuf>,
+    soundtrack: Option<String>,
     #[serde(default)]
     pub(crate) enemy_count: Option<u16>,
     #[serde(default)]
@@ -293,12 +299,8 @@ impl Level {
         if def.number == 0 {
             return fail("number must be positive");
         }
-        if def
-            .soundtrack
-            .as_ref()
-            .is_some_and(|path| path.as_os_str().is_empty())
-        {
-            return fail("soundtrack must be a nonempty file path");
+        if def.soundtrack.as_ref().is_some_and(|path| path.is_empty()) {
+            return fail("soundtrack must be a nonempty file path or HTTP/HTTPS URL");
         }
         let enemy_shots = def.enemy_shots.unwrap_or(((def.number - 1) / 8).min(3) + 1);
         if !(1..=16).contains(&enemy_shots) {
@@ -414,7 +416,13 @@ impl Level {
         }
         Ok(Self {
             number: def.number,
-            soundtrack: def.soundtrack,
+            soundtrack: def.soundtrack.map(|source| {
+                if source.starts_with("https://") || source.starts_with("http://") {
+                    Soundtrack::Url(source.split('#').next().unwrap().to_owned())
+                } else {
+                    Soundtrack::File(source.into())
+                }
+            }),
             web: def.web,
             flippers: Flippers {
                 enabled: f.enabled,
@@ -484,7 +492,7 @@ impl Levels {
                     let source = std::fs::read_to_string(&path)
                         .map_err(|err| format!("{}: {err}", path.display()))?;
                     let mut level = Level::parse(&source, &path.display().to_string())?;
-                    if let Some(soundtrack) = &mut level.soundtrack {
+                    if let Some(Soundtrack::File(soundtrack)) = &mut level.soundtrack {
                         *soundtrack = directory.join(&*soundtrack);
                     }
                     levels.push((path, level));

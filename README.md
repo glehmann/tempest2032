@@ -167,7 +167,7 @@ welcome screen and disable high-score saving, including `--level 1`.
 Optional TOML files in `levels/` override the embedded levels; changed definitions
 also disable high-score saving.
 
-To make your own levels and choose music files, start with the
+To make your own levels and choose music files or URLs, start with the
 [custom-level demo and options guide](examples/custom-level/).
 
 ## Development

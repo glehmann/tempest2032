@@ -1,15 +1,19 @@
-//! Embedded MOD music and optional per-level files, independent of effect pitch.
+//! Embedded MOD music and per-level files or cached URLs, independent of effect pitch.
 
 use crate::{
     game::{Game, Status},
-    level::Level,
+    level::{Level, Soundtrack},
     warp::ZoneKind,
 };
 use bevy::{
     audio::{AddAudioSource, Source, Volume},
     prelude::*,
 };
-use std::{collections::HashMap, path::PathBuf, sync::LazyLock, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
 use xmrs::prelude::Module;
 use xmrsplayer::prelude::XmrsPlayer;
 
@@ -23,8 +27,8 @@ const DATA: [&[u8]; 7] = [
     include_bytes!("../assets/music/tune5.mod"),
     include_bytes!("../assets/music/tune12.mod"),
 ];
-static MODULES: LazyLock<[Module; 7]> = LazyLock::new(|| {
-    DATA.map(|data| Module::load_mod(data).expect("invalid embedded music module"))
+static MODULES: LazyLock<[Arc<Module>; 7]> = LazyLock::new(|| {
+    DATA.map(|data| Arc::new(Module::load_mod(data).expect("invalid embedded music module")))
 });
 
 #[derive(Resource)]
@@ -37,17 +41,27 @@ impl Default for MusicVolume {
 }
 
 #[derive(Asset, TypePath)]
-pub(crate) struct Track(usize);
+pub(crate) struct Track(Arc<Module>);
 
-pub(crate) struct Decoder(XmrsPlayer<'static>);
+self_cell::self_cell! {
+    struct PlayerCell {
+        owner: Arc<Module>,
+        #[not_covariant]
+        dependent: XmrsPlayer,
+    }
+}
+
+pub(crate) struct Decoder(PlayerCell);
 
 impl Iterator for Decoder {
     type Item = i16;
 
     fn next(&mut self) -> Option<i16> {
-        self.0.next().or_else(|| {
-            self.0.goto(0, 0, 0);
-            self.0.next()
+        self.0.with_dependent_mut(|_, player| {
+            player.next().or_else(|| {
+                player.goto(0, 0, 0);
+                player.next()
+            })
         })
     }
 }
@@ -71,20 +85,25 @@ impl Decodable for Track {
     type DecoderItem = i16;
     type Decoder = Decoder;
     fn decoder(&self) -> Decoder {
-        Decoder(XmrsPlayer::new(&MODULES[self.0], RATE, 0))
+        Decoder(PlayerCell::new(self.0.clone(), |module| {
+            XmrsPlayer::new(module, RATE, 0)
+        }))
     }
 }
 
 #[derive(Resource)]
 struct Catalog {
     original: [Handle<Track>; 7],
-    custom: HashMap<PathBuf, Handle<AudioSource>>,
+    custom: HashMap<Soundtrack, Selection>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 enum Selection {
     Original(usize),
+    #[cfg(not(target_arch = "wasm32"))]
     Custom(Handle<AudioSource>),
+    #[cfg(not(target_arch = "wasm32"))]
+    Module(Handle<Track>),
 }
 
 #[derive(Component)]
@@ -125,54 +144,49 @@ fn setup(
 ) {
     LazyLock::force(&MODULES);
     commands.insert_resource(Catalog {
-        original: std::array::from_fn(|index| assets.add(Track(index))),
-        custom: custom_tracks(&levels, &mut audio),
+        original: std::array::from_fn(|index| assets.add(Track(MODULES[index].clone()))),
+        custom: custom_tracks(&levels, &mut audio, &mut assets),
     });
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn load_soundtrack(path: &std::path::Path) -> Result<AudioSource, String> {
-    let source = AudioSource {
-        bytes: std::fs::read(path)
-            .map_err(|error| error.to_string())?
-            .into(),
-    };
-    let mut decoder = rodio::Decoder::new(std::io::Cursor::new(source.clone()))
-        .map_err(|error| error.to_string())?;
-    if decoder.next().is_none() {
-        return Err("soundtrack contains no audio samples".into());
-    }
-    Ok(source)
-}
+mod soundtrack;
 
 fn custom_tracks(
     levels: &crate::level::Levels,
     audio: &mut Assets<AudioSource>,
-) -> HashMap<PathBuf, Handle<AudioSource>> {
+    modules: &mut Assets<Track>,
+) -> HashMap<Soundtrack, Selection> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let mut tracks = HashMap::new();
+        let cache = dirs::cache_dir().map(|path| path.join("tempest2032/soundtracks"));
         let paths: std::collections::HashSet<_> = levels
             .0
             .iter()
             .filter_map(|level| level.soundtrack.as_ref())
             .collect();
         for path in paths {
-            match load_soundtrack(path) {
+            match soundtrack::load(path, cache.as_deref()) {
                 Ok(source) => {
-                    tracks.insert(path.clone(), audio.add(source));
+                    let selection = match source {
+                        soundtrack::Loaded::Audio(source) => Selection::Custom(audio.add(source)),
+                        soundtrack::Loaded::Module(module) => {
+                            Selection::Module(modules.add(Track(module)))
+                        }
+                    };
+                    tracks.insert(path.clone(), selection);
                 }
-                Err(error) => warn!(
-                    "Could not load soundtrack {}: {error}; using original music",
-                    path.display()
-                ),
+                Err(error) => {
+                    warn!("Could not load soundtrack {path:?}: {error}; using original music")
+                }
             }
         }
         tracks
     }
     #[cfg(target_arch = "wasm32")]
     {
-        let _ = (levels, audio);
+        let _ = (levels, audio, modules);
         HashMap::new()
     }
 }
@@ -205,12 +219,12 @@ fn update(
         Selection::Original(0)
     } else if game.status != Status::GameOver
         && game.bonus.is_none()
-        && let Some(handle) = level
+        && let Some(selection) = level
             .soundtrack
             .as_ref()
             .and_then(|path| catalog.custom.get(path))
     {
-        Selection::Custom(handle.clone())
+        selection.clone()
     } else {
         Selection::Original(selected(&game, &level))
     };
@@ -242,12 +256,21 @@ fn update(
             ));
             info!("Playing original music track {}", index + 1);
         }
+        #[cfg(not(target_arch = "wasm32"))]
         Selection::Custom(handle) => {
             entity.insert((
                 AudioPlayer(handle),
                 PlaybackSettings::LOOP.with_volume(Volume::Linear(volume.0)),
             ));
             info!("Playing custom level soundtrack");
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        Selection::Module(handle) => {
+            entity.insert((
+                AudioPlayer(handle),
+                PlaybackSettings::ONCE.with_volume(Volume::Linear(volume.0)),
+            ));
+            info!("Playing custom tracker soundtrack");
         }
     }
 }

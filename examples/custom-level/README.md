@@ -21,7 +21,13 @@ level 101, then 102, and so on.
 
 ## Soundtrack
 
-Put your own `soundtrack.ogg` next to `01.toml`, or change this top-level option:
+The demo downloads Acid Butcher from Mod Archive on its first launch:
+
+```toml
+soundtrack = "https://api.modarchive.org/downloads.php?moduleid=139997#acid_butcher.xm"
+```
+
+You can also use a local file. Change this top-level option:
 
 ```toml
 number = 1
@@ -29,17 +35,33 @@ soundtrack = "music/my-track.mp3"
 ```
 
 Relative paths start at the TOML file's directory. Absolute paths also work.
-Native builds support MP3, FLAC, Ogg Vorbis, and WAV. No music file is included
-in this demo; without one, you hear the original embedded track. Omitting
-`soundtrack`, or using a missing, unreadable, or undecodable file, also uses the
-original track for that level. Loading failures produce a log warning.
+Native builds support MP3, FLAC, Ogg Vorbis, WAV, MOD, and XM. Formats are detected
+from the contents, so download URLs do not need a filename extension. No copy of
+the demo music is bundled with this directory.
+
+HTTP and HTTPS URLs download once, then reuse a persistent cache, including
+offline. Query parameters are part of the cache key; the `#filename` fragment
+is ignored. Downloads are checked before caching and saved atomically. A broken
+cache entry is downloaded again. Delete an entry to fetch a new copy at the same
+URL. The cache is in your OS cache directory under `tempest2032/soundtracks`:
+
+- Linux: `$XDG_CACHE_HOME/tempest2032/soundtracks`, usually
+  `~/.cache/tempest2032/soundtracks`.
+- macOS: `~/Library/Caches/tempest2032/soundtracks`.
+- Windows: `%LOCALAPPDATA%\tempest2032\soundtracks`.
+
+Omitting `soundtrack`, using a missing or invalid file, or failing to download an
+uncached URL uses the original embedded music. Loading failures produce a log
+warning. If cache storage is unavailable, downloaded music can still play for
+that session. Downloads happen at startup with a 30-second timeout and a 128 MiB
+size limit.
 
 Custom tracks loop, use the normal volume controls, and pause with the game.
-Consecutive levels referencing the same resolved path keep the track playing.
+Consecutive levels referencing the same resolved path or URL keep the track playing.
 Changing tracks uses the usual one-second fade-out. Menus, game over, and warp
 stages keep their original music. Files are read and checked at startup, so
-restart after replacing a soundtrack. Browser builds use embedded levels and
-music and do not read these local overrides.
+restart after replacing a local soundtrack. Browser builds use embedded levels and
+music and do not load these custom files or URLs.
 
 ## TOML options
 
@@ -54,7 +76,7 @@ Difficulty settings scale climbing speeds and spawn intervals after loading.
 | Field | Meaning |
 | --- | --- |
 | `number` | Required positive level number to replace or append. |
-| `soundtrack` | Optional nonempty file path. See above. |
+| `soundtrack` | Optional nonempty file path or HTTP/HTTPS URL. See above. |
 | `enemy_count` | Shared wave spawn budget, 1–65535. Takes precedence over `flippers.count`. Other generators share this budget. |
 | `enemy_shots` | Alien Droid shot limit, 1–16. Defaults to 1 on levels 1–8, 2 on 9–16, 3 on 17–24, and 4 thereafter. |
 

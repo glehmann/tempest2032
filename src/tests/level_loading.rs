@@ -131,7 +131,10 @@ fn soundtrack_paths_are_relative_to_the_level_file_and_need_not_exist() {
         let setting = toml::Value::String(path.to_str().unwrap().to_owned());
         directory.write("01.toml", &format!("soundtrack = {setting}\n{FIRST}"));
         let levels = Levels::load(&directory.0).unwrap();
-        assert_eq!(levels.0[0].soundtrack, Some(directory.0.join(path)));
+        assert_eq!(
+            levels.0[0].soundtrack,
+            Some(Soundtrack::File(directory.0.join(path)))
+        );
         assert!(levels.0[1].soundtrack.is_none());
         assert!(!levels.is_standard());
     }
@@ -146,7 +149,23 @@ fn demo_is_a_valid_partial_override() {
     assert_eq!(levels.0[0].web.lanes(), 8);
     assert_eq!(
         levels.0[0].soundtrack,
-        Some(directory.join("soundtrack.ogg"))
+        Some(Soundtrack::Url(
+            "https://api.modarchive.org/downloads.php?moduleid=139997".into()
+        ))
     );
     assert!(levels.0[1..] == Levels::load(&directory.join("missing")).unwrap().0[1..]);
+}
+
+#[test]
+fn soundtrack_urls_preserve_queries_and_ignore_fragments_without_becoming_local_paths() {
+    let directory = Directory::new();
+    directory.write(
+        "01.toml",
+        &format!("soundtrack = \"https://example.com/download?id=2#song.xm\"\n{FIRST}"),
+    );
+    let levels = Levels::load(&directory.0).unwrap();
+    assert_eq!(
+        levels.0[0].soundtrack,
+        Some(Soundtrack::Url("https://example.com/download?id=2".into()))
+    );
 }

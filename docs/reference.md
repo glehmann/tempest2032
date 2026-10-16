@@ -545,8 +545,8 @@ The local CI manifest builds the checked-out tree, including pull-request change
 
 The sandbox allows display, audio, GPU, and controller access. Device access uses
 `--device=all` for compatibility with the Flatpak version on Ubuntu 24.04; no
-host-filesystem or network access is requested. Steam installation is not exposed
-inside the sandbox.
+host-filesystem access is requested. Network access allows custom soundtrack
+downloads. Steam installation is not exposed inside the sandbox.
 
 Each job uploads a `.flatpak` bundle and `flathub-submission.tar.gz`, containing
 the pinned source manifest and `cargo-sources.json`. CI installs the built bundle
@@ -765,16 +765,29 @@ Welcome, Configuration, and initials entry use `tune13.mod`. The original
 `rreset` title-screen setup requests `modnum = 1` at `yak.s:1018`; entry one in
 `images_sounds.s:63-70` is `tune13.mod`, also used by game over.
 
-Native level overrides can set a top-level `soundtrack = "music/song.mp3"`.
-Relative paths resolve beside the TOML file; absolute paths are accepted.
-MP3, FLAC, Ogg Vorbis, and WAV are supported. At startup, each distinct path is
-read once and checked with the audio decoder. Missing, unreadable, or invalid
-files log a warning and fall back to that level's embedded track. Omitting the
-setting also keeps the original music. Custom files loop, obey pause and volume
-settings, and use the normal fade-out on track changes. Levels referencing the
-same resolved path keep playback continuous. Menu, game-over, and warp music
-still use the embedded modules. Restart to reload changed files. Browser builds
-remain self-contained and do not load local soundtracks.
+Native level overrides can set a top-level `soundtrack = "music/song.mp3"` or an
+HTTP/HTTPS URL. Relative paths resolve beside the TOML file; absolute paths are
+accepted. MP3, FLAC, Ogg Vorbis, WAV, MOD, and XM are detected from their contents.
+At startup, each distinct source is loaded and checked with its audio decoder.
+Tracker modules stream through the existing tracker player with owned module
+data, rather than rendering a whole song into memory.
+
+URLs are cached under `dirs::cache_dir()/tempest2032/soundtracks`, using a BLAKE3
+hash of the URL without its fragment. Query parameters remain part of the key.
+A valid cache entry is used without contacting the server, allowing offline
+playback. Missing or broken entries are downloaded with a 30-second timeout and
+128 MiB limit. Only decodable downloads are cached, using an atomic temporary-file
+replacement. Cache write failures still allow playback for the current session.
+Delete a cache entry to refresh a URL whose contents have changed. The
+[demo guide](../examples/custom-level/README.md#soundtrack) lists platform paths.
+
+Missing, unreadable, invalid, or unavailable sources log a warning and fall back
+to that level's embedded track. Omitting the setting also keeps the original
+music. Custom tracks loop, obey pause and volume settings, and use the normal
+fade-out on track changes. Levels referencing the same resolved source keep
+playback continuous. Menu, game-over, and warp music still use the embedded
+modules. Restart to reload changed local files. Browser builds remain
+self-contained and do not load custom soundtracks from files or URLs.
 
 Regenerate the embedded modules from the original source tree or cartridge:
 
