@@ -1,6 +1,6 @@
 # Tempest 2032
 
-A Tempest 2000 clone with graphics for modern hardware.
+A [Tempest 2000](https://en.wikipedia.org/wiki/Tempest_2000) clone with graphics for modern hardware.
 
 The goal is to make Tempest 2000 easy to install and play on today's computers,
 preserve its exact gameplay, and update the graphics for modern GPUs and
