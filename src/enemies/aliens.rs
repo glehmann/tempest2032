@@ -181,9 +181,9 @@ pub(crate) fn spawn(
     if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
         return;
     }
-    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+    game.advance_random();
     let lane = (game.random >> 16) as usize % level.web.lanes();
-    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+    game.advance_random();
     let alien = AlienDroid {
         lane,
         depth: level.web.rear() + 300 * LANE_UNIT,

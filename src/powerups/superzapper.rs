@@ -197,8 +197,7 @@ pub(crate) fn advance(
         } else if flipper.is_some() || spiker.is_some() {
             150
         } else if fuse.is_some() || alien.is_some() {
-            game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-            250 * (1 + ((game.random >> 16) % 3))
+            game.bonus_points()
         } else {
             0
         };

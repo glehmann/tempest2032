@@ -154,7 +154,7 @@ pub(crate) fn spawn(
     if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
         return;
     }
-    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+    game.advance_random();
     let lane = (game.random >> 16) as usize % level.web.lanes();
     let edge = if level.web.closed {
         (lane + 1) % level.web.lanes()
@@ -227,8 +227,7 @@ pub(crate) fn advance(
                 commands.entity(shot).despawn();
                 consumed.insert(shot);
             }
-            game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-            let points = 250 * (1 + ((game.random >> 16) % 3));
+            let points = game.bonus_points();
             game.add_score(points);
             game.score_popup(points, pose.translation);
             commands.entity(entity).despawn();

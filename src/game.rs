@@ -111,7 +111,22 @@ impl Default for Game {
     }
 }
 
+/// The linear congruential step shared by every gameplay random stream.
+pub(crate) fn next_random(value: u32) -> u32 {
+    value.wrapping_mul(1664525).wrapping_add(1013904223)
+}
+
 impl Game {
+    pub(crate) fn advance_random(&mut self) {
+        self.random = next_random(self.random);
+    }
+
+    /// Advances the stream and draws the 250, 500, or 750 bonus.
+    pub(crate) fn bonus_points(&mut self) -> u32 {
+        self.advance_random();
+        250 * (1 + ((self.random >> 16) % 3))
+    }
+
     pub(crate) fn key_level(&self) -> Option<u8> {
         (self.completed_level >= 17).then(|| ((self.completed_level.min(97) - 1) | 1) as u8)
     }

@@ -430,7 +430,7 @@ fn update(
             .period
             .unwrap_or_else(|| {
                 if request.effect == Effect::Explosion {
-                    sounds.random = sounds.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    sounds.random = crate::game::next_random(sounds.random);
                     128 + ((sounds.random >> 16) & 255) as u16
                 } else {
                     sample.period

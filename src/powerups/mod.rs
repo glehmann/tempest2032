@@ -106,7 +106,7 @@ impl Upgrades {
             }
             _ => {
                 // suprise uses rannum's shared gameplay stream, not a pickup-only sequence.
-                game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                game.advance_random();
                 if game.random >> 24 <= 8 {
                     game.add_score(3000);
                     self.message(crate::messages::Id::OuttaHere);

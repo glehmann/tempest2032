@@ -168,7 +168,7 @@ impl Default for Tunnel {
 
 impl Tunnel {
     fn next_random(&mut self) -> u16 {
-        self.random = self.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        self.random = crate::game::next_random(self.random);
         (self.random >> 16) as u16
     }
 

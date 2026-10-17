@@ -218,7 +218,7 @@ pub(crate) fn spawn(
             continue;
         }
         *timer = generator.spawn_interval_ticks - 1;
-        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        game.advance_random();
         let tanker = Tanker {
             lane: 1 + (game.random >> 16) as usize % (level.web.lanes() - 2),
             depth: level.web.rear() + 300 * LANE_UNIT,
@@ -304,13 +304,13 @@ pub(crate) fn open(
         return;
     }
     for direction in [-1, 1] {
-        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        game.advance_random();
         let fast =
             (game.random >> 24) < u32::from(level.tankers.as_ref().map_or(0, |g| g.super_chance));
         let scatter = ((game.random >> 16) & 3) as u8 + 1;
         let chance = level.tankers.as_ref().map_or(0, |g| g.spiral_chance);
         let spiral = if fast && chance > 0 {
-            game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+            game.advance_random();
             (game.random >> 24) < u32::from(chance)
         } else {
             false

@@ -178,7 +178,7 @@ pub(crate) fn spawn_enemies(
             continue;
         }
         *timer = interval - 1;
-        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        game.advance_random();
         let flipper = Flipper {
             lane: (game.random >> 16) as usize % level.web.lanes(),
             depth: level.web.rear() + 300 * LANE_UNIT,

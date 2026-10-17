@@ -163,8 +163,7 @@ pub(crate) fn resolve_hits(
                 if alien.hit(speed, level.web.rear()) {
                     commands.entity(entity).despawn();
                     killed.insert(entity);
-                    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-                    let points = 250 * (1 + ((game.random >> 16) % 3));
+                    let points = game.bonus_points();
                     game.add_score(points);
                     game.score_popup(points, pose.translation);
                     explosion::spawn_explosion(&mut commands, &bursts, pose.translation);
@@ -182,8 +181,7 @@ pub(crate) fn resolve_hits(
                 if mirror.hit(speed, level.web.rear()) {
                     commands.entity(entity).despawn();
                     killed.insert(entity);
-                    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
-                    let points = 250 * (1 + ((game.random >> 16) % 3));
+                    let points = game.bonus_points();
                     game.add_score(points);
                     game.score_popup(points, pose.translation);
                     explosion::spawn_explosion(&mut commands, &bursts, pose.translation);

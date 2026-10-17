@@ -135,7 +135,7 @@ pub(crate) fn spawn(
         if has_spiker {
             continue;
         }
-        game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+        game.advance_random();
         let lane = (game.random >> 16) as usize % level.web.lanes();
         let mut pose = level.web.glider_transform(lane as i32 * LANE_UNIT);
         pose.translation.z = -level.web.world_depth() + 0.06;
@@ -185,7 +185,7 @@ pub(crate) fn advance(
                     let (entity, spike) = spikes.iter().min_by_key(|(_, s)| s.length).unwrap();
                     (entity, spike.lane)
                 } else {
-                    game.random = game.random.wrapping_mul(1664525).wrapping_add(1013904223);
+                    game.advance_random();
                     let lane = free[(game.random >> 16) as usize % free.len()];
                     let mut pose = level.web.glider_transform(lane as i32 * LANE_UNIT);
                     pose.translation.z = -level.web.world_depth();
