@@ -94,9 +94,12 @@ impl Timings {
     }
 }
 
+/// Measures the reduction, then the previous quality again, so a load that ends
+/// during the trial reads as a change in conditions rather than as a benefit.
 struct Trial {
     previous: Quality,
     baseline: Timings,
+    reduced: Option<Timings>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -199,23 +202,32 @@ impl Antialiasing {
             return;
         }
         self.window.sample(delta);
-        if self.trial.is_some() {
+        if let Some(trial) = &mut self.trial {
             if self.window.elapsed < TRIAL {
                 return;
             }
-            let trial = self.trial.take().unwrap();
-            let improved = self.window.improves(trial.baseline);
-            if !improved {
+            let window = std::mem::take(&mut self.window);
+            let Some(reduced) = trial.reduced else {
+                trial.reduced = Some(window);
                 self.quality = trial.previous;
+                self.warmup = WARMUP;
+                return;
+            };
+            let trial = self.trial.take().unwrap();
+            let improved = reduced.improves(trial.baseline) && reduced.improves(window);
+            if improved {
+                self.quality = trial.previous.step_down();
             }
             info!(
-                "Antialiasing trial {}: {:.2} -> {:.2} ms/frame, {:.2} -> {:.2} ms/frame \
-                 over the 60 Hz budget; {} {}",
+                "Antialiasing trial {}: {:.2} ms/frame before, {:.2} reduced, {:.2} rechecked; \
+                 {:.2}, {:.2}, {:.2} ms/frame over the 60 Hz budget; {} {}",
                 if improved { "helped" } else { "did not help" },
                 trial.baseline.mean() * 1000.,
-                self.window.mean() * 1000.,
+                reduced.mean() * 1000.,
+                window.mean() * 1000.,
                 trial.baseline.excess() * 1000.,
-                self.window.excess() * 1000.,
+                reduced.excess() * 1000.,
+                window.excess() * 1000.,
                 if improved { "keeping" } else { "restoring" },
                 self.quality.label(),
             );
@@ -234,6 +246,7 @@ impl Antialiasing {
                 self.trial = Some(Trial {
                     previous: self.quality,
                     baseline: std::mem::take(&mut self.baseline),
+                    reduced: None,
                 });
                 let previous = self.quality;
                 self.quality = self.quality.step_down();
@@ -347,11 +360,13 @@ mod tests {
         panic!("slow frames should start a trial");
     }
 
-    fn finish_trial(state: &mut Antialiasing, seconds: f64) {
+    /// Runs the reduced phase at `reduced`, then the recheck of the previous quality at `recheck`.
+    fn finish_trial(state: &mut Antialiasing, reduced: f64, recheck: f64) {
         // Model a settled pipeline; transition timings must not affect the result.
         state.warmup = Duration::ZERO;
         for _ in 0..1000 {
-            frames(state, 1, seconds);
+            let rechecking = state.trial.as_ref().is_some_and(|t| t.reduced.is_some());
+            frames(state, 1, if rechecking { recheck } else { reduced });
             if state.trial.is_none() {
                 return;
             }
@@ -376,7 +391,7 @@ mod tests {
             let mut state = Antialiasing::default();
             begin_trial(&mut state, 1. / 55.);
             assert_eq!(state.quality, Quality::Fxaa);
-            finish_trial(&mut state, 1. / rate);
+            finish_trial(&mut state, 1. / rate, 1. / 55.);
             assert_eq!(state.quality, Quality::Full);
             assert_eq!(state.cooldown, COOLDOWN);
             frames(&mut state, 600, 1. / 55.);
@@ -384,7 +399,7 @@ mod tests {
             assert!(state.trial.is_none());
             frames(&mut state, 1200, 1. / 60.);
             begin_trial(&mut state, 1. / 55.);
-            finish_trial(&mut state, 1. / 60.);
+            finish_trial(&mut state, 1. / 60., 1. / 55.);
             assert_eq!(state.quality, Quality::Fxaa);
         }
     }
@@ -393,14 +408,14 @@ mod tests {
     fn only_helpful_reductions_are_kept_including_a_trial_with_no_filtering() {
         let mut state = Antialiasing::default();
         begin_trial(&mut state, 1. / 30.);
-        finish_trial(&mut state, 1. / 60.);
+        finish_trial(&mut state, 1. / 60., 1. / 30.);
         assert_eq!(state.quality, Quality::Fxaa);
         assert!(state.trial.is_none());
         frames(&mut state, 1800, 1. / 60.);
         begin_trial(&mut state, 1. / 30.);
         assert_eq!(state.quality, Quality::Off);
         assert!(state.trial.is_some());
-        finish_trial(&mut state, 1. / 60.);
+        finish_trial(&mut state, 1. / 60., 1. / 30.);
         assert_eq!(state.quality, Quality::Off);
         assert!(state.trial.is_none());
         frames(&mut state, 600, 1. / 120.);
@@ -413,7 +428,7 @@ mod tests {
         let mut state = Antialiasing::new(Quality::Fxaa, true);
         begin_trial(&mut state, 1. / 40.);
         assert_eq!(state.quality, Quality::Off);
-        finish_trial(&mut state, 1. / 40.);
+        finish_trial(&mut state, 1. / 40., 1. / 40.);
         assert_eq!(state.quality, Quality::Fxaa);
     }
 
@@ -425,8 +440,31 @@ mod tests {
         assert_eq!(state.window.frames, 0);
         frames(&mut state, 1, 0.5);
         assert_eq!(state.window.frames, 0);
-        finish_trial(&mut state, 1. / 60.);
+        finish_trial(&mut state, 1. / 60., 1. / 40.);
         assert_eq!(state.quality, Quality::Fxaa);
+    }
+
+    #[test]
+    fn a_load_that_ends_during_the_trial_restores_quality() {
+        let mut state = Antialiasing::default();
+        begin_trial(&mut state, 1. / 30.);
+        assert_eq!(state.quality, Quality::Fxaa);
+        // The background load is gone: both qualities now keep up.
+        finish_trial(&mut state, 1. / 60., 1. / 60.);
+        assert_eq!(state.quality, Quality::Full);
+        assert_eq!(state.cooldown, COOLDOWN);
+    }
+
+    #[test]
+    fn the_previous_quality_is_restored_while_it_is_rechecked() {
+        let mut state = Antialiasing::default();
+        begin_trial(&mut state, 1. / 30.);
+        state.warmup = Duration::ZERO;
+        while state.trial.as_ref().is_some_and(|t| t.reduced.is_none()) {
+            frames(&mut state, 1, 1. / 60.);
+        }
+        assert_eq!(state.quality, Quality::Full);
+        assert!(state.warmup > Duration::ZERO);
     }
 
     #[test]
@@ -452,7 +490,7 @@ mod tests {
     fn reaching_sixty_fps_keeps_the_trial_even_for_a_small_mean_improvement() {
         let mut state = Antialiasing::default();
         begin_trial(&mut state, 1. / 56.);
-        finish_trial(&mut state, 1. / 60.);
+        finish_trial(&mut state, 1. / 60., 1. / 56.);
         assert_eq!(state.quality, Quality::Fxaa);
     }
 
@@ -609,7 +647,7 @@ mod tests {
         assert_eq!(app.world().get::<Msaa>(cameras[0]), Some(&Msaa::Off));
         assert!(app.world().get::<Fxaa>(cameras[1]).unwrap().enabled);
         // No speedup: finish the trial at the same rate and restore every camera.
-        step(&mut app, 120, 1. / 30.);
+        step(&mut app, 240, 1. / 30.);
         for entity in cameras {
             assert_eq!(app.world().get::<Msaa>(entity), Some(&Msaa::Sample4));
         }

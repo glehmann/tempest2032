@@ -1435,16 +1435,19 @@ windows below 57 rendered updates per second establish a baseline. Requiring six
 seconds keeps brief background activity, such as an update check, from starting
 a trial. All frame
 intervals count, including stalls. The next lower setting is applied, allowed
-1.5 seconds to settle, and measured for two seconds. It is retained only if:
+1.5 seconds to settle, and measured for two seconds. The previous setting is then
+restored and measured again the same way, so a background load that ends during
+the trial makes both measurements fast instead of crediting the reduction. The
+reduction is retained only if, compared with both the baseline and the recheck:
 
 - Mean frame time falls by at least 8% and 0.75 ms, without increasing time over
   the 60 Hz frame budget by more than 0.1 ms per frame; or
 - Mean excess time over the 16.67 ms budget falls by at least 25% and 0.5 ms per
   frame, without making mean frame time more than 2% worse.
 
-Otherwise the previous quality is restored. Both outcomes start a 30-second
-cooldown before another baseline can be measured. Logs show the baseline and
-trial frame times, excess time, and the keep/restore decision. This prevents
+Otherwise the previous quality stays restored. Both outcomes start a 30-second
+cooldown before another baseline can be measured. Logs show the baseline,
+reduced, and rechecked frame times, excess time, and the keep/restore decision. This prevents
 repeated quality loss when reducing AA does not help. Confirmed reductions
 persist for the session. The 57 FPS threshold tolerates 59.94 Hz displays and
 small scheduling variations around 60 Hz.
