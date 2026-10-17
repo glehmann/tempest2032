@@ -63,11 +63,7 @@ impl Feedback {
         self.scratch = vec![0; WIDTH * HEIGHT];
     }
 
-    fn advance(&mut self, age: u16, angle: i32) {
-        self.advance_melt(age, angle, false);
-    }
-
-    fn advance_melt(&mut self, age: u16, angle: i32, settle: bool) {
+    fn advance(&mut self, age: u16, angle: i32, settle: bool) {
         if self.pixels.is_empty() {
             return;
         }
@@ -242,11 +238,7 @@ pub(crate) fn draw(
                 .is_some_and(|s| matches!(s.phase, Phase::Failure(_))),
         )
     };
-    if settle {
-        feedback.advance_melt(age, angle, true);
-    } else {
-        feedback.advance(age, angle);
-    }
+    feedback.advance(age, angle, settle);
     if feedback.pixels.is_empty() {
         canvas.1.set_if_neq(Visibility::Hidden);
         return;
@@ -259,7 +251,7 @@ pub(crate) fn draw(
         } else {
             preview.get_or_update((feedback.generation, u32::from(feedback.age)), || {
                 let mut next = feedback.clone();
-                next.advance_melt(age + TICKS_PER_FRAME - phase, angle, settle);
+                next.advance(age + TICKS_PER_FRAME - phase, angle, settle);
                 next.pixels
             })
         };
@@ -304,21 +296,21 @@ mod tests {
         let mut feedback = Feedback::default();
         feedback.capture(&frame());
         let original = feedback.pixels.clone();
-        feedback.advance(0, 1);
+        feedback.advance(0, 1, false);
         assert_ne!(original, feedback.pixels);
         let first = feedback.pixels.clone();
-        feedback.advance(3, 1);
+        feedback.advance(3, 1, false);
         assert_eq!(first, feedback.pixels);
-        feedback.advance(4, 1);
+        feedback.advance(4, 1, false);
         let second = feedback.pixels.clone();
-        feedback.advance(7, 1);
+        feedback.advance(7, 1, false);
         assert_eq!(second, feedback.pixels);
         for tick in 8..=80 {
-            feedback.advance(tick, 1);
+            feedback.advance(tick, 1, false);
         }
         let mut skipped = Feedback::default();
         skipped.capture(&frame());
-        skipped.advance(80, 1);
+        skipped.advance(80, 1, false);
         assert_eq!(feedback.pixels, skipped.pixels);
         assert!(
             feedback
@@ -328,7 +320,7 @@ mod tests {
                 .sum::<u64>()
                 < original.iter().map(|p| u64::from(p & 255)).sum::<u64>()
         );
-        feedback.advance(150, 1);
+        feedback.advance(150, 1, false);
         assert!(feedback.pixels.iter().all(|p| p & 255 == 0));
     }
 
@@ -346,7 +338,7 @@ mod tests {
             Vec2::splat(500. / 256.),
             -8 * 65536,
         );
-        feedback.advance(0, 0);
+        feedback.advance(0, 0, false);
         assert_eq!(feedback.pixels, expected);
     }
 
