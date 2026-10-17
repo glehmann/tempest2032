@@ -1,10 +1,9 @@
 # Message lettering
 
 The HUD uses hand-defined polygonal score glyphs in `src/messages/geometry.rs`.
-Ordinary announcements use the original `afont` contours as shape references,
-with pixel stair-steps simplified and corners reconstructed as circular arcs.
-Their fronts, bevels, sides, and backs are
-real 3D triangles. Continuous colour bands and fixed normal-based studio shading
+Ordinary announcements use the approved rounded SVG fronts in `rounded.toml`;
+the few punctuation marks it lacks fall back to rounded polygons in
+`geometry.rs`. Their fronts, bevels, sides, and backs are real 3D triangles. Continuous colour bands and fixed normal-based studio shading
 replace the old bitmap-derived highlights. Only normal screen-resolution
 anti-aliasing is applied; there is no edge-feathering or shading texture.
 The score's extrusion is 3.2 logical units deep, offset 1.6 units right and
@@ -12,19 +11,7 @@ The score's extrusion is 3.2 logical units deep, offset 1.6 units right and
 PAUSED uses red fronts and gold bevels, with the original large `bfont`'s
 27x31 proportions and 29-unit advance. Life icons reuse `claw_triangles(4)`.
 
-`hud.bin` stores the ten original 16x19 score numerals and the 26x17 claw life
-icon from `beasty4.cry`. Source rectangles match `ashowscore` and `setlives`
-in `yak.s`. Its `T32H` header is followed by eleven records containing width,
-height, contour count, contour points, and CRY shading samples, all big-endian
-u16 values. It is retained as a reference asset for the original artwork;
-the runtime HUD uses the new 3D geometry. Warp pyramids retain `makepyr`'s
-three shaded triangles.
-
-Regenerate the HUD artwork with:
-
-```sh
-python3 tools/message_font.py /path/to/tempest2000/src assets/messages/hud.bin
-```
+Warp pyramids retain `makepyr`'s three shaded triangles.
 
 `afont.bin` contains scalable outlines derived from Joby's `afont` letters in
 the original `beasty4.cry` sheet. `tools/message_font.py` extracts the glyph
