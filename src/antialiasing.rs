@@ -123,6 +123,7 @@ pub(crate) struct Antialiasing {
     prewarm: VecDeque<Quality>,
 }
 
+#[cfg(test)]
 impl Default for Antialiasing {
     fn default() -> Self {
         Self::new(Quality::default(), true)
