@@ -543,7 +543,7 @@ python3 tools/package.py linux --target x86_64-unknown-linux-gnu \
 
 ### Flatpak and Flathub
 
-The Flatpak jobs build `io.github.glehmann.Tempest2032` for x86_64 and aarch64
+The Flatpak jobs build `io.github.tempest2032.Tempest2032` for x86_64 and aarch64
 inside the Freedesktop 25.08 SDK using its Rust extension. Build commands run
 offline. `tools/package.py flatpak` generates crate download sources and checksums
 from `Cargo.lock`, plus a source manifest pinned to the workflow's commit. The
@@ -574,7 +574,7 @@ python3 tools/package.py flatpak --revision FULL_COMMIT_ID --output target/flatp
 flatpak-builder --user --force-clean --repo=target/flatpak-repo \
   target/flatpak-build target/flatpak-package/local.json
 flatpak build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
-  target/flatpak-repo target/tempest2032.flatpak io.github.glehmann.Tempest2032
+  target/flatpak-repo target/tempest2032.flatpak io.github.tempest2032.Tempest2032
 ```
 
 ## Steam installation

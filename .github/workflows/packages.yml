@@ -144,11 +144,11 @@ jobs:
           flatpak build-bundle --arch="$FLATPAK_ARCH" \
             --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
             target/flatpak-repo "target/flatpak-package/tempest2032-linux-$FLATPAK_ARCH.flatpak" \
-            io.github.glehmann.Tempest2032
+            io.github.tempest2032.Tempest2032
       - name: Check Flatpak installation and startup
         run: |
           flatpak --user install --noninteractive "target/flatpak-package/tempest2032-linux-$FLATPAK_ARCH.flatpak"
-          dbus-run-session -- flatpak run io.github.glehmann.Tempest2032 --version
+          dbus-run-session -- flatpak run io.github.tempest2032.Tempest2032 --version
       - name: Upload Flatpak and Flathub submission files
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

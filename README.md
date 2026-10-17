@@ -47,7 +47,7 @@ browser's Play prompt. Sound may start on your first touch. The app hides browse
 controls; fullscreen depends on the platform. After the game finishes caching,
 it also works offline.
 
-Download your platform's package from [GitHub Releases](https://github.com/glehmann/tempest2032/releases).
+Download your platform's package from [GitHub Releases](https://github.com/tempest2032/tempest2032/releases).
 Then:
 
 - **Windows:** run the setup `.exe`. It installs for your account and adds a Start
@@ -70,7 +70,7 @@ All game assets and levels are included. Linux needs a graphical desktop and a
 Vulkan-capable graphics driver.
 
 Note: Development builds are available under **Artifacts** in successful
-[Application packages workflow](https://github.com/glehmann/tempest2032/actions/workflows/packages.yml)
+[Application packages workflow](https://github.com/tempest2032/tempest2032/actions/workflows/packages.yml)
 runs for three days.
 
 ### Build from source

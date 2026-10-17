@@ -14,7 +14,7 @@ import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_ID = "io.github.glehmann.Tempest2032"
+APP_ID = "io.github.tempest2032.Tempest2032"
 VERSION = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
 
 

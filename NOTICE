@@ -6,7 +6,7 @@ the GNU General Public License, version 3 only (SPDX: GPL-3.0-only).
 The full license is in LICENSE. This software comes without any warranty.
 This grant does not relicense imported third-party material. The known
 exceptions and material requiring review are identified below.
-Source code and build instructions: https://github.com/glehmann/tempest2032
+Source code and build instructions: https://github.com/tempest2032/tempest2032
 For release binaries, use the source at the matching release tag.
 
 Virtual Jaguar
@@ -76,4 +76,4 @@ Dependencies and separately licensed metadata
 --------------------------------------------
 Third-party dependencies retain their respective licenses; dependency
 versions are recorded in Cargo.lock. AppStream metadata is CC0-1.0, as
-declared in packaging/linux/io.github.glehmann.Tempest2032.metainfo.xml.
+declared in packaging/linux/io.github.tempest2032.Tempest2032.metainfo.xml.

@@ -1,5 +1,5 @@
 {
-  "app-id": "io.github.glehmann.Tempest2032",
+  "app-id": "io.github.tempest2032.Tempest2032",
   "runtime": "org.freedesktop.Platform",
   "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
@@ -29,9 +29,9 @@
         "rustc --edition=2024 -C opt-level=s -C strip=symbols packaging/fullscreen.rs -o target/tempest2032-fullscreen",
         "install -Dm755 target/release/tempest2032 /app/bin/tempest2032",
         "install -Dm755 target/tempest2032-fullscreen /app/bin/tempest2032-fullscreen",
-        "install -Dm644 assets/steam/icon.png /app/share/icons/hicolor/256x256/apps/io.github.glehmann.Tempest2032.png",
-        "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.desktop /app/share/applications/io.github.glehmann.Tempest2032.desktop",
-        "install -Dm644 packaging/linux/io.github.glehmann.Tempest2032.metainfo.xml /app/share/metainfo/io.github.glehmann.Tempest2032.metainfo.xml",
+        "install -Dm644 assets/steam/icon.png /app/share/icons/hicolor/256x256/apps/io.github.tempest2032.Tempest2032.png",
+        "install -Dm644 packaging/linux/io.github.tempest2032.Tempest2032.desktop /app/share/applications/io.github.tempest2032.Tempest2032.desktop",
+        "install -Dm644 packaging/linux/io.github.tempest2032.Tempest2032.metainfo.xml /app/share/metainfo/io.github.tempest2032.Tempest2032.metainfo.xml",
         "install -Dm644 LICENSE /app/share/licenses/tempest2032/LICENSE",
         "install -Dm644 NOTICE /app/share/licenses/tempest2032/NOTICE"
       ],

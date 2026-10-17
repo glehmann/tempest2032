@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.glehmann.Tempest2032</id>
+  <id>io.github.tempest2032.Tempest2032</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
   <name>Tempest 2032</name>
@@ -15,7 +15,7 @@
     <p>Play with a keyboard or controller. All levels, sound effects, and music
     are included, so you can start playing immediately.</p>
   </description>
-  <launchable type="desktop-id">io.github.glehmann.Tempest2032.desktop</launchable>
+  <launchable type="desktop-id">io.github.tempest2032.Tempest2032.desktop</launchable>
   <url type="homepage">https://github.com/tempest2032/tempest2032</url>
   <url type="bugtracker">https://github.com/tempest2032/tempest2032/issues</url>
   <screenshots>
