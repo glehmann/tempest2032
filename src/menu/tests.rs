@@ -516,6 +516,7 @@ fn escape_abandons_gameplay_without_saving_or_exiting_but_resumes_when_paused() 
         app.world_mut().resource_mut::<FrontEnd>().screen = Screen::Gameplay;
         app.world_mut().resource_mut::<Game>().score = 1234;
         app.world_mut().resource_mut::<Game>().completed_level = 32;
+        app.world_mut().resource_mut::<Game>().message_epoch = 7;
         app.world_mut().resource_mut::<Time<Virtual>>().pause();
         key(&mut app, KeyCode::Escape);
         assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Gameplay);
@@ -524,6 +525,7 @@ fn escape_abandons_gameplay_without_saving_or_exiting_but_resumes_when_paused() 
         key(&mut app, KeyCode::Escape);
         assert_eq!(app.world().resource::<FrontEnd>().screen, Screen::Welcome);
         assert_eq!(app.world().resource::<Game>().score, 0);
+        assert_eq!(app.world().resource::<Game>().message_epoch, 7);
         assert!(app.world().resource::<Game>().load.is_none());
         assert!(app.world().resource::<Store>().data.keys.is_empty());
         assert!(

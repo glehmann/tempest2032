@@ -222,7 +222,11 @@ pub(crate) fn abandon(
     messages: &mut crate::messages::Messages,
     commands: &mut Commands,
 ) {
-    *game = Game::default();
+    // Keep the epoch so the next game's first load still reads as a new one.
+    *game = Game {
+        message_epoch: game.message_epoch,
+        ..default()
+    };
     crate::sound::reset(commands);
     welcome(front, messages);
     front.blocked = front.physical.get_pressed().copied().collect();
