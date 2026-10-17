@@ -154,12 +154,8 @@ impl Upgrades {
         self.warp_tokens
     }
 
-    pub(crate) fn take_warp_tokens(&mut self) -> bool {
-        if self.warp_tokens < 3 {
-            return false;
-        }
+    pub(crate) fn take_warp_tokens(&mut self) {
         self.warp_tokens = 0;
-        true
     }
 
     #[cfg(test)]
