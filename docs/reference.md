@@ -1240,8 +1240,7 @@ The TOML fields use these conventions:
   fields. Super Flippers have independent spawn timers and double-speed flips.
   Optional `spiral_flippers` tables configure the independent type-3 generator.
   Optional `aliens` tables specify Alien Droid generation and climbing speed.
-- `enemy_count`: shared generation budget for mixed waves. It replaces the
-  legacy `flippers.count` value when supplied. Released Tanker contents do not
+- `enemy_count`: required generation budget shared by every generator. Released Tanker contents do not
   consume this budget. Optional `tankers` tables specify spawn times, climbing
   speed, and the fast-child probability out of 256.
   `tankers.spiral_chance` defaults to zero and sets the second mutation check

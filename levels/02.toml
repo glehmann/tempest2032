@@ -1,5 +1,6 @@
 # Original _nw2 on web11. Source lane 5 becomes clockwise lane 10.
 number = 2
+enemy_count = 25
 
 [web]
 start_lane = 10
@@ -14,7 +15,6 @@ vertices = [
 orientations = [0, 0, 0, 0, -64, -64, -64, -64, -128, -128, -128, -128, -192, -192, -192, -192]
 
 [flippers]
-count = 25
 first_spawn_ticks = 51
 spawn_interval_ticks = 101
 climb_speed = 0.625

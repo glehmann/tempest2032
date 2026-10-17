@@ -1,5 +1,6 @@
 # web5, in the prototype's clockwise lane order. Preserve its current spawn.
 number = 1
+enemy_count = 25
 
 [web]
 start_lane = 7
@@ -14,7 +15,6 @@ vertices = [
 orientations = [0, -16, -32, -48, -64, -80, -96, -112, -128, -144, -160, -176, -192, -208, -224, -240]
 
 [flippers]
-count = 25
 first_spawn_ticks = 61
 spawn_interval_ticks = 121
 climb_speed = 0.625 # Depth units per 60 Hz tick, the original 0xA000.

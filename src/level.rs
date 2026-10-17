@@ -193,8 +193,7 @@ impl Default for PowerUps {
 struct Definition {
     pub(crate) number: usize,
     soundtrack: Option<String>,
-    #[serde(default)]
-    pub(crate) enemy_count: Option<u16>,
+    enemy_count: u16,
     #[serde(default)]
     pub(crate) enemy_shots: Option<usize>,
     pub(crate) web: Web,
@@ -234,8 +233,6 @@ struct Definition {
 struct FlipperDefinition {
     #[serde(default = "flippers_enabled")]
     enabled: bool,
-    #[serde(default)]
-    pub(crate) count: Option<u16>,
     pub(crate) first_spawn_ticks: u16,
     pub(crate) spawn_interval_ticks: u16,
     pub(crate) climb_speed: f32,
@@ -377,10 +374,7 @@ impl Level {
         {
             return fail("Pulsars and Pulsar Tankers must share phase and propagation times");
         }
-        let count = def
-            .enemy_count
-            .or(f.count)
-            .ok_or_else(|| format!("{name}: enemy_count or flippers.count is required"))?;
+        let count = def.enemy_count;
         if count == 0
             || f.first_spawn_ticks == 0
             || f.spawn_interval_ticks == 0
