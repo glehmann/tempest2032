@@ -2249,6 +2249,8 @@ at full intensity. The colour sweep is the whole of the apparent fade.
 The CRY hue-to-RGB lookup used to check those colors comes from
 [Virtual Jaguar's TOM implementation](https://github.com/libretro/virtualjaguar-libretro/blob/master/src/tom/tom.c).
 The tables are adapted under GPLv3; upstream credits are preserved in [NOTICE](../NOTICE).
+Virtual Jaguar's red row 8 has two typos (`15` and `7`); they are corrected to
+`115` and `17`, matching MAME's `red_lookup` and the mirrored blue row 7.
 It decodes `F4` to a red-orange, but the reference screenshot shows no green on
 a Flipper at all, which is why this prototype does not use that value.
 

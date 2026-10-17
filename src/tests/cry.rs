@@ -1,4 +1,4 @@
-//! Checks RGB channel decoding for the CRY hues used by power-ups and particle lasers.
+//! Checks CRY tables and RGB channel decoding for the hues used by power-ups and particle lasers.
 
 use crate::cry::color;
 use bevy::prelude::*;
@@ -34,6 +34,17 @@ fn feedback_blends_rgb_between_exact_checkpoints_without_blending_cry_hues() {
                 (254 * (4 - phase) / 4) as u8,
                 255
             ]
+        );
+    }
+}
+
+#[test]
+fn red_table_mirrors_blue() {
+    for row in 0..16 {
+        assert_eq!(
+            crate::cry::RED[row],
+            crate::cry::BLUE[15 - row],
+            "row {row}"
         );
     }
 }
