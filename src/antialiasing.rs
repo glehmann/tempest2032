@@ -8,7 +8,8 @@ use std::time::Duration;
 /// Shaders, uploads, and level setup settle before the first reading.
 const WARMUP: Duration = Duration::from_millis(1500);
 const WINDOW: Duration = Duration::from_millis(500);
-const SLOW_WINDOWS: u8 = 4;
+/// Six seconds, so brief background activity cannot start a trial.
+const SLOW_WINDOWS: u8 = 12;
 const TRIAL: Duration = Duration::from_secs(2);
 const COOLDOWN: Duration = Duration::from_secs(30);
 const FRAME_BUDGET: Duration = Duration::from_nanos(16_666_667);
@@ -604,7 +605,7 @@ mod tests {
                 app.update();
             }
         };
-        step(&mut app, 110, 1. / 30.);
+        step(&mut app, 260, 1. / 30.);
         assert_eq!(app.world().get::<Msaa>(cameras[0]), Some(&Msaa::Off));
         assert!(app.world().get::<Fxaa>(cameras[1]).unwrap().enabled);
         // No speedup: finish the trial at the same rate and restore every camera.

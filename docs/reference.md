@@ -1430,8 +1430,10 @@ after the scene layers are combined. UI text uses Bevy's font antialiasing;
 original bitmap feedback and particle effects retain their original resolution.
 
 Automatic antialiasing tests reductions from 4× MSAA with FXAA to FXAA alone,
-then to no filtering. After a 1.5-second warmup, four consecutive half-second
-windows below 57 rendered updates per second establish a baseline. All frame
+then to no filtering. After a 1.5-second warmup, twelve consecutive half-second
+windows below 57 rendered updates per second establish a baseline. Requiring six
+seconds keeps brief background activity, such as an update check, from starting
+a trial. All frame
 intervals count, including stalls. The next lower setting is applied, allowed
 1.5 seconds to settle, and measured for two seconds. It is retained only if:
 
