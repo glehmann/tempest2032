@@ -5,8 +5,8 @@
   <project_license>GPL-3.0-only</project_license>
   <name>Tempest 2032</name>
   <summary>An arcade tube shooter with graphics for modern hardware</summary>
-  <developer id="io.github.glehmann">
-    <name>glehmann</name>
+  <developer id="io.github.tempest2032">
+    <name>tempest2032</name>
   </developer>
   <description>
     <p>Tempest 2032 is a Tempest 2000 clone with graphics for modern hardware.

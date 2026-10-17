@@ -6,7 +6,7 @@
 AppId={{8CDBB53E-34C5-468F-9268-DCCFA3F13710}
 AppName=Tempest 2032
 AppVersion={#AppVersion}
-AppPublisher=glehmann
+AppPublisher=tempest2032
 AppPublisherURL=https://github.com/tempest2032/tempest2032
 DefaultDirName={localappdata}\Programs\Tempest 2032
 DefaultGroupName=Tempest 2032
