@@ -402,16 +402,18 @@ pub(crate) fn move_tankers(
         if !tanker.approach && *contents == Contents::Flippers {
             let phase = frame.wrapping_mul(4);
             pose.rotate_local_z(-f32::from(phase) * TAU / 256.);
-            mesh.0 = shells
-                .frames
-                .get(usize::from(phase / 4))
-                .cloned()
-                .unwrap_or_default();
+            mesh.set_if_neq(Mesh3d(
+                shells
+                    .frames
+                    .get(usize::from(phase / 4))
+                    .cloned()
+                    .unwrap_or_default(),
+            ));
         }
         if !tanker.approach && *contents != Contents::Flippers {
             pose.rotate_local_z(-f32::from(*frame) * TAU / 256.);
             if *contents == Contents::Pulsars {
-                mesh.0 = pulsars.tankers[CYCLE[pulse.phase as usize]].clone();
+                mesh.set_if_neq(Mesh3d(pulsars.tankers[CYCLE[pulse.phase as usize]].clone()));
             }
         }
         if !tanker.approach && tanker.depth == 0 {

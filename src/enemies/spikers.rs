@@ -252,11 +252,11 @@ pub(crate) fn draw(
     mut spikes: Query<(&Spike, &mut Transform, &mut Visibility)>,
 ) {
     for (spike, mut pose, mut visible) in &mut spikes {
-        *visible = if spike.length > 0 {
+        visible.set_if_neq(if spike.length > 0 {
             Visibility::Visible
         } else {
             Visibility::Hidden
-        };
+        });
         if spike.length <= 0 {
             continue;
         }

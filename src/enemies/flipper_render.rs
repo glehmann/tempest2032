@@ -87,16 +87,19 @@ pub(crate) fn approach_dot_style(
 
 /// Shows an approaching enemy as a camera-facing `snglpix` dot.
 pub(crate) fn draw_approach_dot(
-    pose: &mut Transform,
-    material: &mut MeshMaterial3d<StandardMaterial>,
+    pose: &mut Mut<Transform>,
+    material: &mut Mut<MeshMaterial3d<StandardMaterial>>,
     shades: &[Handle<StandardMaterial>],
     camera: &Transform,
     projection: &PerspectiveProjection,
 ) {
     let (width, intensity) = approach_dot_style(pose.translation, camera, projection);
-    pose.rotation = camera.rotation;
-    pose.scale = Vec3::splat(width);
-    material.0 = shades[intensity].clone();
+    pose.set_if_neq(Transform {
+        rotation: camera.rotation,
+        scale: Vec3::splat(width),
+        ..**pose
+    });
+    material.set_if_neq(MeshMaterial3d(shades[intensity].clone()));
 }
 
 #[allow(clippy::type_complexity)]

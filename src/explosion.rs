@@ -283,16 +283,20 @@ pub(crate) fn age_explosions(
                     *existing = geometry;
                 }
             } else {
-                explosion.mesh = Some(meshes.add(geometry));
+                let handle = meshes.add(geometry);
+                mesh.0 = handle.clone();
+                explosion.mesh = Some(handle);
             }
-            mesh.0 = explosion.mesh.as_ref().unwrap().clone();
         }
-        transform.translation = explosion.centre;
-        transform.rotation = if sphere.is_some() {
-            Quat::IDENTITY
-        } else {
-            Quat::from_rotation_z(frames.0 as f32 * TAU / 256.0)
-        };
+        transform.set_if_neq(Transform {
+            translation: explosion.centre,
+            rotation: if sphere.is_some() {
+                Quat::IDENTITY
+            } else {
+                Quat::from_rotation_z(frames.0 as f32 * TAU / 256.0)
+            },
+            ..*transform
+        });
     }
 }
 

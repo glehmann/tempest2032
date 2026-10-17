@@ -343,7 +343,7 @@ pub(crate) fn advance(
                 >> 16)
                 & 31;
             if let Some(frame) = assets.frames.get(pattern as usize) {
-                mesh.0 = frame.clone();
+                mesh.set_if_neq(Mesh3d(frame.clone()));
             }
         }
     }

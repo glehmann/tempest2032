@@ -153,9 +153,10 @@ pub(crate) fn draw_particle_shots(
                 *existing = geometry;
             }
         } else {
-            particle.0 = Some(meshes.add(geometry));
+            let handle = meshes.add(geometry);
+            mesh.0 = handle.clone();
+            particle.0 = Some(handle);
         }
-        mesh.0 = particle.0.as_ref().unwrap().clone();
     }
 }
 

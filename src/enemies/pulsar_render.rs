@@ -131,16 +131,20 @@ pub(crate) fn draw(
     for (pulsar, mut pose, mut mesh, mut material) in &mut pulsars {
         if pulsar.approach {
             draw_approach_dot(&mut pose, &mut material, &assets.shades, camera, projection);
-            mesh.0 = assets.point.clone();
+            mesh.set_if_neq(Mesh3d(assets.point.clone()));
         } else {
-            pose.scale = Vec3::ONE;
-            mesh.0 = assets.frames[if pulsar.flipping() {
-                3
-            } else {
-                CYCLE[pulse.phase as usize]
-            }]
-            .clone();
-            material.0 = assets.material.clone();
+            if pose.scale != Vec3::ONE {
+                pose.scale = Vec3::ONE;
+            }
+            mesh.set_if_neq(Mesh3d(
+                assets.frames[if pulsar.flipping() {
+                    3
+                } else {
+                    CYCLE[pulse.phase as usize]
+                }]
+                .clone(),
+            ));
+            material.set_if_neq(MeshMaterial3d(assets.material.clone()));
         }
     }
     for (segment, mut material) in &mut segments {
@@ -154,10 +158,10 @@ pub(crate) fn draw(
                         || level.web.closed && segment.lane == 0 && p.lane + 1 == level.web.lanes())
             }
         });
-        material.0 = if flashing {
+        material.set_if_neq(MeshMaterial3d(if flashing {
             assets.shades[((pulse.frame & 15) << 4) as usize].clone()
         } else {
             web.blue.clone()
-        };
+        }));
     }
 }

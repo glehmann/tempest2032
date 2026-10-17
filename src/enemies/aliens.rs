@@ -378,15 +378,18 @@ pub(crate) fn draw_beams(
             let Ok((mut pose, mut visible, mut material)) = beams.get_mut(*child) else {
                 continue;
             };
-            *visible = if matches!(alien.motion, Motion::Zap(_)) {
+            visible.set_if_neq(if matches!(alien.motion, Motion::Zap(_)) {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden
-            };
-            pose.scale.z = (level.web.rear() - alien.depth) as f32 / LANE_UNIT as f32 * WORLD_UNIT;
-            if let Some(shade) = assets.beam_shades.get((alien.angle & 15) as usize) {
-                material.0 = shade.clone();
+            });
+            let length = (level.web.rear() - alien.depth) as f32 / LANE_UNIT as f32 * WORLD_UNIT;
+            if pose.scale.z != length {
+                pose.scale.z = length;
             }
+            material.set_if_neq(MeshMaterial3d(
+                assets.beam_shades[(alien.angle & 15) as usize].clone(),
+            ));
         }
     }
 }
