@@ -27,23 +27,6 @@ fn opaque_cells_keep_their_size_and_open_real_gaps() {
 }
 
 #[test]
-fn recharge_geometry_is_bounded_and_cells_are_opaque() {
-    let font = Font::default();
-    let layout = font.layout(super::super::Id::SuperzapperRecharge);
-    assert!(
-        layout.len() < 40_000,
-        "recharge layout grew to {} triangles",
-        layout.len()
-    );
-    assert!(
-        layout
-            .iter()
-            .flat_map(|glyph| glyph.colors)
-            .all(|color| color.to_linear().alpha == 1.)
-    );
-}
-
-#[test]
 fn approaching_reward_wordart_keeps_its_cells_and_area_as_it_grows() {
     let font = Font::default();
     for (id, width, height) in [

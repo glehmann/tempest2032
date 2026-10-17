@@ -44,7 +44,8 @@ the same command, using `assets/messages/wordart.bin` as the output.
 The 1UP badge combines the UP graphic and its separately stored numeral,
 with the smaller numeral above the main lettering.
 The EXCELLENT, 2000, UP, and separate 1 records also store their original CRY
-pixels after the contours. Their approach uses one opaque, fixed-size quad per foreground
+pixels after the contours; the runtime skips every outline and row colour and
+reads only these pixels. Their approach uses one opaque, fixed-size quad per foreground
 source pixel rather than enlarged solid artwork or overlapping echoes. The
 2000 renderer treats CRY intensities below 32 as transparent to trim its darkest
 cells. EXCELLENT retains every nonzero source pixel, including dark shading. The

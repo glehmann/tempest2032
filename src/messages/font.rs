@@ -46,10 +46,9 @@ fn shade(shading: &[Color], width: usize, height: usize, position: Vec2) -> Colo
     Color::srgb(rgb[0], rgb[1], rgb[2])
 }
 
+/// Source pixels of the rewards drawn as cells; other entries are not drawn from this file.
 struct WordArt {
     size: Vec2,
-    triangles: Vec<[Vec2; 3]>,
-    colors: Vec<Color>,
     pixels: Vec<u16>,
     numeral: Option<Box<WordArt>>,
 }
@@ -74,7 +73,7 @@ impl Default for Font {
             let character = data[0] as char;
             data = &data[1..];
             let mut triangles = Vec::new();
-            for triangle in decode(&mut data, 0.02) {
+            for triangle in decode(&mut data) {
                 split_cells(triangle, &mut triangles);
             }
             let shading = std::array::from_fn(|_| {
@@ -89,59 +88,39 @@ impl Default for Font {
         );
         let mut data = &include_bytes!("../../assets/messages/wordart.bin")[4..];
         let mut art = HashMap::new();
-        let ids = [
-            super::Id::Excellent,
-            super::Id::Points2000,
-            super::Id::GameOver,
-            super::Id::OneUp,
-            super::Id::Points250,
-            super::Id::Points500,
-            super::Id::Points750,
-        ];
         let mut numeral = None;
         while !data.is_empty() {
-            let key = data[0] as usize;
+            let key = data[0];
             data = &data[1..];
             let size = Vec2::new(f32::from(word(&mut data)), f32::from(word(&mut data)));
-            let colors = (0..size.y as usize)
-                .map(|_| {
-                    let raw = word(&mut data);
-                    crate::cry::color((raw >> 8) as u8, raw as u8)
-                })
-                .collect();
-            let triangles = decode(&mut data, 0.002);
-            let pixels = if matches!(key, 0 | 1 | 3 | 7) {
-                (0..(size.x * size.y) as usize)
-                    .map(|_| word(&mut data))
-                    .collect()
-            } else {
-                Vec::new()
+            // Skip the row colours and outline contours.
+            data = &data[size.y as usize * 2..];
+            for _ in 0..word(&mut data) {
+                let points = word(&mut data);
+                data = &data[usize::from(points) * 4..];
+            }
+            let id = match key {
+                0 => super::Id::Excellent,
+                1 => super::Id::Points2000,
+                3 => super::Id::OneUp,
+                7 => super::Id::OneUp,
+                _ => continue,
             };
             let graphic = WordArt {
                 size,
-                colors,
-                triangles,
-                pixels,
+                pixels: (0..(size.x * size.y) as usize)
+                    .map(|_| word(&mut data))
+                    .collect(),
                 numeral: None,
             };
             if key == 7 {
-                numeral = Some(graphic);
+                numeral = Some(Box::new(graphic));
             } else {
-                art.insert(ids[key], graphic);
+                art.insert(id, graphic);
             }
         }
         // The original badge draws UP and a separate, half-sized numeral above it.
-        if let Some(numeral) = numeral {
-            let badge = art.get_mut(&super::Id::OneUp).unwrap();
-            badge
-                .triangles
-                .extend(numeral.triangles.iter().map(|triangle| {
-                    triangle.map(|p| {
-                        (p - numeral.size / 2.) * 0.5 + badge.size / 2. + Vec2::new(0., -18.)
-                    })
-                }));
-            badge.numeral = Some(Box::new(numeral));
-        }
+        art.get_mut(&super::Id::OneUp).unwrap().numeral = numeral;
         Self(glyphs, art)
     }
 }
@@ -164,47 +143,24 @@ impl Font {
                 })
                 .collect();
         }
-        self.1.get(&id).map_or_else(
-            || self.triangles(id.text()),
-            |art| {
-                if matches!(
-                    id,
-                    super::Id::Points2000 | super::Id::Excellent | super::Id::OneUp
-                ) {
-                    let min_intensity = match id {
-                        super::Id::Points2000 => 32,
-                        super::Id::OneUp => 81,
-                        _ => 0,
-                    };
-                    let mut cells = pixel_cells(art, min_intensity, 1., Vec2::ZERO);
-                    if let Some(numeral) = &art.numeral {
-                        cells.extend(
-                            pixel_cells(numeral, min_intensity, 0.5, Vec2::new(0., -18.))
-                                .into_iter()
-                                .map(|mut glyph| {
-                                    glyph.depth_layers = true;
-                                    glyph
-                                }),
-                        );
-                    }
-                    return cells;
-                }
-                art.triangles
-                    .iter()
-                    .map(|triangle| GlyphTriangle {
-                        depth_layers: false,
-                        points: triangle.map(|p| p - art.size / 2.),
-                        origin: Vec2::ZERO,
-                        colors: triangle.map(|p| {
-                            Color::LinearRgba(
-                                art.colors[(p.y as usize).min(art.colors.len() - 1)].to_linear(),
-                            )
-                        }),
-                        cell: Vec2::ZERO,
-                    })
-                    .collect()
-            },
-        )
+        let art = &self.1[&id];
+        let min_intensity = match id {
+            super::Id::Points2000 => 32,
+            super::Id::OneUp => 81,
+            _ => 0,
+        };
+        let mut cells = pixel_cells(art, min_intensity, 1., Vec2::ZERO);
+        if let Some(numeral) = &art.numeral {
+            cells.extend(
+                pixel_cells(numeral, min_intensity, 0.5, Vec2::new(0., -18.))
+                    .into_iter()
+                    .map(|mut glyph| {
+                        glyph.depth_layers = true;
+                        glyph
+                    }),
+            );
+        }
+        cells
     }
     pub(super) fn triangles(&self, text: &str) -> Vec<GlyphTriangle> {
         text.lines()
@@ -397,7 +353,7 @@ fn simplify_contour(points: &[Vec2]) -> Vec<Vec2> {
     }
 }
 
-fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
+fn decode(data: &mut &[u8]) -> Vec<[Vec2; 3]> {
     let count = word(data);
     let mut path = Path::builder();
     for _ in 0..count {
@@ -432,7 +388,7 @@ fn decode(data: &mut &[u8], tolerance: f32) -> Vec<[Vec2; 3]> {
                 &path.build(),
                 &FillOptions::default()
                     .with_fill_rule(FillRule::EvenOdd)
-                    .with_tolerance(tolerance),
+                    .with_tolerance(0.02),
                 &mut BuffersBuilder::new(&mut geometry, |v: FillVertex| {
                     Vec2::new(v.position().x, v.position().y)
                 }),
@@ -585,11 +541,9 @@ mod tests {
         assert!(font.0[&'O'].triangles.len() > 20);
         assert!(font.0[&' '].triangles.is_empty());
         assert!(
-            font.1[&crate::messages::Id::OneUp]
-                .triangles
+            font.layout(crate::messages::Id::OneUp)
                 .iter()
-                .flatten()
-                .any(|p| p.y < 0.),
+                .any(|glyph| glyph.depth_layers),
             "the separate 1 must accompany UP"
         );
         let inside = |p: Vec2, triangle: &[Vec2; 3]| {
