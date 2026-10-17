@@ -114,7 +114,7 @@ fn corrupted_cache_is_replaced_and_cache_write_failure_does_not_stop_playback() 
 #[test]
 fn local_mod_and_xm_tracks_stream_with_owned_module_data() {
     for bytes in [DATA[4].to_vec(), xm()] {
-        let Loaded::Module(module) = decode(bytes).unwrap() else {
+        let Loaded::Module(module) = decode(bytes.into()).unwrap() else {
             panic!("expected tracker module")
         };
         let mut decoder = Track(module).decoder();

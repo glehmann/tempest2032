@@ -10,15 +10,13 @@ pub(super) enum Loaded {
     Module(Arc<Module>),
 }
 
-fn decode(bytes: Vec<u8>) -> Result<Loaded, String> {
+fn decode(bytes: Arc<[u8]>) -> Result<Loaded, String> {
     if bytes.starts_with(b"Extended Module: ") {
         return Module::load_xm(&bytes)
             .map(|module| Loaded::Module(Arc::new(module)))
             .map_err(|error| error.to_string());
     }
-    let source = AudioSource {
-        bytes: bytes.into(),
-    };
+    let source = AudioSource { bytes };
     if let Ok(mut decoder) = rodio::Decoder::new(std::io::Cursor::new(source.clone()))
         && decoder.next().is_some()
     {
@@ -32,7 +30,11 @@ fn decode(bytes: Vec<u8>) -> Result<Loaded, String> {
 pub(super) fn load(source: &Soundtrack, cache: Option<&Path>) -> Result<Loaded, String> {
     let url = match source {
         Soundtrack::File(path) => {
-            return decode(std::fs::read(path).map_err(|error| error.to_string())?);
+            return decode(
+                std::fs::read(path)
+                    .map_err(|error| error.to_string())?
+                    .into(),
+            );
         }
         Soundtrack::Url(url) => url.split('#').next().unwrap(),
     };
@@ -40,7 +42,7 @@ pub(super) fn load(source: &Soundtrack, cache: Option<&Path>) -> Result<Loaded, 
         cache.map(|directory| directory.join(blake3::hash(url.as_bytes()).to_hex().as_str()));
     if let Some(path) = &cached
         && let Ok(bytes) = std::fs::read(path)
-        && let Ok(track) = decode(bytes)
+        && let Ok(track) = decode(bytes.into())
     {
         return Ok(track);
     }
@@ -49,7 +51,7 @@ pub(super) fn load(source: &Soundtrack, cache: Option<&Path>) -> Result<Loaded, 
         .timeout_global(Some(Duration::from_secs(30)))
         .build()
         .into();
-    let bytes = agent
+    let bytes: Arc<[u8]> = agent
         .get(url)
         .call()
         .map_err(|error| error.to_string())?
@@ -57,8 +59,9 @@ pub(super) fn load(source: &Soundtrack, cache: Option<&Path>) -> Result<Loaded, 
         .with_config()
         .limit(128 * 1024 * 1024)
         .read_to_vec()
-        .map_err(|error| error.to_string())?;
-    let track = decode(bytes.clone())?;
+        .map_err(|error| error.to_string())?
+        .into();
+    let track = decode(Arc::clone(&bytes))?;
     if let Some(path) = &cached
         && let Err(error) = store(path, &bytes)
     {
