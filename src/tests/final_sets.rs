@@ -1,7 +1,6 @@
 //! Source wave intervals, speed groups, palettes, and final-wave aliases for levels 81–100.
 
-use super::{Generator, Levels};
-use std::path::Path;
+use super::Generator;
 
 #[rustfmt::skip]
 #[allow(clippy::type_complexity)]
@@ -39,7 +38,7 @@ fn generator(actual: Option<&Generator>, interval: u16, speed: i32) {
 
 #[test]
 fn final_sets_match_original_waves_speeds_and_cry_palettes() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for &(
         number,
         count,
@@ -133,7 +132,7 @@ fn final_sets_match_original_waves_speeds_and_cry_palettes() {
 
 #[test]
 fn the_final_two_levels_share_the_aliased_wave_but_use_distinct_webs() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     assert_eq!(levels.0.len(), 100);
     let a = &levels.0[98];
     let b = &levels.0[99];

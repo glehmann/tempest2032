@@ -1,8 +1,5 @@
 //! Fifth-set dispatch types, speed groups, geometry, and Jaguar CRY palettes.
 
-use super::Levels;
-use std::path::Path;
-
 #[rustfmt::skip]
 #[allow(clippy::type_complexity)]
 const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
@@ -27,7 +24,7 @@ const WAVES: &[(usize,u16,u16,u16,u16,u16,u16,u16)] = &[
 
 #[test]
 fn fifth_set_matches_the_original_dispatch_table_and_speed_groups() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for &(number, supers, mirrors, aliens, fuses, pulsar_tankers, beasts, spikers) in WAVES {
         let level = &levels.0[number - 1];
         let earlier = &levels.0[number - 65];

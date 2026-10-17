@@ -1,7 +1,6 @@
 //! Checks original level geometry and wave settings, open-web topology, and TOML validation.
 
 use crate::level::Level;
-use crate::level::Levels;
 use crate::web::FRONT_RADIUS;
 use crate::web::LANE_UNIT;
 use bevy::prelude::*;
@@ -44,7 +43,7 @@ fn all_levels_follow_the_rom_initialized_tempest_2000_web_order() {
         (26, 0x9403e5dd51a49c1c, 9),
         (31, 0xdd629e8ffa6b44ca, 13),
     ];
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     assert_eq!(levels.0.len(), 100);
     for level in &levels.0 {
         let index = (level.number - 1) % 32;
@@ -282,7 +281,6 @@ fn original_level_seventeen_starts_the_red_oval_and_pulsar_wave() {
         );
     }
 }
-use std::path::Path;
 
 #[test]
 fn original_level_five_uses_the_triangle_and_faster_climbers() {
@@ -385,13 +383,7 @@ fn original_level_eight_uses_the_retail_wide_v_with_denser_tankers_and_spikers()
         (326, 651)
     );
     assert_eq!(eight.tankers.as_ref().unwrap().super_chance, 28);
-    assert!(
-        Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels"))
-            .unwrap()
-            .0
-            .len()
-            >= 8
-    );
+    assert!(crate::test_support::levels().0.len() >= 8);
 }
 
 #[test]
@@ -529,7 +521,7 @@ fn open_plane_has_eleven_lanes_and_never_wraps_at_its_ends() {
 
 #[test]
 fn original_levels_have_the_expected_geometry_and_wave_settings() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     assert!(levels.0.len() >= 2);
     let first = &levels.0[0];
     let second = &levels.0[1];

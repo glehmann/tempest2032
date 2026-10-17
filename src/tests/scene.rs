@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 #[test]
 fn every_bundled_web_has_an_explicit_valid_surface_palette() {
-    let levels = crate::level::Levels::load(std::path::Path::new("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for level in &levels.0 {
         let hues = level.appearance.surface_hues.as_ref().unwrap();
         assert_eq!(hues.is_empty(), (49..=64).contains(&level.number));

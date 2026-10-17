@@ -1,8 +1,5 @@
 //! Original fourth-set waves, including the Beastie-only opening wave.
 
-use super::Levels;
-use std::path::Path;
-
 #[rustfmt::skip]
 #[allow(clippy::type_complexity)]
 const WAVES: &[(usize, u16, bool, u16, u16, u16, u16, u16)] = &[
@@ -19,7 +16,7 @@ const WAVES: &[(usize, u16, bool, u16, u16, u16, u16, u16)] = &[
 
 #[test]
 fn fourth_set_matches_the_original_waves_and_second_set_geometry() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for &(number, count, flippers, flip_delay, beast_delay, tankers, fuses, pulsar_tankers) in WAVES
     {
         let level = &levels.0[number - 1];

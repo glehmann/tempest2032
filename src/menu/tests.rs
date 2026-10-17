@@ -601,7 +601,7 @@ fn controller_initials_wrap_and_backspace_allows_retyping() {
 
 #[test]
 fn bundled_definitions_qualify_but_modified_and_extra_levels_do_not() {
-    let mut levels = Levels::load(std::path::Path::new("levels")).unwrap();
+    let mut levels = crate::test_support::levels();
     assert!(levels.is_standard());
     levels.0[0].flippers.count += 1;
     assert!(!levels.is_standard());

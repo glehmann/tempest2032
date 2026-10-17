@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn rotating_wireframes_fit_closed_open_and_flat_webs_through_a_full_turn() {
-        let levels = crate::level::Levels::load(std::path::Path::new("levels")).unwrap();
+        let levels = crate::test_support::levels();
         for level in &levels.0 {
             for aspect in [0.65, 1.2, 1.9] {
                 let (camera, width, center) = fitted_camera(&level.web, aspect, 0.88);
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn wireframes_use_the_gameplay_palette_even_when_the_outline_repeats() {
-        let levels = crate::level::Levels::load(std::path::Path::new("levels")).unwrap();
+        let levels = crate::test_support::levels();
         let mut palettes = Vec::new();
         for number in [1, 17, 33, 49, 65, 81, 97] {
             let level = &levels.0[number - 1];
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn preview_camera_is_isolated_from_gameplay_and_selection_reuses_assets() {
-        let levels = crate::level::Levels::load(std::path::Path::new("levels")).unwrap();
+        let levels = crate::test_support::levels();
         let mut app = App::new();
         app.init_resource::<Assets<Image>>()
             .init_resource::<Time<Real>>()

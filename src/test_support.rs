@@ -1,4 +1,5 @@
-//! Headless Bevy test fixtures, fixed-tick helpers, and default-web geometry.
+//! Headless Bevy test fixtures, fixed-tick helpers, the bundled level catalog,
+//! and default-web geometry.
 //! The gameplay fixture starts in Playing rather than the app's entry animation.
 
 use crate::animations::flipper_capture::animate_capture;
@@ -184,3 +185,13 @@ pub(crate) const REAR: i32 = 160 * LANE_UNIT;
 pub(crate) const MAX_FLIPPERS: usize = 11;
 
 pub(crate) const BRIGHTEST_RED: u8 = 240;
+
+/// A copy of the bundled catalog, parsed once per test run.
+pub(crate) fn levels() -> crate::level::Levels {
+    static LEVELS: std::sync::LazyLock<Vec<Level>> = std::sync::LazyLock::new(|| {
+        crate::level::Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels"))
+            .unwrap()
+            .0
+    });
+    crate::level::Levels(LEVELS.clone())
+}

@@ -1,8 +1,5 @@
 //! Original dispatch types and wave settings for the latter half of the fourth set.
 
-use super::Levels;
-use std::path::Path;
-
 #[rustfmt::skip]
 #[allow(clippy::type_complexity)]
 const WAVES: &[(usize, u16, u16, u16, u16, u16, u16, u16, u16)] = &[
@@ -19,7 +16,7 @@ const WAVES: &[(usize, u16, u16, u16, u16, u16, u16, u16, u16)] = &[
 
 #[test]
 fn fourth_set_late_uses_the_original_dispatch_types_and_wave_intervals() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for &(number, count, supers, mirrors, spikers, pulsars, pulsar_tankers, fuses, beasts) in WAVES
     {
         let level = &levels.0[number - 1];

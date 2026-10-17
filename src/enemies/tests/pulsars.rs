@@ -10,7 +10,7 @@ use crate::{
         pulsars::{Pulsar, Pulse, Spark, advance, check_player, pulse, spawn},
     },
     game::{Game, Status},
-    level::{Level, Levels, LoadReason},
+    level::{Level, LoadReason},
     powerups::{Upgrades, pickups::PowerUp},
     test_support::ticks,
     weapons::{Bullet, Weapon},
@@ -253,9 +253,7 @@ fn generator_uses_the_shared_budget_and_retry_resets_the_pulse() {
     app.world_mut().resource_mut::<Game>().pulsar_timer = 0;
     ticks(&mut app, 1);
     assert_eq!(app.world().resource::<Game>().remaining, 24);
-    app.insert_resource(
-        Levels::load(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap(),
-    );
+    app.insert_resource(crate::test_support::levels());
     app.world_mut().resource_mut::<Game>().level_index = 16;
     app.world_mut().resource_mut::<Game>().load = Some(LoadReason::Retry);
     app.world_mut().resource_mut::<Pulse>().phase = 7;

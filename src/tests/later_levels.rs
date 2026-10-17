@@ -1,14 +1,9 @@
 //! Original second-set geometry and generator settings, starting at level 21.
 
-use super::Levels;
 use crate::level::Level;
-use std::path::Path;
 
 fn level(number: usize) -> Level {
-    Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels"))
-        .unwrap()
-        .0
-        .remove(number - 1)
+    crate::test_support::levels().0.remove(number - 1)
 }
 
 #[test]
@@ -232,7 +227,7 @@ fn level_32_finishes_the_second_web_set_with_the_retail_mouse_pointer() {
 fn mirrored_lane_rotations_point_along_the_actual_web_edges() {
     use crate::web::FRONT_RADIUS;
     use bevy::prelude::*;
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for level in &levels.0[17..] {
         for lane in 0..level.web.lanes() {
             let tangent = (level.web.vertex(lane as f32 + 1., FRONT_RADIUS, 0.)

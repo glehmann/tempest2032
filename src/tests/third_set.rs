@@ -1,8 +1,5 @@
 //! Original third-set waves, geometry reuse, and the Pulsar Tanker settings.
 
-use super::Levels;
-use std::path::Path;
-
 #[rustfmt::skip]
 const WAVES: &[(usize, u16, u16, u16, u16, u16)] = &[
     (33, 25, 101, 501, 0, 0),
@@ -25,7 +22,7 @@ const WAVES: &[(usize, u16, u16, u16, u16, u16)] = &[
 
 #[test]
 fn third_set_matches_original_waves_and_reuses_the_first_set_webs() {
-    let levels = Levels::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("levels")).unwrap();
+    let levels = crate::test_support::levels();
     for &(number, count, flippers, tankers, pulsars, fuses) in WAVES {
         let level = &levels.0[number - 1];
         let earlier = &levels.0[number - 33];
