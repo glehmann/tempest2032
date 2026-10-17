@@ -227,10 +227,13 @@ pub(crate) fn spawn_fps_label(mut commands: Commands, display: Res<FpsDisplay>) 
 pub(crate) fn toggle_fps(
     keys: Res<ButtonInput<KeyCode>>,
     mut display: ResMut<FpsDisplay>,
+    mut meter: ResMut<FpsMeter>,
     mut label: Single<&mut Visibility, With<FpsLabel>>,
 ) {
     if keys.just_pressed(KeyCode::F3) {
         display.0 = !display.0;
+        // The meter pauses while hidden, so start a fresh reading.
+        *meter = default();
         **label = if display.0 {
             Visibility::Visible
         } else {

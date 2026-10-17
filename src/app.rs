@@ -131,7 +131,10 @@ pub(crate) fn run(args: cli::Cli) {
                 .before(crate::menu::input)
                 .before(crate::pause::input),
         )
-        .add_systems(Update, update_fps);
+        .add_systems(
+            Update,
+            update_fps.run_if(|display: Res<FpsDisplay>| display.0),
+        );
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(
         PreUpdate,
