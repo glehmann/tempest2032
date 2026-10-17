@@ -1,4 +1,4 @@
-//! Colored triangle meshes and transforms for wireframe beam segments.
+//! Colored triangle meshes, transforms for wireframe beam segments, and material tinting.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::PrimitiveTopology;
@@ -27,6 +27,19 @@ pub(crate) fn colored_mesh(triangles: impl IntoIterator<Item = [(Vec3, Color); 3
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
+}
+
+/// Mutable access marks a material for re-preparation, so skip unchanged colors.
+pub(crate) fn set_base_color(
+    materials: &mut Assets<StandardMaterial>,
+    handle: &Handle<StandardMaterial>,
+    color: Color,
+) {
+    if materials.get(handle).is_some_and(|m| m.base_color != color)
+        && let Some(material) = materials.get_mut(handle)
+    {
+        material.base_color = color;
+    }
 }
 
 pub(crate) fn segment_transform(start: Vec3, end: Vec3, width: f32) -> Transform {

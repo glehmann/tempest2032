@@ -265,15 +265,17 @@ pub(crate) fn draw(
     } else {
         Visibility::Visible
     };
-    if let Some(surface) = materials.get_mut(&assets.surface) {
-        let alpha = game.exit.map_or_else(
-            || (f32::from(tick.saturating_sub(APPROACH_TICKS)) * 8.0 / 248.0).min(1.0),
-            |exit| (1.0 - f32::from(exit.ticks) * 8.0 / 248.0).max(0.0),
-        );
-        surface.base_color = Color::WHITE.with_alpha(game.death.map_or(alpha, |death| {
+    let alpha = game.exit.map_or_else(
+        || (f32::from(tick.saturating_sub(APPROACH_TICKS)) * 8.0 / 248.0).min(1.0),
+        |exit| (1.0 - f32::from(exit.ticks) * 8.0 / 248.0).max(0.0),
+    );
+    crate::mesh::set_base_color(
+        &mut materials,
+        &assets.surface,
+        Color::WHITE.with_alpha(game.death.map_or(alpha, |death| {
             (1.0 - f32::from(death.tick) * 8.0 / 248.0).max(0.0)
-        }));
-    }
+        })),
+    );
     let (glider, transform, visibility) = &mut *player;
     if game.entry.is_some()
         || game.exit.is_some_and(|exit| exit.wireframe)

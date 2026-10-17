@@ -539,14 +539,20 @@ pub(crate) fn draw(
     let gates = gate_views(session);
     if session.kind == ZoneKind::GateFlight {
         for (rank, gate) in gates.iter().take(6).enumerate() {
-            if let Some(material) = materials.get_mut(&assets.gate_materials[gate.index]) {
-                let alpha = gate_opacity(&gates, rank);
-                material.base_color = Color::srgba(1., 1., 1., alpha);
-                material.alpha_mode = if rank < 3 {
-                    AlphaMode::Opaque
-                } else {
-                    AlphaMode::Blend
-                };
+            let handle = &assets.gate_materials[gate.index];
+            let color = Color::srgba(1., 1., 1., gate_opacity(&gates, rank));
+            let mode = if rank < 3 {
+                AlphaMode::Opaque
+            } else {
+                AlphaMode::Blend
+            };
+            if materials
+                .get(handle)
+                .is_some_and(|m| m.base_color != color || m.alpha_mode != mode)
+                && let Some(material) = materials.get_mut(handle)
+            {
+                material.base_color = color;
+                material.alpha_mode = mode;
             }
         }
     }

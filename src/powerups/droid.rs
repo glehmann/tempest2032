@@ -113,12 +113,14 @@ pub(crate) fn move_droid(
     power_assets: Res<PowerAssets>,
     mut droids: Query<(&mut Droid, &mut Transform)>,
 ) {
-    if game.status != Status::Playing {
+    if game.status != Status::Playing || droids.is_empty() {
         return;
     }
-    if let Some(material) = materials.get_mut(&power_assets.droid_material) {
-        material.base_color = cry::color(explosion::pulse_hue(upgrades.frame as u8), 255);
-    }
+    crate::mesh::set_base_color(
+        &mut materials,
+        &power_assets.droid_material,
+        cry::color(explosion::pulse_hue(upgrades.frame as u8), 255),
+    );
     let target = enemies
         .iter()
         .filter(|flipper| !matches!(flipper.motion, Motion::Approach))
