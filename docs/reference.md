@@ -1459,6 +1459,22 @@ probe resets that delay. Slow windows restart the calm period, while pauses and
 scene changes only interrupt the measurement in progress. The 57 FPS threshold tolerates 59.94 Hz displays and
 small scheduling variations around 60 Hz.
 
+Native builds with automatic antialiasing also record per-pass GPU times with
+Bevy's `RenderDiagnosticsPlugin`, which Vulkan and DX12 report through timestamp
+queries; the log notes when they arrive. With GPU times available:
+
+- Slow windows only count toward a trial when the GPU itself uses more than 75%
+  of the 16.67 ms budget. A slowdown with an idle GPU comes from the CPU or
+  another process, so antialiasing is left alone.
+- A reduction is also required to cut GPU time by at least 10% and 1 ms against
+  both the baseline and the recheck, crediting only work it actually removed.
+- The calm period before a probe only counts windows whose GPU time is under 60%
+  of the budget, and a probe whose frames are slow is still kept when its GPU
+  time stays under the 75% bound.
+
+Metal, WebGL2, and WebGPU report no GPU times, so they rely on frame times and
+the recheck alone. Fixed `--antialiasing` sessions skip the GPU diagnostics.
+
 Losing focus, hiding the window, resizing, changing levels or game/front-end
 phases, and pausing discard measurements. An interrupted trial restores its
 previous quality, an interrupted probe restores the reduced quality, and both
@@ -1475,9 +1491,9 @@ filtering, a touch device starts at FXAA alone, and everything else starts at
 4× MSAA. Desktop builds start at 4× MSAA. Browsers reduce the user agent, so
 the device model is not identifiable and no device list is used. Measurements
 use real time, including in browser builds, and do not alter the fixed 60 Hz
-gameplay simulation. This measures application updates, not GPU timings or
-confirmed display presentations, and reducing antialiasing cannot fix every
-cause of slow rendering.
+gameplay simulation. Frame times measure application updates, not confirmed
+display presentations, and reducing antialiasing cannot fix every cause of slow
+rendering.
 
 In automatic mode, the starting step and every step below it are each applied for
 one frame during the warmup. The sample count is part of wgpu's pipeline key, so a first-time

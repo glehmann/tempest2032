@@ -1,6 +1,10 @@
-//! Antialias geometry and the combined scene, retaining reductions only when they help.
+//! Antialias geometry and the combined scene, retaining reductions only when they help
+//! and probing back up once the host has room again.
 
-use bevy::{anti_alias::fxaa::Fxaa, prelude::*, window::PrimaryWindow};
+use bevy::{
+    anti_alias::fxaa::Fxaa, diagnostic::DiagnosticsStore, platform::time::Instant, prelude::*,
+    window::PrimaryWindow,
+};
 use clap::ValueEnum;
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -21,6 +25,11 @@ const FRAME_BUDGET: Duration = Duration::from_nanos(16_666_667);
 /// sustained shortfall from the 60 Hz simulation. Include stalls in the average;
 /// consecutive slow windows keep an isolated hitch from starting a trial.
 const SLOW_FRAME: f64 = 1. / 57.;
+/// With GPU pass times, a slowdown is only antialiasing's concern when the GPU
+/// itself uses most of the frame; otherwise the CPU or another process is the cause.
+const GPU_BOUND: f64 = 0.75 / 60.;
+/// GPU time below which a higher quality is likely to fit in the frame.
+const GPU_HEADROOM: f64 = 0.6 / 60.;
 
 /// A trial can restore the previous quality; confirmed reductions stay in place.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, ValueEnum)]
@@ -71,19 +80,47 @@ struct Timings {
     elapsed: Duration,
     frames: u32,
     excess: Duration,
+    gpu: Duration,
+    gpu_frames: u32,
 }
 
 impl Timings {
-    fn sample(&mut self, delta: Duration) {
+    fn sample(&mut self, delta: Duration, gpu: Option<Duration>) {
         self.elapsed += delta;
         self.frames += 1;
         self.excess += delta.saturating_sub(FRAME_BUDGET);
+        if let Some(gpu) = gpu {
+            self.gpu += gpu;
+            self.gpu_frames += 1;
+        }
     }
 
     fn merge(&mut self, other: Self) {
         self.elapsed += other.elapsed;
         self.frames += other.frames;
         self.excess += other.excess;
+        self.gpu += other.gpu;
+        self.gpu_frames += other.gpu_frames;
+    }
+
+    /// Mean GPU pass time, when most frames reported one.
+    fn gpu(self) -> Option<f64> {
+        (self.gpu_frames > 0 && self.gpu_frames * 2 >= self.frames)
+            .then(|| self.gpu.as_secs_f64() / f64::from(self.gpu_frames))
+    }
+
+    /// Without GPU times every slowdown might come from the GPU.
+    fn gpu_limited(self) -> bool {
+        self.gpu().is_none_or(|gpu| gpu > GPU_BOUND)
+    }
+
+    /// Requires the GPU time to drop too when both sides report it, so a reduction
+    /// is credited only for work it actually removed.
+    fn lightens(self, baseline: Self) -> bool {
+        match (self.gpu(), baseline.gpu()) {
+            (Some(gpu), Some(before)) => gpu <= before * 0.9 && before - gpu >= 0.001,
+            _ => true,
+        }
     }
 
     fn mean(self) -> f64 {
@@ -212,7 +249,7 @@ impl Antialiasing {
         }
     }
 
-    fn sample(&mut self, delta: Duration, active: bool) {
+    fn sample(&mut self, delta: Duration, gpu: Option<Duration>, active: bool) {
         if !self.automatic {
             return;
         }
@@ -231,7 +268,7 @@ impl Antialiasing {
             self.warmup = self.warmup.saturating_sub(delta);
             return;
         }
-        self.window.sample(delta);
+        self.window.sample(delta, gpu);
         if let Some(trial) = &mut self.trial {
             if self.window.elapsed < TRIAL {
                 return;
@@ -244,7 +281,9 @@ impl Antialiasing {
                 return;
             };
             let trial = self.trial.take().unwrap();
-            let improved = reduced.improves(trial.baseline) && reduced.improves(window);
+            let improved = [trial.baseline, window]
+                .into_iter()
+                .all(|other| reduced.improves(other) && reduced.lightens(other));
             if improved {
                 self.quality = trial.previous.step_down();
             }
@@ -270,7 +309,7 @@ impl Antialiasing {
                 return;
             }
             let window = std::mem::take(&mut self.window);
-            let kept = window.mean() <= SLOW_FRAME;
+            let kept = window.mean() <= SLOW_FRAME || !window.gpu_limited();
             if kept {
                 self.probe_delay = PROBE_DELAY;
             } else {
@@ -293,7 +332,11 @@ impl Antialiasing {
             return;
         }
         let window = std::mem::take(&mut self.window);
-        if window.mean() > SLOW_FRAME {
+        if window.mean() > SLOW_FRAME && !window.gpu_limited() {
+            // The GPU keeps up, so antialiasing is not the cause; wait for steadier frames.
+            self.slow_windows = 0;
+            self.baseline = Timings::default();
+        } else if window.mean() > SLOW_FRAME {
             self.calm = Duration::ZERO;
             // Without filtering there is nothing left to reduce.
             if self.quality == Quality::Off {
@@ -320,7 +363,7 @@ impl Antialiasing {
         } else {
             self.slow_windows = 0;
             self.baseline = Timings::default();
-            if self.quality != self.ceiling {
+            if self.quality != self.ceiling && window.gpu().is_none_or(|gpu| gpu < GPU_HEADROOM) {
                 self.calm += window.elapsed;
                 if self.calm >= self.probe_delay {
                     self.calm = Duration::ZERO;
@@ -354,6 +397,33 @@ pub(crate) fn add_systems(app: &mut App, start: Quality, automatic: bool) {
         .add_systems(Update, update);
 }
 
+/// Sums the newest frame's top-level GPU pass times from `RenderDiagnosticsPlugin`.
+/// Passes repeat per camera, and one frame's measurements share a timestamp.
+fn gpu_time(store: &DiagnosticsStore, last: &mut Option<Instant>) -> Option<Duration> {
+    let passes = || {
+        store.iter().filter(|d| {
+            let mut path = d.path().components();
+            path.next() == Some("render")
+                && path.next().is_some()
+                && path.next() == Some("elapsed_gpu")
+                && path.next().is_none()
+        })
+    };
+    let newest = passes()
+        .filter_map(|d| d.measurement())
+        .map(|m| m.time)
+        .max()?;
+    if last.replace(newest) == Some(newest) {
+        return None;
+    }
+    let milliseconds: f64 = passes()
+        .flat_map(|d| d.measurements().filter(|m| m.time == newest))
+        .map(|m| m.value)
+        .sum();
+    Some(Duration::from_secs_f64(milliseconds / 1000.))
+}
+
+#[allow(clippy::too_many_arguments)]
 fn update(
     time: Res<Time<Real>>,
     virtual_time: Option<Res<Time<Virtual>>>,
@@ -362,7 +432,10 @@ fn update(
     windows: Query<&Window, With<PrimaryWindow>>,
     mut state: ResMut<Antialiasing>,
     mut cameras: Query<(&mut Msaa, Option<&mut Fxaa>), With<Camera>>,
+    diagnostics: Option<Res<DiagnosticsStore>>,
+    mut gpu_frame: Local<Option<Instant>>,
 ) {
+    let measured_gpu = gpu_frame.is_some();
     state.set_context(Context {
         size: windows.iter().next().map_or(UVec2::ZERO, |w| {
             UVec2::new(w.physical_width(), w.physical_height())
@@ -381,7 +454,11 @@ fn update(
             && window.physical_width() > 0
             && window.physical_height() > 0
     });
-    state.sample(time.delta(), active);
+    let gpu = diagnostics.and_then(|store| gpu_time(&store, &mut gpu_frame));
+    if gpu.is_some() && !measured_gpu {
+        info!("Antialiasing decisions use GPU pass times");
+    }
+    state.sample(time.delta(), gpu, active);
     // Sample count is part of wgpu's pipeline key, so an unprepared step-down stalls
     // on compilation. Pay that cost during the warmup instead, while frames render.
     let applied = active
@@ -407,7 +484,7 @@ mod tests {
 
     fn frames(state: &mut Antialiasing, count: usize, seconds: f64) {
         for _ in 0..count {
-            state.sample(Duration::from_secs_f64(seconds), true);
+            state.sample(Duration::from_secs_f64(seconds), None, true);
         }
     }
 
@@ -416,7 +493,7 @@ mod tests {
         state.warmup = Duration::ZERO;
         for window in windows {
             for frame in window {
-                state.sample(*frame, true);
+                state.sample(*frame, None, true);
             }
         }
     }
@@ -491,7 +568,7 @@ mod tests {
         assert_eq!(state.quality, Quality::Off);
         assert!(state.trial.is_none());
         frames(&mut state, 600, 1. / 120.);
-        state.sample(Duration::from_secs(10), false);
+        state.sample(Duration::from_secs(10), None, false);
         assert_eq!(state.quality, Quality::Off);
     }
 
@@ -544,7 +621,7 @@ mod tests {
         let timings = |intervals: &[f64]| {
             let mut timings = Timings::default();
             for interval in intervals {
-                timings.sample(Duration::from_secs_f64(*interval));
+                timings.sample(Duration::from_secs_f64(*interval), None);
             }
             timings
         };
@@ -609,12 +686,12 @@ mod tests {
         frames(&mut state, 4, 0.5);
         assert_eq!(state.slow_windows, 1);
         assert_eq!(state.quality, Quality::Fxaa);
-        state.sample(Duration::from_secs(10), false);
+        state.sample(Duration::from_secs(10), None, false);
         assert_eq!(state.slow_windows, 0);
         assert_eq!(state.quality, Quality::Fxaa);
         begin_trial(&mut state, 1. / 30.);
         assert_eq!(state.quality, Quality::Off);
-        state.sample(Duration::from_secs(10), false);
+        state.sample(Duration::from_secs(10), None, false);
         assert_eq!(state.quality, Quality::Fxaa);
         assert!(state.trial.is_none());
         assert_eq!(state.cooldown, COOLDOWN);
@@ -714,11 +791,103 @@ mod tests {
         assert!(state.probe.is_none());
     }
 
+    fn gpu_frames(state: &mut Antialiasing, count: usize, seconds: f64, gpu: f64) {
+        for _ in 0..count {
+            state.sample(
+                Duration::from_secs_f64(seconds),
+                Some(Duration::from_secs_f64(gpu)),
+                true,
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_time_sums_the_newest_frame_of_every_top_level_pass() {
+        use bevy::diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath};
+        let mut store = DiagnosticsStore::default();
+        let time = Instant::now();
+        for (path, values) in [
+            ("render/main_opaque_pass_3d/elapsed_gpu", &[3., 4.][..]),
+            ("render/tonemapping/elapsed_gpu", &[1.][..]),
+            ("render/main_opaque_pass_3d/elapsed_cpu", &[9.][..]),
+            ("render/outer/inner/elapsed_gpu", &[9.][..]),
+        ] {
+            let mut diagnostic = Diagnostic::new(DiagnosticPath::new(path));
+            diagnostic.add_measurement(DiagnosticMeasurement {
+                time: time - Duration::from_millis(16),
+                value: 50.,
+            });
+            for &value in values {
+                diagnostic.add_measurement(DiagnosticMeasurement { time, value });
+            }
+            store.add(diagnostic);
+        }
+        let mut last = None;
+        let gpu = gpu_time(&store, &mut last).unwrap();
+        assert!((gpu.as_secs_f64() - 0.008).abs() < 1e-9);
+        assert_eq!(
+            gpu_time(&store, &mut last),
+            None,
+            "a frame is only counted once"
+        );
+    }
+
+    #[test]
+    fn slow_frames_with_an_idle_gpu_keep_antialiasing() {
+        let mut state = Antialiasing {
+            warmup: Duration::ZERO,
+            ..default()
+        };
+        gpu_frames(&mut state, 30 * 20, 1. / 30., 0.005);
+        assert_eq!(state.quality, Quality::Full);
+        assert!(state.trial.is_none());
+        gpu_frames(&mut state, 30 * 7, 1. / 30., 0.015);
+        assert!(state.trial.is_some());
+    }
+
+    #[test]
+    fn a_reduction_must_also_lower_gpu_time() {
+        for (reduced_gpu, kept) in [(0.014, false), (0.010, true)] {
+            let mut state = Antialiasing {
+                warmup: Duration::ZERO,
+                ..default()
+            };
+            while state.trial.is_none() {
+                gpu_frames(&mut state, 1, 1. / 30., 0.015);
+            }
+            state.warmup = Duration::ZERO;
+            while state.trial.as_ref().is_some_and(|t| t.reduced.is_none()) {
+                gpu_frames(&mut state, 1, 1. / 60., reduced_gpu);
+            }
+            state.warmup = Duration::ZERO;
+            while state.trial.is_some() {
+                gpu_frames(&mut state, 1, 1. / 30., 0.015);
+            }
+            assert_eq!(state.quality == Quality::Fxaa, kept);
+        }
+    }
+
+    #[test]
+    fn probes_wait_for_gpu_headroom_and_ignore_cpu_slowdowns() {
+        let mut state = reduced_to_fxaa();
+        gpu_frames(&mut state, 60 * 300, 1. / 60., 0.012);
+        assert!(
+            state.probe.is_none(),
+            "a busy GPU has no room for more samples"
+        );
+        until(&mut state, 1. / 60., |s| s.probe.is_some());
+        state.warmup = Duration::ZERO;
+        while state.probe.is_some() {
+            gpu_frames(&mut state, 1, 1. / 40., 0.008);
+        }
+        assert_eq!(state.quality, Quality::Full);
+    }
+
     #[test]
     fn a_starting_state_of_off_is_never_recovered() {
         let mut state = Antialiasing::new(Quality::Off, true);
         frames(&mut state, 600, 1. / 120.);
-        state.sample(Duration::from_secs(10), false);
+        state.sample(Duration::from_secs(10), None, false);
         assert_eq!(state.quality, Quality::Off);
     }
 

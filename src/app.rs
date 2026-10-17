@@ -284,6 +284,11 @@ pub(crate) fn run(args: cli::Cli) {
             ),
         );
     add_systems(&mut app);
+    // Per-pass GPU times let automatic antialiasing tell GPU load from other slowdowns.
+    #[cfg(not(target_arch = "wasm32"))]
+    if args.antialiasing.is_none() {
+        app.add_plugins(bevy::render::diagnostic::RenderDiagnosticsPlugin);
+    }
     app.insert_resource(bevy::audio::GlobalVolume::new(bevy::audio::Volume::Linear(
         args.volume,
     )));
