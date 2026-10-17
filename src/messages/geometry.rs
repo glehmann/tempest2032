@@ -99,30 +99,14 @@ impl Glyphs {
 
 pub(super) struct Paint {
     style: Style,
-    pub rows: Vec<Color>,
-    pub top: f32,
-    pub height: f32,
 }
 
 impl Paint {
     pub fn new(style: Style) -> Self {
-        Self {
-            style,
-            rows: Vec::new(),
-            top: 0.,
-            height: 18.,
-        }
+        Self { style }
     }
 
     fn front(&self, y: f32) -> Color {
-        if !self.rows.is_empty() {
-            let p = (y - self.top).clamp(0., self.rows.len() as f32 - 1.);
-            return mix(
-                self.rows[p as usize],
-                self.rows[(p as usize + 1).min(self.rows.len() - 1)],
-                p.fract(),
-            );
-        }
         let stops: &[(f32, [f32; 3])] = match self.style {
             Style::Chrome => &[
                 (0., [0.18, 0.40, 0.83]),
@@ -144,7 +128,7 @@ impl Paint {
             ],
             Style::Gold => &[(0., [0.64, 0.015, 0.008]), (1., [0.43, 0.01, 0.008])],
         };
-        let t = ((y - self.top) / self.height).clamp(0., 1.);
+        let t = (y / 18.).clamp(0., 1.);
         for pair in stops.windows(2) {
             if t <= pair[1].0 {
                 return mix(
@@ -160,11 +144,11 @@ impl Paint {
     fn surface(&self, y: f32, normal: Vec3, bevel: bool) -> Color {
         let light = Vec3::new(-0.45, 0.70, 0.85).normalize();
         let diffuse = normal.dot(light).max(0.);
-        let base = match (self.style, bevel, self.rows.is_empty()) {
-            (Style::Gold, true, _) => Color::srgb(1., 0.73, 0.08),
-            (Style::Gold, false, _) => Color::srgb(0.14, 0.23, 0.08),
-            (Style::Rainbow, false, _) => Color::srgb(0.64, 0.23, 0.48),
-            (Style::Chrome, false, true) => Color::srgb(0.17, 0.06, 0.31),
+        let base = match (self.style, bevel) {
+            (Style::Gold, true) => Color::srgb(1., 0.73, 0.08),
+            (Style::Gold, false) => Color::srgb(0.14, 0.23, 0.08),
+            (Style::Rainbow, false) => Color::srgb(0.64, 0.23, 0.48),
+            (Style::Chrome, false) => Color::srgb(0.17, 0.06, 0.31),
             _ => self.front(y),
         }
         .to_linear();
@@ -902,11 +886,7 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
         }
     }
     // Split fronts at analytic colour-band boundaries, not a source bitmap grid.
-    let bands = if paint.rows.is_empty() {
-        36
-    } else {
-        paint.rows.len().max(2)
-    };
+    let bands = 36;
     let lo_y = front
         .iter()
         .flatten()
@@ -946,7 +926,7 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
     triangles.shrink_to_fit();
     Glyph {
         triangles,
-        fragments: if paint.style == Style::Chrome && paint.rows.is_empty() {
+        fragments: if paint.style == Style::Chrome {
             OnceLock::new()
         } else {
             OnceLock::from(Box::default())
