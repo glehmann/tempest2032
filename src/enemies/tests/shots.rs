@@ -1,9 +1,10 @@
-//! Checks Flipper enemy-shot limits, firing delay, and projectile speed.
+//! Checks enemy-shot limits, firing delay and order, and projectile speed.
 
 use crate::enemies::flippers::Motion;
 use crate::enemies::shots::EnemyShot;
 use crate::enemies::shots::fire_enemy_shots;
 use crate::enemies::shots::move_enemy_shots;
+use crate::game::Game;
 use crate::test_support::REAR;
 use crate::test_support::app;
 use crate::test_support::enemy;
@@ -45,4 +46,23 @@ fn flippers_fire_one_enemy_shot_at_a_time_with_original_speed() {
                 <= 1
         );
     }
+}
+
+#[test]
+fn newest_climber_fires_and_older_ones_keep_counting_down() {
+    let mut app = app();
+    app.add_systems(FixedUpdate, fire_enemy_shots);
+    for lane in 1..4 {
+        enemy(&mut app, lane, REAR, Motion::Climb);
+    }
+    app.world_mut().resource_mut::<Game>().fire_timer = 0;
+    ticks(&mut app, 1);
+    let lanes: Vec<_> = app
+        .world_mut()
+        .query::<&EnemyShot>()
+        .iter(app.world())
+        .map(|shot| shot.lane)
+        .collect();
+    assert_eq!(lanes, [3]);
+    assert_eq!(app.world().resource::<Game>().fire_timer, 110);
 }

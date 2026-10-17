@@ -1,6 +1,7 @@
 //! Rotating enemy shots fired by climbing Flippers and Spikers. Also advances
 //! detached Beastie horns, which return toward the glider as reflected shots.
 
+use crate::enemies::SpawnOrder;
 use crate::enemies::beasts;
 use crate::enemies::flipper_render::FlipperAssets;
 use crate::enemies::flippers::Flipper;
@@ -58,24 +59,28 @@ pub(crate) fn fire_enemy_shots(
     mut commands: Commands,
     mut game: ResMut<Game>,
     assets: Res<FlipperAssets>,
-    enemies: Query<&Flipper>,
+    enemies: Query<(&Flipper, &SpawnOrder)>,
     shots: Query<&EnemyShot, (Without<beasts::Reflected>, Without<mirrors::ReturnedShot>)>,
-    spikers: Query<&spikers::Spiker>,
+    spikers: Query<(&spikers::Spiker, &SpawnOrder)>,
 ) {
     if game.status != Status::Playing {
         return;
     }
-    let sources = enemies
+    // `alienfire` runs from each climbing object while `run_objects` walks the
+    // newest-first active list, and every call decrements the shared timer.
+    let mut sources: Vec<_> = enemies
         .iter()
-        .filter(|f| matches!(f.motion, Motion::Climb))
-        .map(|f| (f.lane, f.depth))
+        .filter(|(f, _)| matches!(f.motion, Motion::Climb))
+        .map(|(f, order)| (order.0, f.lane, f.depth))
         .chain(
             spikers
                 .iter()
-                .filter(|s| s.firing())
-                .map(|s| (s.lane, s.depth)),
-        );
-    for (lane, depth) in sources {
+                .filter(|(s, _)| s.firing())
+                .map(|(s, order)| (order.0, s.lane, s.depth)),
+        )
+        .collect();
+    sources.sort_unstable_by_key(|&(order, ..)| std::cmp::Reverse(order));
+    for (_, lane, depth) in sources {
         if game.fire_timer > 0 {
             game.fire_timer -= 1;
             continue;
@@ -104,7 +109,6 @@ pub(crate) fn fire_enemy_shots(
             Mesh3d(assets.shot.clone()),
             MeshMaterial3d(assets.shaded.clone()),
         ));
-        break;
     }
 }
 

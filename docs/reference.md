@@ -1693,6 +1693,10 @@ Climbing Flippers also fire at the player. Level one allows one enemy shot
 in flight. It uses `s_shot`'s three rotating chevrons, shaded with the original
 purple and yellow-green CRY colors. Enemy shots travel toward the rim at
 `0x18000` depth units per tick, and your shots can intercept them.
+Climbing Flippers and Spikers share one 112-tick fire timer, as in `alienfire`.
+Each eligible shooter decrements it once per tick in the original newest-first
+active-object order, so the newest shooter fires first, and older shooters keep
+counting down after a shot.
 Their chevrons render at 0.15 world units per source pixel, twice the previous
 mesh scale, to make the three darts easier to see against the filled web.
 Each dart is moved inward by 1.5 source pixels before the three rotations,
