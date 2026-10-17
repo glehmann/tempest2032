@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use crate::{
     cry,
     enemies::{
-        flipper_render::approach_dot_style,
+        flipper_render::draw_approach_dot,
         pulsars::{Pulsar, Pulse},
     },
     level::Level,
@@ -130,11 +130,8 @@ pub(crate) fn draw(
     };
     for (pulsar, mut pose, mut mesh, mut material) in &mut pulsars {
         if pulsar.approach {
-            let (width, intensity) = approach_dot_style(pose.translation, camera, projection);
-            pose.rotation = camera.rotation;
-            pose.scale = Vec3::splat(width);
+            draw_approach_dot(&mut pose, &mut material, &assets.shades, camera, projection);
             mesh.0 = assets.point.clone();
-            material.0 = assets.shades[intensity].clone();
         } else {
             pose.scale = Vec3::ONE;
             mesh.0 = assets.frames[if pulsar.flipping() {

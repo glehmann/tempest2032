@@ -4,7 +4,7 @@
 use crate::cry;
 use crate::enemies::Enemy;
 use crate::enemies::flipper_render::FlipperAssets;
-use crate::enemies::flipper_render::approach_dot_style;
+use crate::enemies::flipper_render::draw_approach_dot;
 use crate::enemies::flippers::Flipper;
 use crate::enemies::flippers::Motion;
 use crate::enemies::flippers::SpiralFlipper;
@@ -454,10 +454,13 @@ pub(crate) fn draw_points(
     };
     for (tanker, mut transform, mut material) in &mut tankers {
         if tanker.approach {
-            let (width, intensity) = approach_dot_style(transform.translation, camera, projection);
-            transform.rotation = camera.rotation;
-            transform.scale = Vec3::splat(width);
-            material.0 = assets.shades[intensity].clone();
+            draw_approach_dot(
+                &mut transform,
+                &mut material,
+                &assets.shades,
+                camera,
+                projection,
+            );
         }
     }
 }

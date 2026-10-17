@@ -4,7 +4,7 @@
 use crate::{
     animations::glider_death::Death,
     cry,
-    enemies::{Enemy, flipper_render::approach_dot_style, tankers::Tanker},
+    enemies::{Enemy, flipper_render::draw_approach_dot, tankers::Tanker},
     game::{Game, Status},
     glider::Glider,
     level::{Level, LevelActor},
@@ -354,12 +354,7 @@ pub(crate) fn draw_points(
     };
     for (alien, mut pose, mut material) in &mut aliens {
         if alien.approach {
-            let (width, intensity) = approach_dot_style(pose.translation, camera, projection);
-            pose.rotation = camera.rotation;
-            pose.scale = Vec3::splat(width);
-            if let Some(shade) = assets.shades.get(intensity) {
-                material.0 = shade.clone();
-            }
+            draw_approach_dot(&mut pose, &mut material, &assets.shades, camera, projection);
         }
     }
 }

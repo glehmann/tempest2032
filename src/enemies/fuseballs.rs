@@ -5,7 +5,7 @@
 use crate::animations::glider_death as shot_death;
 use crate::cry;
 use crate::enemies::Enemy;
-use crate::enemies::flipper_render::approach_dot_style;
+use crate::enemies::flipper_render::draw_approach_dot;
 use crate::enemies::tankers;
 use crate::explosion;
 use crate::game::Game;
@@ -371,12 +371,7 @@ pub(crate) fn draw_points(
     };
     for (fuse, mut pose, mut material) in &mut fuses {
         if matches!(fuse.motion, Motion::Approach) {
-            let (width, intensity) = approach_dot_style(pose.translation, camera, projection);
-            pose.rotation = camera.rotation;
-            pose.scale = Vec3::splat(width);
-            if let Some(shade) = assets.shades.get(intensity) {
-                material.0 = shade.clone();
-            }
+            draw_approach_dot(&mut pose, &mut material, &assets.shades, camera, projection);
         }
     }
 }

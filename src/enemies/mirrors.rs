@@ -6,7 +6,7 @@ use std::f32::consts::TAU;
 
 use crate::{
     cry,
-    enemies::{Enemy, flipper_render::approach_dot_style, tankers::Tanker},
+    enemies::{Enemy, flipper_render::draw_approach_dot, tankers::Tanker},
     game::{Game, Status},
     level::{Level, LevelActor},
     mesh::colored_mesh,
@@ -216,12 +216,7 @@ pub(crate) fn draw_points(
     };
     for (mirror, mut pose, mut material) in &mut mirrors {
         if mirror.approach {
-            let (width, intensity) = approach_dot_style(pose.translation, camera, projection);
-            pose.rotation = camera.rotation;
-            pose.scale = Vec3::splat(width);
-            if let Some(shade) = assets.shades.get(intensity) {
-                material.0 = shade.clone();
-            }
+            draw_approach_dot(&mut pose, &mut material, &assets.shades, camera, projection);
         }
     }
 }
