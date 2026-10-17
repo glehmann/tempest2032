@@ -290,6 +290,7 @@ fn bolt_triangles(vertices: &[(Vec2, Color)]) -> Vec<[(Vec3, Color); 3]> {
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn draw(
     upgrades: Res<Upgrades>,
     game: Res<Game>,
@@ -298,6 +299,7 @@ pub(crate) fn draw(
     mut meshes: ResMut<Assets<Mesh>>,
     player: Single<(&Glider, &Transform)>,
     cameras: Query<(&Camera, &GlobalTransform), crate::messages::geometry::GameCameras>,
+    mut empty: Local<bool>,
 ) {
     let zapper = &upgrades.zapper;
     let mut triangles = Vec::new();
@@ -331,7 +333,11 @@ pub(crate) fn draw(
             }
         }
     }
-    *meshes.get_mut(&assets.0).unwrap() = message_mesh(triangles);
+    // An empty mesh stays empty, so skip re-uploading it on the frames without a bolt.
+    let was_empty = std::mem::replace(&mut *empty, triangles.is_empty());
+    if !(was_empty && *empty) {
+        *meshes.get_mut(&assets.0).unwrap() = message_mesh(triangles);
+    }
 }
 
 #[cfg(test)]
