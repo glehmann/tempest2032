@@ -465,8 +465,8 @@ Neither preview writes player data.
 
 GitHub Actions builds all Cargo targets and runs the tests on Windows x86_64,
 macOS arm64, Linux x86_64, and Linux arm64 using native runners and stable Rust.
-Checks run on pushes, pull requests, and manual workflow dispatches.
-They also check Rust formatting, Linux Clippy lints, WASM compilation, and the
+Checks run on pushes to `main`, pull requests, and manual workflow dispatches.
+They also check Rust formatting, Linux and WASM Clippy lints, and the
 Python packaging/build and JavaScript browser tests. The tagged-release workflow
 reuses these checks before building and publishing packages.
 Cargo downloads and compiled dependencies are cached separately for each target,
@@ -483,7 +483,7 @@ and do not persist checkout credentials.
 
 ## Application packages
 
-`.github/workflows/packages.yml` runs on branch pushes, pull requests, and manual
+`.github/workflows/packages.yml` runs on pushes to `main`, pull requests, and manual
 dispatches. It builds optimized packages on native runners for Windows x86_64,
 macOS arm64, and Linux x86_64/arm64. Each job uploads its packages as an Actions
 artifact with a three-day retention period. It is also a reusable workflow called
