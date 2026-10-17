@@ -3,7 +3,6 @@ use super::*;
 fn app() -> App {
     let mut app = App::new();
     app.init_resource::<Glyphs>()
-        .init_resource::<super::super::font::Font>()
         .init_resource::<Messages>()
         .init_resource::<Time<Virtual>>()
         .init_resource::<crate::pause::Menu>()
