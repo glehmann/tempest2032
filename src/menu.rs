@@ -696,40 +696,32 @@ fn draw(
         (window.height() / 800.).min(window.width() / 1100.)
     });
     for mut node in &mut root {
-        node.display = if screen == Screen::Gameplay {
-            Display::None
-        } else {
-            Display::Flex
-        };
+        show(&mut node, screen != Screen::Gameplay);
     }
     if screen == Screen::Gameplay {
         return;
     }
     for (mut panel, mut background) in &mut panels {
-        panel.width = percent(if screen == Screen::Welcome { 90 } else { 70 });
-        panel.height = if illustrated { percent(86) } else { Val::Auto };
-        panel.padding = UiRect::all(px(20. * scale));
-        panel.row_gap = px(16. * scale);
-        background.0 = if screen == Screen::Welcome {
+        let layout = Node {
+            width: percent(if screen == Screen::Welcome { 90 } else { 70 }),
+            height: if illustrated { percent(86) } else { Val::Auto },
+            padding: UiRect::all(px(20. * scale)),
+            row_gap: px(16. * scale),
+            ..panel.clone()
+        };
+        panel.set_if_neq(layout);
+        background.set_if_neq(BackgroundColor(if screen == Screen::Welcome {
             Color::NONE
         } else {
             Color::srgba(0.01, 0.015, 0.035, 0.78)
-        };
+        }));
     }
     for mut node in &mut illustrated_nodes {
-        node.display = if illustrated {
-            Display::Flex
-        } else {
-            Display::None
-        };
+        show(&mut node, illustrated);
     }
     for entity in &preview_nodes {
         if let Ok(mut node) = illustrated_nodes.get_mut(entity) {
-            node.display = if screen == Screen::Welcome {
-                Display::Flex
-            } else {
-                Display::None
-            };
+            show(&mut node, screen == Screen::Welcome);
         }
     }
     let (title, body, footer) = match screen {
@@ -804,17 +796,25 @@ fn draw(
             Label::Footer => (&footer, 16.),
             Label::Notice => (&notice, 16.),
         };
-        node.display = if value.is_empty() {
-            Display::None
-        } else {
-            Display::Flex
-        };
+        show(&mut node, !value.is_empty());
         if text.0 != *value {
             text.0.clone_from(value);
         }
         if font.font_size != size * scale {
             font.font_size = size * scale;
         }
+    }
+}
+
+/// Layout changes re-run UI layout, so leave unchanged nodes untouched.
+fn show(node: &mut Mut<Node>, visible: bool) {
+    let display = if visible {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    if node.display != display {
+        node.display = display;
     }
 }
 

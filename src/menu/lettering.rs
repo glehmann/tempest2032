@@ -101,6 +101,7 @@ pub(super) fn setup(
     camera
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw(
     front: Res<FrontEnd>,
     store: Res<Store>,
@@ -109,12 +110,20 @@ fn draw(
     mut graphics: ResMut<Graphics>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut camera: Single<(&mut Camera, &mut Projection), With<PanelCamera>>,
+    mut scaled: Local<Option<Screen>>,
 ) {
-    camera.0.is_active = matches!(front.screen, Screen::Welcome | Screen::Initials);
-    if !camera.0.is_active {
+    let active = matches!(front.screen, Screen::Welcome | Screen::Initials);
+    if camera.0.is_active != active {
+        camera.0.is_active = active;
+    }
+    if !active {
         return;
     }
-    if let Projection::Orthographic(projection) = &mut *camera.1 {
+    // ScalingMode has no equality, so only rewrite it when the screen changes.
+    if *scaled != Some(front.screen)
+        && let Projection::Orthographic(projection) = &mut *camera.1
+    {
+        *scaled = Some(front.screen);
         projection.scaling_mode = ScalingMode::AutoMin {
             min_width: 560.,
             min_height: if front.screen == Screen::Welcome {

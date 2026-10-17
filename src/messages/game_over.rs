@@ -161,14 +161,24 @@ fn draw(
     let age = messages.game_over.map(|active| active.age);
     let viewport = crate::messages::geometry::viewport_width(&windows);
     for (canvas, mut sprite, mut transform, mut visible) in &mut canvases {
-        *visible = if age.is_some() {
+        visible.set_if_neq(if age.is_some() {
             Visibility::Visible
         } else {
             Visibility::Hidden
-        };
+        });
         match canvas {
-            Canvas::Background => sprite.custom_size = Some(Vec2::new(viewport, 240.)),
-            Canvas::Feedback => transform.scale = Vec3::splat((viewport / WIDTH as f32).min(1.)),
+            Canvas::Background => {
+                let size = Some(Vec2::new(viewport, 240.));
+                if sprite.custom_size != size {
+                    sprite.custom_size = size;
+                }
+            }
+            Canvas::Feedback => {
+                let scale = Vec3::splat((viewport / WIDTH as f32).min(1.));
+                if transform.scale != scale {
+                    transform.scale = scale;
+                }
+            }
         }
     }
     let Some(age) = age else { return };

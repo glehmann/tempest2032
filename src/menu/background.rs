@@ -207,8 +207,11 @@ fn update_web_preview(
     mut center: Local<Vec3>,
     mut angle: Local<f32>,
 ) {
-    camera.0.is_active = front.screen == Screen::Welcome;
-    if !camera.0.is_active {
+    let active = front.screen == Screen::Welcome;
+    if camera.0.is_active != active {
+        camera.0.is_active = active;
+    }
+    if !active {
         return;
     }
     let selected = front.preview_level();
@@ -260,9 +263,11 @@ fn advance(
             star.0.projected(Vec2::ZERO) * scale + Vec2::new(window.width(), window.height()) / 2.;
         node.left = px(position.x - size / 2.);
         node.top = px(position.y - size / 2.);
-        node.width = px(size);
-        node.height = px(size);
-        color.0 = star.0.color();
+        if node.width != px(size) {
+            node.width = px(size);
+            node.height = px(size);
+        }
+        color.set_if_neq(BackgroundColor(star.0.color()));
     }
 }
 
