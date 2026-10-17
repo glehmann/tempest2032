@@ -142,7 +142,7 @@ pub(crate) fn spawn(
         game.pulsar_timer -= 1;
         return;
     }
-    if living.iter().count() + tankers.iter().count() * 2 >= level.flippers.max_active {
+    if crate::enemies::occupancy(&living, &tankers) >= level.flippers.max_active {
         return;
     }
     game.advance_random();

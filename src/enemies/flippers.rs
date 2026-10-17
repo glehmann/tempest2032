@@ -137,7 +137,7 @@ pub(crate) fn spawn_enemies(
     if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    let mut occupied = living.iter().count() + tankers.iter().count() * 2;
+    let mut occupied = crate::enemies::occupancy(&living, &tankers);
     for (kind, interval) in [
         (
             SpawnKind::Normal,

@@ -39,6 +39,14 @@ impl Default for SpawnOrder {
     }
 }
 
+/// Enemy slots in use. Tankers are also `Enemy` entities, so each counts three times.
+pub(crate) fn occupancy(
+    living: &Query<(), With<Enemy>>,
+    tankers: &Query<(), With<tankers::Tanker>>,
+) -> usize {
+    living.iter().count() + tankers.iter().count() * 2
+}
+
 pub(crate) fn setup(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,

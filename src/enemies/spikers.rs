@@ -110,7 +110,7 @@ pub(crate) fn spawn(
     if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    let mut occupied = living.iter().count() + tankers.iter().count() * 2;
+    let mut occupied = crate::enemies::occupancy(&living, &tankers);
     let mut has_spiker = !spikers.is_empty();
     for (extra, generator) in [(false, &level.spikers), (true, &level.extra_spikers)] {
         let Some(generator) = generator else { continue };

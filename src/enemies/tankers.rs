@@ -192,7 +192,7 @@ pub(crate) fn spawn(
     if game.status != Status::Playing || game.remaining == 0 {
         return;
     }
-    let mut occupied = living.iter().count() + tankers.iter().count() * 2;
+    let mut occupied = crate::enemies::occupancy(&living, &tankers);
     for (contents, generator) in [
         (Contents::Flippers, level.tankers.as_ref()),
         (Contents::Fuseballs, level.fuse_tankers.as_ref()),
