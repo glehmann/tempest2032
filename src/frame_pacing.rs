@@ -16,16 +16,7 @@ pub(crate) struct FramePacing {
 }
 
 impl FramePacing {
-    fn sample(
-        &mut self,
-        now: Duration,
-        delta: Duration,
-        refresh_rate: Option<u32>,
-    ) -> Option<(u32, Duration)> {
-        let Some(rate) = refresh_rate.filter(|rate| *rate > 0) else {
-            *self = Self::default();
-            return None;
-        };
+    fn sample(&mut self, now: Duration, delta: Duration, rate: u32) -> Option<(u32, Duration)> {
         if self.refresh_rate != Some(rate) {
             *self = Self {
                 refresh_rate: Some(rate),
@@ -91,7 +82,7 @@ pub(crate) fn warn_late_frames(
             info!("Monitor refresh rate unavailable; frame pacing warnings assume 60 Hz");
         }
     }
-    if let Some((count, worst)) = pacing.sample(time.elapsed(), time.delta(), Some(rate)) {
+    if let Some((count, worst)) = pacing.sample(time.elapsed(), time.delta(), rate) {
         warn!(
             "Possible missed refresh: {count} late update interval(s), worst {:.2} ms; \
              {:.3} Hz display, {:.2} ms budget. Actual presentation timing unavailable.",

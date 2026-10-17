@@ -12,7 +12,7 @@ fn sample(
     pacing.sample(
         Duration::from_millis(now_ms),
         Duration::from_millis(delta_ms),
-        Some(rate),
+        rate,
     )
 }
 
@@ -67,10 +67,8 @@ fn background_intervals_are_discarded_and_resuming_reestablishes_the_baseline() 
     sample(&mut pacing, 0, 0, 60_000);
     sample(&mut pacing, 33, 33, 60_000);
     sample(&mut pacing, 66, 33, 60_000);
-    assert_eq!(
-        pacing.sample(Duration::from_secs(10), Duration::from_secs(10), None),
-        None
-    );
+    // warn_late_frames resets the state while the window is in the background.
+    pacing = FramePacing::default();
     assert_eq!(sample(&mut pacing, 10_100, 100, 60_000), None);
     assert_eq!(sample(&mut pacing, 10_116, 16, 60_000), None);
     assert_eq!(
