@@ -174,53 +174,25 @@ pub(crate) fn controlling(game: Res<Game>) -> bool {
 }
 
 pub(crate) fn reset_wave(game: &mut Game, level: &Level) {
+    let first = |g: Option<&crate::level::Generator>| g.map_or(0, |g| g.first_spawn_ticks - 1);
+    let pulsing = |p: &Option<crate::level::Pulsars>| first(p.as_ref().map(|p| &p.generator));
     game.remaining = level.flippers.count;
-    game.spiral_flipper_timer = level
-        .spiral_flippers
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
-    game.alien_timer = level.aliens.as_ref().map_or(0, |g| g.first_spawn_ticks - 1);
-    game.extra_spiker_timer = level
-        .extra_spikers
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
-    game.super_flipper_timer = level
-        .super_flippers
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
-    game.mirror_timer = level
-        .mirrors
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
+    game.spiral_flipper_timer = first(level.spiral_flippers.as_ref());
+    game.alien_timer = first(level.aliens.as_ref());
+    game.extra_spiker_timer = first(level.extra_spikers.as_ref());
+    game.super_flipper_timer = first(level.super_flippers.as_ref());
+    game.mirror_timer = first(level.mirrors.as_ref());
     game.spawn_timer = level.flippers.first_spawn_ticks - 1;
     game.status = Status::Entering;
-    game.pulsar_timer = level
-        .pulsars
-        .as_ref()
-        .map_or(0, |p| p.generator.first_spawn_ticks - 1);
+    game.pulsar_timer = pulsing(&level.pulsars);
     game.entry = Some(0);
     game.fire_timer = 112;
-    game.tanker_timer = level
-        .tankers
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
-    game.fuse_tanker_timer = level
-        .fuse_tankers
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
-    game.pulsar_tanker_timer = level
-        .pulsar_tankers
-        .as_ref()
-        .map_or(0, |p| p.generator.first_spawn_ticks - 1);
-    game.spiker_timer = level
-        .spikers
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
-    game.beast_timer = level.beasts.as_ref().map_or(0, |g| g.first_spawn_ticks - 1);
-    game.fuse_timer = level
-        .fuseballs
-        .as_ref()
-        .map_or(0, |g| g.first_spawn_ticks - 1);
+    game.tanker_timer = first(level.tankers.as_ref());
+    game.fuse_tanker_timer = first(level.fuse_tankers.as_ref());
+    game.pulsar_tanker_timer = pulsing(&level.pulsar_tankers);
+    game.spiker_timer = first(level.spikers.as_ref());
+    game.beast_timer = first(level.beasts.as_ref());
+    game.fuse_timer = first(level.fuseballs.as_ref());
 }
 
 #[allow(clippy::too_many_arguments)]

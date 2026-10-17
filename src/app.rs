@@ -322,68 +322,18 @@ fn add_systems(app: &mut App) {
                 gate: start.gate,
                 destination: index,
             });
+    let mut game = Game {
+        load: start_warp,
+        deferred_start_bonus: start_warp
+            .is_none()
+            .then(|| Game::starting_bonus(initial.number)),
+        level_index: index,
+        ..default()
+    };
+    crate::game::reset_wave(&mut game, &initial);
     app.init_resource::<Level>()
         .init_resource::<Levels>()
-        .insert_resource(Game {
-            status: Status::Entering,
-            load: start_warp,
-            deferred_start_bonus: start_warp
-                .is_none()
-                .then(|| Game::starting_bonus(initial.number)),
-            pulsar_timer: initial
-                .pulsars
-                .as_ref()
-                .map_or(0, |p| p.generator.first_spawn_ticks - 1),
-            entry: Some(0),
-            remaining: initial.flippers.count,
-            spiral_flipper_timer: initial
-                .spiral_flippers
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            alien_timer: initial
-                .aliens
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            extra_spiker_timer: initial
-                .extra_spikers
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            super_flipper_timer: initial
-                .super_flippers
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            mirror_timer: initial
-                .mirrors
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            spawn_timer: initial.flippers.first_spawn_ticks - 1,
-            level_index: index,
-            tanker_timer: initial
-                .tankers
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            fuse_tanker_timer: initial
-                .fuse_tankers
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            pulsar_tanker_timer: initial
-                .pulsar_tankers
-                .as_ref()
-                .map_or(0, |p| p.generator.first_spawn_ticks - 1),
-            spiker_timer: initial
-                .spikers
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            beast_timer: initial
-                .beasts
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            fuse_timer: initial
-                .fuseballs
-                .as_ref()
-                .map_or(0, |g| g.first_spawn_ticks - 1),
-            ..default()
-        })
+        .insert_resource(game)
         .init_resource::<powerups::Upgrades>()
         .init_resource::<pulsars::Pulse>()
         .add_systems(
