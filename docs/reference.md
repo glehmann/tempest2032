@@ -1448,13 +1448,21 @@ reduction is retained only if, compared with both the baseline and the recheck:
 Otherwise the previous quality stays restored. Both outcomes start a 30-second
 cooldown before another baseline can be measured. Logs show the baseline,
 reduced, and rechecked frame times, excess time, and the keep/restore decision. This prevents
-repeated quality loss when reducing AA does not help. Confirmed reductions
-persist for the session. The 57 FPS threshold tolerates 59.94 Hz displays and
+repeated quality loss when reducing AA does not help.
+
+Confirmed reductions are not permanent. After 60 seconds of measured play without
+a slow window, the next higher setting is tried again, up to the starting
+quality. It is kept if its two-second measurement, after the usual settling time,
+stays at or above 57 updates per second; otherwise the reduction returns and the
+calm period before the next attempt doubles, up to 16 minutes. A successful
+probe resets that delay. Slow windows restart the calm period, while pauses and
+scene changes only interrupt the measurement in progress. The 57 FPS threshold tolerates 59.94 Hz displays and
 small scheduling variations around 60 Hz.
 
 Losing focus, hiding the window, resizing, changing levels or game/front-end
 phases, and pausing discard measurements. An interrupted trial restores its
-previous quality and starts the cooldown; confirmed quality is preserved.
+previous quality, an interrupted probe restores the reduced quality, and both
+start the cooldown; confirmed quality is preserved.
 `--antialiasing full`, `--antialiasing fxaa`, and `--antialiasing off` fix the
 quality for the entire session, disabling automatic trials and alternate-pipeline
 prewarming. The browser accepts the same values as `?aa=`, where `auto` is the

@@ -12,6 +12,10 @@ const WINDOW: Duration = Duration::from_millis(500);
 const SLOW_WINDOWS: u8 = 12;
 const TRIAL: Duration = Duration::from_secs(2);
 const COOLDOWN: Duration = Duration::from_secs(30);
+/// Time without slow windows before trying the next higher quality again,
+/// doubled after each failed probe so a host that cannot keep up is rarely disturbed.
+const PROBE_DELAY: Duration = Duration::from_secs(60);
+const MAX_PROBE_DELAY: Duration = Duration::from_secs(960);
 const FRAME_BUDGET: Duration = Duration::from_nanos(16_666_667);
 /// Allow 59.94 Hz displays and small scheduling variations, but react to a
 /// sustained shortfall from the 60 Hz simulation. Include stalls in the average;
@@ -32,6 +36,13 @@ impl Quality {
         match self {
             Self::Full => Self::Fxaa,
             Self::Fxaa | Self::Off => Self::Off,
+        }
+    }
+
+    fn step_up(self) -> Self {
+        match self {
+            Self::Off => Self::Fxaa,
+            Self::Fxaa | Self::Full => Self::Full,
         }
     }
 
@@ -120,6 +131,13 @@ pub(crate) struct Antialiasing {
     baseline: Timings,
     slow_windows: u8,
     trial: Option<Trial>,
+    /// The starting quality, which probes never exceed.
+    ceiling: Quality,
+    /// Measured time without slow windows since the last slowdown or probe.
+    calm: Duration,
+    probe_delay: Duration,
+    /// The quality to return to if the probed higher quality cannot keep up.
+    probe: Option<Quality>,
     cooldown: Duration,
     context: Option<Context>,
     /// Remaining configurations to apply once, so a later step-down finds its
@@ -154,6 +172,10 @@ impl Antialiasing {
             baseline: Timings::default(),
             slow_windows: 0,
             trial: None,
+            ceiling: start,
+            calm: Duration::ZERO,
+            probe_delay: PROBE_DELAY,
+            probe: None,
             cooldown: Duration::ZERO,
             context: None,
             prewarm,
@@ -167,6 +189,14 @@ impl Antialiasing {
             info!(
                 "Antialiasing trial interrupted; restoring {}",
                 self.quality.label()
+            );
+        }
+        if let Some(lower) = self.probe.take() {
+            self.quality = lower;
+            self.cooldown = COOLDOWN;
+            info!(
+                "Antialiasing probe interrupted; restoring {}",
+                lower.label()
             );
         }
         self.window = Timings::default();
@@ -194,7 +224,7 @@ impl Antialiasing {
             self.cooldown = self.cooldown.saturating_sub(delta);
             return;
         }
-        if self.quality == Quality::Off && self.trial.is_none() {
+        if self.quality == Quality::Off && self.ceiling == Quality::Off {
             return;
         }
         if !self.warmup.is_zero() {
@@ -235,11 +265,40 @@ impl Antialiasing {
             self.cooldown = COOLDOWN;
             return;
         }
+        if let Some(lower) = self.probe {
+            if self.window.elapsed < TRIAL {
+                return;
+            }
+            let window = std::mem::take(&mut self.window);
+            let kept = window.mean() <= SLOW_FRAME;
+            if kept {
+                self.probe_delay = PROBE_DELAY;
+            } else {
+                self.quality = lower;
+                self.probe_delay = (self.probe_delay * 2).min(MAX_PROBE_DELAY);
+            }
+            info!(
+                "Antialiasing probe {}: {:.2} ms/frame; {} {}",
+                if kept { "kept up" } else { "was too slow" },
+                window.mean() * 1000.,
+                if kept { "keeping" } else { "restoring" },
+                self.quality.label(),
+            );
+            self.probe = None;
+            self.reset_measurement();
+            self.cooldown = COOLDOWN;
+            return;
+        }
         if self.window.elapsed < WINDOW {
             return;
         }
         let window = std::mem::take(&mut self.window);
         if window.mean() > SLOW_FRAME {
+            self.calm = Duration::ZERO;
+            // Without filtering there is nothing left to reduce.
+            if self.quality == Quality::Off {
+                return;
+            }
             self.baseline.merge(window);
             self.slow_windows += 1;
             if self.slow_windows >= SLOW_WINDOWS {
@@ -261,6 +320,19 @@ impl Antialiasing {
         } else {
             self.slow_windows = 0;
             self.baseline = Timings::default();
+            if self.quality != self.ceiling {
+                self.calm += window.elapsed;
+                if self.calm >= self.probe_delay {
+                    self.calm = Duration::ZERO;
+                    self.probe = Some(self.quality);
+                    self.quality = self.quality.step_up();
+                    self.warmup = WARMUP;
+                    info!(
+                        "Trying antialiasing {} again after a calm period",
+                        self.quality.label()
+                    );
+                }
+            }
         }
     }
 }
@@ -572,6 +644,74 @@ mod tests {
             assert_eq!(state.window.frames, 0);
             assert_eq!(state.cooldown, COOLDOWN);
         }
+    }
+
+    /// Runs frames at `seconds` until `done` holds, failing after ten simulated minutes.
+    fn until(state: &mut Antialiasing, seconds: f64, done: impl Fn(&Antialiasing) -> bool) {
+        for _ in 0..(600. / seconds) as usize {
+            if done(state) {
+                return;
+            }
+            frames(state, 1, seconds);
+        }
+        panic!("condition not reached");
+    }
+
+    fn reduced_to_fxaa() -> Antialiasing {
+        let mut state = Antialiasing::default();
+        begin_trial(&mut state, 1. / 30.);
+        finish_trial(&mut state, 1. / 60., 1. / 30.);
+        assert_eq!(state.quality, Quality::Fxaa);
+        state
+    }
+
+    #[test]
+    fn a_calm_period_restores_a_reduction_that_is_no_longer_needed() {
+        let mut state = reduced_to_fxaa();
+        until(&mut state, 1. / 60., |s| s.probe.is_some());
+        assert_eq!(state.quality, Quality::Full);
+        until(&mut state, 1. / 60., |s| s.probe.is_none());
+        assert_eq!(state.quality, Quality::Full);
+        assert_eq!(state.probe_delay, PROBE_DELAY);
+    }
+
+    #[test]
+    fn a_probe_that_cannot_keep_up_restores_the_reduction_and_waits_longer() {
+        let mut state = reduced_to_fxaa();
+        until(&mut state, 1. / 60., |s| s.probe.is_some());
+        until(&mut state, 1. / 40., |s| s.probe.is_none());
+        assert_eq!(state.quality, Quality::Fxaa);
+        assert_eq!(state.probe_delay, PROBE_DELAY * 2);
+        assert_eq!(state.cooldown, COOLDOWN);
+    }
+
+    #[test]
+    fn slow_windows_restart_the_calm_period() {
+        let mut state = reduced_to_fxaa();
+        until(&mut state, 1. / 60., |s| s.calm > PROBE_DELAY / 2);
+        frames(&mut state, 30, 1. / 40.);
+        assert_eq!(state.calm, Duration::ZERO);
+        assert!(state.probe.is_none());
+    }
+
+    #[test]
+    fn slow_frames_without_filtering_only_delay_the_next_probe() {
+        let mut state = Antialiasing {
+            quality: Quality::Off,
+            ..default()
+        };
+        frames(&mut state, 30 * 600, 1. / 30.);
+        assert_eq!(state.quality, Quality::Off);
+        assert_eq!(state.slow_windows, 0);
+        assert!(state.probe.is_none() && state.trial.is_none());
+    }
+
+    #[test]
+    fn probes_never_exceed_the_starting_quality() {
+        let mut state = Antialiasing::new(Quality::Fxaa, true);
+        frames(&mut state, 60 * 300, 1. / 60.);
+        assert_eq!(state.quality, Quality::Fxaa);
+        assert!(state.probe.is_none());
     }
 
     #[test]
