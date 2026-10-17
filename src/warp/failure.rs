@@ -1,4 +1,4 @@
-//! failfade/ffade reprocess the last scene on gate exits and after tunnel collapse.
+//! failfade/ffade reprocess the last scene on gate exits and when a tunnel collapses or completes.
 
 use super::{Phase, ZoneKind};
 use crate::{

@@ -4,7 +4,7 @@
 //! This is a hand-authored table, not a computed sine. 78 of its 256 entries
 //! sit one unit away from `trunc(127 * sin(2*pi*i/256))`, the peak is flat at
 //! 126 across indices 59 to 69 where a real sine reaches 127, and it is not
-//! half-wave symmetric: index 5 is 12 while index 133 is -16. The call sites
+//! half-wave symmetric: index 5 is 15 while index 133 is -16. The call sites
 //! feed these values into integer shifts and CRY color masks, so a generated
 //! table would move geometry. Keep the numbers as they are.
 
@@ -58,7 +58,7 @@ mod tests {
         assert_eq!(
             sine(133),
             -16,
-            "half-wave symmetry would give -16 to be -15"
+            "half-wave symmetry would make index 133 -15"
         );
         assert!(
             (0..256).any(|angle| {

@@ -670,7 +670,7 @@ is `0.6`; values must be between zero and one. The sound pack is embedded in the
 executable, so playback needs no original source tree or ROM at runtime.
 
 Effects, voices, and engine loops use the original driver rates without a
-global pitch multiplier. The former `--effects-pitch` option has been removed.
+global pitch multiplier.
 Gameplay-controlled pitch changes still apply to individual sounds.
 
 Spike hits share a dedicated two-voice pool, retaining the original overlap
@@ -1599,7 +1599,7 @@ A shot is not a flat green dot. Sampling a reference screenshot shows three
 layers: a near-white core in the shape of the original's `shot` vector, a
 bright cyan-green body, and a darker green rim. The original gets this by
 drawing a small shape at full brightness and letting bloom spread the colour,
-so this prototype builds the layers into the mesh instead. The shades,
+so this port builds the layers into the mesh instead. The shades,
 `(236, 250, 254)`, `(14, 250, 155)`, and `(0, 154, 53)`, are sampled from that
 screenshot.
 
@@ -1656,7 +1656,7 @@ the corners of its bounding box, so that box decides the whole silhouette.
 the X closes towards a plus sign and each arm points at a corner. Measuring
 both references shows a much shallower cross, with the arms meeting at about
 58 degrees where ours meet at 97. A box twice as wide as it is tall gives 53
-degrees, so this prototype
+degrees, so this port
 stretches the tips to `(0, 0)` and `(32, 16)`. That is the third deliberate
 departure from `fverts`.
 
@@ -1800,9 +1800,7 @@ reward sequence unchanged.
 The surprise bonus uses the shared gameplay random stream, following `suprise`
 and `rannum` (`yak.s:10628-10654`, `yak.s:17739-17745`). Rolls 0 through 8 award
 3,000 points, OUTTA HERE and EXCELLENT, and start the level exit even with enemies
-and unspawned enemies remaining. Other rolls award 2,000 points. The former
-pickup-only random stream restarted after every death and could not award a skip
-until its 38th surprise roll, making early skips effectively absent in short runs.
+and unspawned enemies remaining. Other rolls award 2,000 points.
 
 The particle laser uses `draw_pring` and the GPU's `pring`, not the four-wing
 `pshot` polygon. Its dots stay two original framebuffer pixels wide, rotate
@@ -1997,7 +1995,7 @@ presentation. This uses the existing 183-tick failure interval.
 Successful completion holds the tunnel's 301-tick victory animation, hides the
 separate WARP 5 LEVELS! text strip, and then applies the same 151-tick bitmap melt
 before web entry (`yak.s:3959-3967`). The victory frame is frozen throughout the
-melt; this adds the original final fade that was previously skipped on success.
+melt.
 
 Psychedelic rings use the same two-axis inertial controls as gate flight.
 The original courses are mirrored horizontally, every ring uses the original
@@ -2208,7 +2206,7 @@ interrupted failure cannot appear in a later session.
 
 The original Tempest 2000 sources are available at
 [mwenge/tempest2k](https://github.com/mwenge/tempest2k). The geometry references
-used for this prototype are in `src/yak.s` and `src/obj2d.s`:
+used for this port are in `src/yak.s` and `src/obj2d.s`:
 
 - `raw_webs` selects `web5` for the first level.
 - `web5` defines the 16 ring vertices on a 2-to-14 coordinate grid.
@@ -2252,10 +2250,10 @@ at full intensity. The colour sweep is the whole of the apparent fade.
 The CRY hue-to-RGB lookup used to check those colors comes from
 [Virtual Jaguar's TOM implementation](https://github.com/libretro/virtualjaguar-libretro/blob/master/src/tom/tom.c).
 The tables are adapted under GPLv3; upstream credits are preserved in [NOTICE](../NOTICE).
+It decodes `F4` to a red-orange, but the reference screenshot shows no green on
+a Flipper at all, which is why this port does not use that value.
 Virtual Jaguar's red row 8 has two typos (`15` and `7`); they are corrected to
 `115` and `17`, matching MAME's `red_lookup` and the mirrored blue row 7.
-It decodes `F4` to a red-orange, but the reference screenshot shows no green on
-a Flipper at all, which is why this prototype does not use that value.
 
 The camera framing and colors are tuned to the supplied screenshot rather
 than reproducing the Jaguar's renderer exactly.

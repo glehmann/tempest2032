@@ -1,8 +1,8 @@
 //! A graded difficulty scale layered over level definitions.
 //!
 //! These multipliers never touch `levels/*.toml`. They are applied once to the
-//! parsed catalog so the shipped source values stay intact and `normal` remains
-//! uses the configured values unchanged.
+//! parsed catalog so the shipped source values stay intact, and `normal` uses
+//! the configured values unchanged.
 //!
 //! This is deliberately not Beastly mode. The original's Beastly mode is a
 //! separate, harsher mode: it halves the *player's* bullet speed, forces an
