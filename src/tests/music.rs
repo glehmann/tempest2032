@@ -236,3 +236,18 @@ fn missing_or_invalid_music_uses_the_levels_embedded_track() {
         assert_eq!(current(&mut app).1, Selection::Original(5));
     }
 }
+
+#[test]
+fn soundtrack_downloads_do_not_block_startup() {
+    let mut app = app();
+    let url = Soundtrack::Url("http://127.0.0.1:1/song.wav".into());
+    app.world_mut().resource_mut::<Level>().soundtrack = Some(url.clone());
+    app.world_mut().resource_mut::<crate::level::Levels>().0[0].soundtrack = Some(url);
+    app.add_systems(Update, receive.before(update));
+    app.update();
+    assert_eq!(current(&mut app).1, Selection::Original(4));
+    while app.world().resource::<Catalog>().downloads.is_some() {
+        app.update();
+    }
+    assert!(app.world().resource::<Catalog>().custom.is_empty());
+}

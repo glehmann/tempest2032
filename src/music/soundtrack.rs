@@ -3,6 +3,8 @@
 use super::*;
 use std::{io::Write, path::Path};
 
+pub(super) type Download = (Soundtrack, Result<Loaded, String>);
+
 pub(super) enum Loaded {
     Audio(AudioSource),
     Module(Arc<Module>),

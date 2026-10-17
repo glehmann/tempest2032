@@ -776,6 +776,9 @@ Native level overrides can set a top-level `soundtrack = "music/song.mp3"` or an
 HTTP/HTTPS URL. Relative paths resolve beside the TOML file; absolute paths are
 accepted. MP3, FLAC, Ogg Vorbis, WAV, MOD, and XM are detected from their contents.
 At startup, each distinct source is loaded and checked with its audio decoder.
+Files load immediately. URLs load one after another on a background thread, so a
+slow server never delays the first frame; their levels play the original music
+until the track arrives, then fade to it.
 Tracker modules stream through the existing tracker player with owned module
 data, rather than rendering a whole song into memory.
 

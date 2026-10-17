@@ -1,4 +1,4 @@
-//! Embedded MOD music and per-level files or cached URLs, independent of effect pitch.
+//! Embedded MOD music and per-level files or background-loaded cached URLs, independent of effect pitch.
 
 use crate::{
     game::{Game, Status},
@@ -95,6 +95,8 @@ impl Decodable for Track {
 struct Catalog {
     original: [Handle<Track>; 7],
     custom: HashMap<Soundtrack, Selection>,
+    #[cfg(not(target_arch = "wasm32"))]
+    downloads: Option<std::sync::Mutex<std::sync::mpsc::Receiver<soundtrack::Download>>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -134,6 +136,8 @@ pub(crate) fn add_systems(app: &mut App) {
                 .after(crate::game::load_level)
                 .run_if(crate::pause::running),
         );
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(Update, receive.before(update));
 }
 
 fn setup(
@@ -143,51 +147,103 @@ fn setup(
     mut audio: ResMut<Assets<AudioSource>>,
 ) {
     LazyLock::force(&MODULES);
+    #[cfg(not(target_arch = "wasm32"))]
+    let (custom, downloads) = custom_tracks(&levels, &mut audio, &mut assets);
+    #[cfg(target_arch = "wasm32")]
+    let _ = (&levels, &mut audio);
     commands.insert_resource(Catalog {
         original: std::array::from_fn(|index| assets.add(Track(MODULES[index].clone()))),
-        custom: custom_tracks(&levels, &mut audio, &mut assets),
+        #[cfg(not(target_arch = "wasm32"))]
+        custom,
+        #[cfg(target_arch = "wasm32")]
+        custom: HashMap::new(),
+        #[cfg(not(target_arch = "wasm32"))]
+        downloads,
     });
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 mod soundtrack;
 
+#[cfg(not(target_arch = "wasm32"))]
+fn select(
+    path: &Soundtrack,
+    result: Result<soundtrack::Loaded, String>,
+    audio: &mut Assets<AudioSource>,
+    modules: &mut Assets<Track>,
+) -> Option<Selection> {
+    match result {
+        Ok(soundtrack::Loaded::Audio(source)) => Some(Selection::Custom(audio.add(source))),
+        Ok(soundtrack::Loaded::Module(module)) => {
+            Some(Selection::Module(modules.add(Track(module))))
+        }
+        Err(error) => {
+            warn!("Could not load soundtrack {path:?}: {error}; using original music");
+            None
+        }
+    }
+}
+
+/// Loads files now and downloads URLs on a thread, so a slow server cannot
+/// delay startup; their levels play the original music until they arrive.
+#[cfg(not(target_arch = "wasm32"))]
 fn custom_tracks(
     levels: &crate::level::Levels,
     audio: &mut Assets<AudioSource>,
     modules: &mut Assets<Track>,
-) -> HashMap<Soundtrack, Selection> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let mut tracks = HashMap::new();
-        let cache = dirs::cache_dir().map(|path| path.join("tempest2032/soundtracks"));
-        let paths: std::collections::HashSet<_> = levels
-            .0
-            .iter()
-            .filter_map(|level| level.soundtrack.as_ref())
-            .collect();
-        for path in paths {
-            match soundtrack::load(path, cache.as_deref()) {
-                Ok(source) => {
-                    let selection = match source {
-                        soundtrack::Loaded::Audio(source) => Selection::Custom(audio.add(source)),
-                        soundtrack::Loaded::Module(module) => {
-                            Selection::Module(modules.add(Track(module)))
-                        }
-                    };
-                    tracks.insert(path.clone(), selection);
-                }
-                Err(error) => {
-                    warn!("Could not load soundtrack {path:?}: {error}; using original music")
-                }
+) -> (
+    HashMap<Soundtrack, Selection>,
+    Option<std::sync::Mutex<std::sync::mpsc::Receiver<soundtrack::Download>>>,
+) {
+    let cache = dirs::cache_dir().map(|path| path.join("tempest2032/soundtracks"));
+    let (urls, files): (Vec<_>, Vec<_>) = levels
+        .0
+        .iter()
+        .filter_map(|level| level.soundtrack.clone())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .partition(|path| matches!(path, Soundtrack::Url(_)));
+    let tracks = files
+        .into_iter()
+        .filter_map(|path| {
+            let result = soundtrack::load(&path, cache.as_deref());
+            select(&path, result, audio, modules).map(|selection| (path, selection))
+        })
+        .collect();
+    if urls.is_empty() {
+        return (tracks, None);
+    }
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for path in urls {
+            let result = soundtrack::load(&path, cache.as_deref());
+            if sender.send((path, result)).is_err() {
+                break;
             }
         }
-        tracks
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        let _ = (levels, audio, modules);
-        HashMap::new()
+    });
+    (tracks, Some(std::sync::Mutex::new(receiver)))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn receive(
+    mut catalog: ResMut<Catalog>,
+    mut audio: ResMut<Assets<AudioSource>>,
+    mut modules: ResMut<Assets<Track>>,
+) {
+    use std::sync::mpsc::TryRecvError;
+    let Some(downloads) = &catalog.downloads else {
+        return;
+    };
+    let received = downloads.lock().unwrap().try_recv();
+    match received {
+        Ok((path, result)) => {
+            if let Some(selection) = select(&path, result, &mut audio, &mut modules) {
+                catalog.custom.insert(path, selection);
+            }
+        }
+        Err(TryRecvError::Disconnected) => catalog.downloads = None,
+        Err(TryRecvError::Empty) => {}
     }
 }
 
