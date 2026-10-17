@@ -6,21 +6,16 @@ use crate::{
     game::{Game, Status},
 };
 use bevy::{
-    asset::RenderAssetUsages,
     camera::{RenderTarget, visibility::RenderLayers},
     core_pipeline::tonemapping::Tonemapping,
     prelude::*,
     render::{
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        render_resource::TextureFormat,
         view::screenshot::{Screenshot, ScreenshotCaptured},
     },
 };
+use cry::{FEEDBACK_HEIGHT as HEIGHT, FEEDBACK_WIDTH as WIDTH, TICKS_PER_FRAME};
 use std::sync::OnceLock;
-
-const WIDTH: usize = 384;
-const HEIGHT: usize = 240;
-// Like gofeed, retain 15 Hz checkpoints and interpolate their presentation at 60 Hz.
-const TICKS_PER_FRAME: u16 = 4;
 
 fn palette() -> &'static [u16] {
     static PALETTE: OnceLock<Vec<u16>> = OnceLock::new();
@@ -69,7 +64,7 @@ impl Feedback {
         }
         while self.age < 1 + age / TICKS_PER_FRAME {
             let angle = if settle {
-                angle.signum() * (angle.abs() - i32::from((self.age + 1) / 4)).max(0)
+                cry::settle(angle, u32::from(self.age + 1))
             } else {
                 angle
             };
@@ -114,22 +109,10 @@ pub(crate) struct Canvas;
 pub(crate) fn setup(commands: &mut Commands, images: &mut Assets<Image>) {
     // Build the RGB lookup before gameplay, rather than searching 256 hues per pixel on failure.
     palette();
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: WIDTH as u32,
-            height: HEIGHT as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    image.sampler = bevy::image::ImageSampler::nearest();
     commands.insert_resource(Feedback::default());
     commands.spawn((
         Canvas,
-        ImageNode::new(images.add(image)),
+        ImageNode::new(images.add(cry::feedback_image())),
         Visibility::Hidden,
         Node {
             position_type: PositionType::Absolute,
@@ -230,7 +213,7 @@ pub(crate) fn draw(
         return;
     };
     let angle = if settle {
-        ((source.wrapping_mul(0x9e3779b9) >> 16) & 7) as i32 - 3
+        cry::ofade_angle(source)
     } else {
         i32::from(
             game.bonus
@@ -264,17 +247,7 @@ mod tests {
     use super::*;
 
     fn frame() -> Image {
-        let mut image = Image::new_fill(
-            Extent3d {
-                width: WIDTH as u32,
-                height: HEIGHT as u32,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            &[0, 0, 0, 255],
-            TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::default(),
-        );
+        let mut image = cry::feedback_image();
         for (i, pixel) in image
             .data
             .as_mut()

@@ -6,18 +6,12 @@ use crate::{
     game::{Game, Status},
     sines::sine,
 };
-use bevy::{
-    asset::RenderAssetUsages,
-    camera::visibility::RenderLayers,
-    prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-};
+use bevy::{camera::visibility::RenderLayers, prelude::*};
+use cry::{FEEDBACK_HEIGHT as HEIGHT, FEEDBACK_WIDTH as WIDTH};
 
-const WIDTH: usize = 384;
-const HEIGHT: usize = 240;
 const ART: &[u8; 178 * 68 * 2] = include_bytes!("../../assets/messages/warp-victory.cry");
 const WARP: &[u8; 238 * 18 * 2] = include_bytes!("../../assets/messages/warp-five.cry");
-const TICKS_PER_FRAME: u32 = 4;
+const TICKS_PER_FRAME: u32 = cry::TICKS_PER_FRAME as u32;
 
 #[derive(Resource, Default, Clone)]
 pub(crate) struct Feedback {
@@ -69,14 +63,14 @@ impl Feedback {
                     // fade merges the separate sharp text strip into the bitmap first.
                     self.stamp_warp();
                 }
-                // Choose ofade's -3..4-brad angle without consuming gameplay randomness.
-                let angle = ((source.wrapping_mul(0x9e3779b9) >> 16) & 7) as i32 - 3;
-                let steps = ((elapsed - 401) / TICKS_PER_FRAME + 1) / 4;
                 cry::feedback(
                     &mut self.pixels,
                     &mut self.scratch,
                     UVec2::new(WIDTH as u32, HEIGHT as u32),
-                    angle.signum() * (angle.abs() - steps as i32).max(0),
+                    cry::settle(
+                        cry::ofade_angle(source),
+                        (elapsed - 401) / TICKS_PER_FRAME + 1,
+                    ),
                     Vec2::splat(500. / 256.),
                     -8 * 65536,
                 );
@@ -167,22 +161,10 @@ impl Feedback {
 pub(crate) struct Canvas;
 
 pub(crate) fn setup(commands: &mut Commands, images: &mut Assets<Image>) {
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: WIDTH as u32,
-            height: HEIGHT as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    image.sampler = bevy::image::ImageSampler::nearest();
     commands.insert_resource(Feedback::default());
     commands.spawn((
         Canvas,
-        Sprite::from_image(images.add(image)),
+        Sprite::from_image(images.add(cry::feedback_image())),
         Transform::from_xyz(0., 0., 2.),
         Visibility::Hidden,
         RenderLayers::layer(2),

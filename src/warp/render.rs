@@ -385,19 +385,7 @@ pub(crate) fn setup(
     let ground = meshes.add(ground_mesh(0., 0));
     let tunnel = meshes.add(colored_mesh([]));
     let rings = meshes.add(screen_mesh(1.6));
-    let mut feedback_image = Image::new_fill(
-        Extent3d {
-            width: super::rings::WIDTH as u32,
-            height: super::rings::HEIGHT as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    feedback_image.sampler = bevy::image::ImageSampler::nearest();
-    let feedback = images.add(feedback_image);
+    let feedback = images.add(cry::feedback_image());
     let feedback_material = materials.add(StandardMaterial {
         base_color_texture: Some(feedback.clone()),
         unlit: true,
@@ -633,7 +621,7 @@ pub(crate) fn draw(
         let _ = materials.get_mut(&assets.feedback_material);
         image
             .data
-            .get_or_insert_with(|| vec![0; super::rings::WIDTH * super::rings::HEIGHT * 4]);
+            .get_or_insert_with(|| vec![0; cry::FEEDBACK_WIDTH * cry::FEEDBACK_HEIGHT * 4]);
         let phase = match session.phase {
             Phase::Failure(ticks) | Phase::Success(ticks) => (151 - ticks.min(151)) % 4,
             _ => 0,

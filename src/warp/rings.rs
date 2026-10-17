@@ -4,8 +4,7 @@ use super::{Gate, Phase, UNIT, sine};
 use bevy::prelude::*;
 use std::collections::VecDeque;
 
-pub(super) const WIDTH: usize = 384;
-pub(super) const HEIGHT: usize = 240;
+use crate::cry::{FEEDBACK_HEIGHT as HEIGHT, FEEDBACK_WIDTH as WIDTH};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Rings {

@@ -1,6 +1,43 @@
 //! Jaguar CRY color decoding, converting chroma and intensity into RGB colors.
 
-use bevy::prelude::*;
+use bevy::{
+    asset::RenderAssetUsages,
+    prelude::*,
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+};
+
+/// The Jaguar feedback bitmap size shared by the warp melts.
+pub(crate) const FEEDBACK_WIDTH: usize = 384;
+pub(crate) const FEEDBACK_HEIGHT: usize = 240;
+/// Like gofeed, retain 15 Hz checkpoints and interpolate their presentation at 60 Hz.
+pub(crate) const TICKS_PER_FRAME: u16 = 4;
+
+/// A black, nearest-sampled feedback bitmap.
+pub(crate) fn feedback_image() -> Image {
+    let mut image = Image::new_fill(
+        Extent3d {
+            width: FEEDBACK_WIDTH as u32,
+            height: FEEDBACK_HEIGHT as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &[0, 0, 0, 255],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    image.sampler = bevy::image::ImageSampler::nearest();
+    image
+}
+
+/// Chooses `ofade`'s -3..4-brad angle from the scene without consuming gameplay randomness.
+pub(crate) fn ofade_angle(source: u32) -> i32 {
+    ((source.wrapping_mul(0x9e3779b9) >> 16) & 7) as i32 - 3
+}
+
+/// Settles a melt's rotation one brad toward zero every four one-based frames.
+pub(crate) fn settle(angle: i32, frame: u32) -> i32 {
+    angle.signum() * (angle.abs() - (frame / 4) as i32).max(0)
+}
 
 // Adapted from Virtual Jaguar's tom.c under GPLv3, with red row 8 corrected to match MAME.
 // (C) 2010 Underground Software; upstream authors and source are listed in NOTICE.
