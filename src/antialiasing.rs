@@ -183,8 +183,6 @@ impl Antialiasing {
         }
         if !active {
             self.reset_measurement();
-            // The configurations are already built, so refocusing must not repeat them.
-            self.prewarm.clear();
             return;
         }
         if !self.cooldown.is_zero() {
@@ -298,8 +296,11 @@ fn update(
     });
     state.sample(time.delta(), active);
     // Sample count is part of wgpu's pipeline key, so an unprepared step-down stalls
-    // on compilation. Pay that cost during the warmup instead.
-    let applied = state.prewarm.pop_front().unwrap_or(state.quality);
+    // on compilation. Pay that cost during the warmup instead, while frames render.
+    let applied = active
+        .then(|| state.prewarm.pop_front())
+        .flatten()
+        .unwrap_or(state.quality);
     for (mut msaa, fxaa) in &mut cameras {
         let samples = applied.samples();
         if *msaa != samples {
@@ -677,6 +678,32 @@ mod tests {
             app.world().resource::<Antialiasing>().quality,
             Quality::Full
         );
+    }
+
+    #[test]
+    fn prewarm_waits_for_an_active_window() {
+        let mut app = App::new();
+        app.init_resource::<Time<Real>>();
+        add_systems(&mut app, Quality::Full, true);
+        let window = app
+            .world_mut()
+            .spawn((
+                Window {
+                    focused: false,
+                    ..default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
+        for _ in 0..4 {
+            app.update();
+        }
+        assert_eq!(app.world().resource::<Antialiasing>().prewarm.len(), 3);
+        app.world_mut().get_mut::<Window>(window).unwrap().focused = true;
+        for _ in 0..3 {
+            app.update();
+        }
+        assert!(app.world().resource::<Antialiasing>().prewarm.is_empty());
     }
 
     #[test]

@@ -1468,8 +1468,9 @@ In automatic mode, the starting step and every step below it are each applied fo
 one frame during the warmup. The sample count is part of wgpu's pipeline key, so a first-time
 step-down otherwise compiles every pipeline of both camera passes in the frame
 it lands on, which reads as a freeze; building them during the warmup moves that
-cost to startup, while the welcome screen is still loading. Refocusing a
-backgrounded window does not repeat them.
+cost to startup, while the welcome screen is still loading. The warmup waits
+for a focused, visible window, so a browser canvas that starts unfocused still
+gets it, and refocusing a backgrounded window does not repeat it.
 
 ## HUD
 
