@@ -724,7 +724,21 @@ fn contains(contour: &[Vec2], p: Vec2) -> bool {
     inside
 }
 
-fn inset(contour: &[Vec2], amount: f32) -> Vec<Vec2> {
+/// Winds outer contours and holes in opposite directions.
+pub(super) fn orient(contours: &mut [Vec<Vec2>]) {
+    for i in 0..contours.len() {
+        let hole = (0..contours.len())
+            .filter(|&j| i != j && contains(&contours[j], contours[i][0]))
+            .count()
+            % 2
+            == 1;
+        if (area(&contours[i]) < 0.) != hole {
+            contours[i].reverse();
+        }
+    }
+}
+
+pub(super) fn inset(contour: &[Vec2], amount: f32) -> Vec<Vec2> {
     (0..contour.len())
         .map(|i| {
             let a = contour[(i + contour.len() - 1) % contour.len()];
@@ -813,16 +827,7 @@ pub(super) fn extrude(contours: &[Vec<Vec2>], paint: &Paint) -> Glyph {
         };
     }
     let mut contours = contours.to_vec();
-    for i in 0..contours.len() {
-        let hole = (0..contours.len())
-            .filter(|&j| i != j && contains(&contours[j], contours[i][0]))
-            .count()
-            % 2
-            == 1;
-        if (area(&contours[i]) < 0.) != hole {
-            contours[i].reverse();
-        }
-    }
+    orient(&mut contours);
     let front: Vec<_> = contours.iter().map(|p| inset(p, 0.55)).collect();
     let (offset, depth) = if paint.style == Style::Rainbow {
         (Vec2::new(1.6, 2.4), 3.2)

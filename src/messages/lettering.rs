@@ -159,46 +159,12 @@ pub(crate) fn svg_contours(text: &str) -> Result<Vec<Vec<Vec2>>> {
     Ok(contours)
 }
 
-fn contains(contour: &[Vec2], p: Vec2) -> bool {
-    let mut inside = false;
-    for i in 0..contour.len() {
-        let a = contour[i];
-        let b = contour[(i + 1) % contour.len()];
-        if (a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x {
-            inside = !inside;
-        }
-    }
-    inside
-}
-
 pub(crate) fn thin(contours: &mut [Vec<Vec2>], amount: f32) {
-    for i in 0..contours.len() {
-        let hole = (0..contours.len())
-            .filter(|&j| i != j && contains(&contours[j], contours[i][0]))
-            .count()
-            % 2
-            == 1;
-        let area: f32 = (0..contours[i].len())
-            .map(|j| contours[i][j].perp_dot(contours[i][(j + 1) % contours[i].len()]))
-            .sum();
-        if (area < 0.) != hole {
-            contours[i].reverse();
-        }
-    }
+    super::geometry::orient(contours);
     if amount == 0. {
         return;
     }
     for contour in contours {
-        *contour = (0..contour.len())
-            .map(|i| {
-                let p = contour[i];
-                let a = contour[(i + contour.len() - 1) % contour.len()];
-                let b = contour[(i + 1) % contour.len()];
-                let n0 = (p - a).normalize_or_zero().perp();
-                let n1 = (b - p).normalize_or_zero().perp();
-                let direction = (n0 + n1).normalize_or_zero();
-                p + direction * (amount / direction.dot(n1).max(0.35))
-            })
-            .collect();
+        *contour = super::geometry::inset(contour, amount);
     }
 }
