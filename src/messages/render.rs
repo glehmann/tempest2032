@@ -70,17 +70,6 @@ pub(super) fn draw(
 ) {
     let mut frame = Vec::with_capacity(messages.rewards.len());
     for active in &messages.rewards {
-        if !matches!(
-            active.event.id,
-            super::Id::Points2000
-                | super::Id::Excellent
-                | super::Id::OneUp
-                | super::Id::Points250
-                | super::Id::Points500
-                | super::Id::Points750
-        ) {
-            continue;
-        }
         let center = match active.event.origin {
             // Score labels follow their world origin, so the camera can move them.
             Some(origin) => {
