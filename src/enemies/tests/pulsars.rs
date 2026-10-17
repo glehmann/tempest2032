@@ -11,7 +11,7 @@ use crate::{
     },
     game::{Game, Status},
     level::{Level, Levels, LoadReason},
-    powerups::{PowerUp, Upgrades},
+    powerups::{Upgrades, pickups::PowerUp},
     test_support::ticks,
     weapons::{Bullet, Weapon},
     web::{LANE_UNIT, WORLD_UNIT},

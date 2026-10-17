@@ -645,7 +645,7 @@ fn completion_requires_no_remaining_spawns_or_enemies_but_does_not_wait_for_pick
     assert!(app.world().resource::<Game>().status == Status::Exiting);
     assert_eq!(
         app.world_mut()
-            .query::<&powerups::PowerUp>()
+            .query::<&powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         1
@@ -675,7 +675,7 @@ fn restart_clears_enemies_shots_score_and_game_over() {
     assert!(!app.world().resource::<powerups::Upgrades>().laser);
     assert_eq!(
         app.world_mut()
-            .query::<&powerups::PowerUp>()
+            .query::<&powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         0

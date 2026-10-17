@@ -242,7 +242,7 @@ fn shots_trim_spikes_by_three_units_and_leave_particle_shots_alive() {
         assert_eq!(app.world().resource::<Game>().score, 36);
         assert_eq!(
             app.world_mut()
-                .query::<&powerups::PowerUp>()
+                .query::<&powerups::pickups::PowerUp>()
                 .iter(app.world())
                 .count(),
             0

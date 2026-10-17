@@ -3,16 +3,12 @@
 
 use crate::animations::glider_death as shot_death;
 use crate::camera::CAMERA_STEP;
-use crate::enemies::flippers::Flipper;
-use crate::enemies::shots::EnemyShot;
 use crate::enemies::spikers;
-use crate::explosion;
 use crate::game::Game;
 use crate::game::Status;
 use crate::glider::Glider;
 use crate::level::Level;
 use crate::level::LoadReason;
-use crate::powerups;
 use crate::stars;
 use crate::weapons::Bullet;
 use crate::weapons::Weapon;
@@ -134,16 +130,7 @@ pub(crate) fn animate(
             Without<crate::messages::geometry::OverlayCamera>,
         ),
     >,
-    actors: Query<
-        (Entity, Option<&Bullet>),
-        Or<(
-            With<Bullet>,
-            With<Flipper>,
-            With<EnemyShot>,
-            With<powerups::PowerUp>,
-            With<explosion::Explosion>,
-        )>,
-    >,
+    bullets: Query<Entity, With<Bullet>>,
     mut warp: Option<ResMut<stars::Warp>>,
     spikes: Query<&spikers::Spike>,
 ) {
@@ -171,10 +158,8 @@ pub(crate) fn animate(
         return;
     }
     if exit.wireframe && !was_wireframe {
-        for (entity, bullet) in &actors {
-            if bullet.is_some() {
-                commands.entity(entity).despawn();
-            }
+        for entity in &bullets {
+            commands.entity(entity).despawn();
         }
     }
     if exit.flash > 0 && was_flash == 0 {

@@ -572,7 +572,7 @@ fn shooting_a_tanker_releases_two_children_without_advancing_the_drop_counter() 
     );
     assert_eq!(
         app.world_mut()
-            .query::<&powerups::PowerUp>()
+            .query::<&powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         0

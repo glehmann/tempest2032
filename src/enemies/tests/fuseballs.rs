@@ -70,7 +70,7 @@ fn fuseballs_only_take_hits_in_the_middle_of_a_crossing() {
         }
         assert_eq!(
             app.world_mut()
-                .query::<&powerups::PowerUp>()
+                .query::<&powerups::pickups::PowerUp>()
                 .iter(app.world())
                 .count(),
             0

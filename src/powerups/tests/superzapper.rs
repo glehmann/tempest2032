@@ -111,7 +111,7 @@ fn a_short_tap_starts_a_four_tick_sweep_without_spending_the_second_use_while_he
     assert!(!app.world().resource::<Upgrades>().zapper.active);
     assert_eq!(
         app.world_mut()
-            .query::<&crate::powerups::PowerUp>()
+            .query::<&crate::powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         0
@@ -144,7 +144,7 @@ fn a_zap_and_bullet_in_the_same_tick_cannot_score_the_same_enemy_twice() {
     assert_eq!(app.world().resource::<Game>().score, 150);
     assert_eq!(
         app.world_mut()
-            .query::<&crate::powerups::PowerUp>()
+            .query::<&crate::powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         0

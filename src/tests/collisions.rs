@@ -50,7 +50,7 @@ fn intercepted_shots_supply_the_sixth_first_web_pickup() {
     }
     assert_eq!(
         app.world_mut()
-            .query::<&powerups::PowerUp>()
+            .query::<&powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         6
@@ -337,7 +337,7 @@ fn duplicate_shots_cannot_award_the_same_kill_twice() {
     assert_eq!(app.world().resource::<Game>().score, 150);
     assert_eq!(
         app.world_mut()
-            .query::<&powerups::PowerUp>()
+            .query::<&powerups::pickups::PowerUp>()
             .iter(app.world())
             .count(),
         1

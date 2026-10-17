@@ -83,8 +83,8 @@ pub(crate) fn bullet_count(app: &mut App) -> usize {
     app.world_mut().query::<&Bullet>().iter(app.world()).count()
 }
 
-pub(crate) fn pickup(depth: i32) -> powerups::PowerUp {
-    powerups::PowerUp {
+pub(crate) fn pickup(depth: i32) -> powerups::pickups::PowerUp {
+    powerups::pickups::PowerUp {
         lane: 3,
         depth,
         rez: 300,

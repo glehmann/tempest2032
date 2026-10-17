@@ -88,7 +88,7 @@ pub(crate) fn preview_input(
     mut capture: ResMut<MotionCapture>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     player: Single<&Glider>,
-    pickups: Query<&powerups::PowerUp>,
+    pickups: Query<&powerups::pickups::PowerUp>,
     enemies: Query<&Flipper>,
     tankers: Query<&tankers::Tanker>,
     spikers: Query<&spikers::Spiker>,

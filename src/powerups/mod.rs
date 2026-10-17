@@ -13,7 +13,7 @@ pub(crate) mod superzapper;
 
 pub(crate) use droid::{Droid, move_droid, spawn_droid};
 pub(crate) use jump::{queue_jump, update_jump};
-pub(crate) use pickups::{PowerUp, advance_powerups, spawn_drop};
+pub(crate) use pickups::{advance_powerups, spawn_drop};
 pub(crate) use render::draw_powerups;
 
 #[derive(Resource, Default)]
