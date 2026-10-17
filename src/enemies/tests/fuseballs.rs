@@ -8,6 +8,7 @@ use crate::game::Status;
 use crate::glider::Glider;
 use crate::level::Level;
 use crate::powerups;
+use crate::test_support::ticks;
 use crate::weapons::Bullet;
 use crate::weapons::Weapon;
 use crate::web::LANE_UNIT;
@@ -25,12 +26,6 @@ fn app() -> App {
     .init_resource::<FuseAssets>()
     .add_systems(FixedUpdate, advance);
     app
-}
-
-fn ticks(app: &mut App, n: usize) {
-    for _ in 0..n {
-        app.world_mut().run_schedule(FixedUpdate);
-    }
 }
 
 #[test]

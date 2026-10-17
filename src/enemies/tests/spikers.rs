@@ -12,6 +12,7 @@ use crate::game::check_game;
 use crate::game::reset_wave;
 use crate::level::Level;
 use crate::powerups;
+use crate::test_support::ticks;
 use crate::weapons::Bullet;
 use crate::weapons::ParticleShot;
 use crate::web::LANE_UNIT;
@@ -103,12 +104,6 @@ fn app() -> App {
     )
     .init_resource::<SpikerAssets>();
     app
-}
-
-fn ticks(app: &mut App, count: usize) {
-    for _ in 0..count {
-        app.world_mut().run_schedule(FixedUpdate);
-    }
 }
 
 #[test]
