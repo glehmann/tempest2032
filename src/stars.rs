@@ -196,8 +196,13 @@ pub(crate) fn draw_stars(
             Without<crate::messages::geometry::OverlayCamera>,
         ),
     >,
-    mut fields: Query<(&Mesh3d, &mut Transform), With<StarField>>,
+    mut field: Single<(&Mesh3d, &mut Transform), With<StarField>>,
+    front: Option<Res<crate::menu::FrontEnd>>,
 ) {
+    // The opaque menu root covers the field outside gameplay.
+    if front.is_some_and(|front| front.screen != crate::menu::Screen::Gameplay) {
+        return;
+    }
     let Some((camera, Projection::Perspective(projection))) = cameras.iter().next() else {
         return;
     };
@@ -270,15 +275,13 @@ pub(crate) fn draw_stars(
             })
             .flatten()
     });
-    let geometry = colored_mesh(triangles);
-    for (mesh, mut transform) in &mut fields {
-        if let Some(mesh) = meshes.get_mut(&mesh.0) {
-            *mesh = geometry.clone();
-        }
-        transform.translation =
-            camera.translation + camera.rotation * Vec3::NEG_Z * BACKGROUND_DISTANCE;
-        transform.rotation = camera.rotation;
+    let (mesh, transform) = &mut *field;
+    if let Some(mesh) = meshes.get_mut(&mesh.0) {
+        *mesh = colored_mesh(triangles);
     }
+    transform.translation =
+        camera.translation + camera.rotation * Vec3::NEG_Z * BACKGROUND_DISTANCE;
+    transform.rotation = camera.rotation;
 }
 
 #[cfg(test)]
