@@ -194,37 +194,57 @@ fn icon_mesh(kind: usize) -> Mesh {
     }))
 }
 
+const GROUND_WIDTH: usize = 32;
+const GROUND_DEPTH: usize = 48;
+
+fn ground_rows() -> impl Iterator<Item = (f32, f32)> {
+    (0..=GROUND_DEPTH).map(|row| {
+        let depth = ((row as f32 / GROUND_DEPTH as f32) * 2000.0_f32.ln()).exp() - 1.;
+        (depth, -depth * SCALE)
+    })
+}
+
+fn ground_column(column: usize) -> f32 {
+    (column as f32 - 16.) * 16.
+}
+
+/// Only the texture coordinates scroll, so frames rewrite just this attribute.
+fn ground_uvs(distance: f32, tick: u32) -> Vec<[f32; 2]> {
+    let mut uvs = Vec::with_capacity((GROUND_DEPTH + 1) * (GROUND_WIDTH + 1));
+    for (_, z) in ground_rows() {
+        // Match Mode 7's scanline depth to our 240-line, 1.2-radian projection.
+        let mode7_depth = -z * 8. * 0.6_f32.tan() / (120. * SCALE);
+        let sine = (mode7_depth * 32. * TAU / 256. + tick as f32 * TAU / 256.).sin();
+        let texture_scale = 0.25 - (sine + 1.) * (255. * 4. / 65536.);
+        let v = (distance / SCALE + mode7_depth * texture_scale * (0xff000 as f32 / 65536.))
+            / SURFACE_HEIGHT as f32;
+        uvs.extend((0..=GROUND_WIDTH).map(|column| {
+            [
+                0.5 + ground_column(column) * (texture_scale / 0.25)
+                    / (SURFACE_WIDTH as f32 * SCALE),
+                v,
+            ]
+        }));
+    }
+    uvs
+}
+
 fn ground_mesh(distance: f32, tick: u32) -> Mesh {
-    const WIDTH: usize = 32;
-    const DEPTH: usize = 48;
     let mut positions = Vec::new();
-    let mut uvs = Vec::new();
     let mut colors = Vec::new();
-    for row in 0..=DEPTH {
-        let depth = ((row as f32 / DEPTH as f32) * 2000.0_f32.ln()).exp() - 1.;
-        let z = -depth * SCALE;
-        for column in 0..=WIDTH {
-            let x = (column as f32 - 16.) * 16.;
-            // Match Mode 7's scanline depth to our 240-line, 1.2-radian projection.
-            let mode7_depth = -z * 8. * 0.6_f32.tan() / (120. * SCALE);
-            let sine = (mode7_depth * 32. * TAU / 256. + tick as f32 * TAU / 256.).sin();
-            let texture_scale = 0.25 - (sine + 1.) * (255. * 4. / 65536.);
-            positions.push([x, 0., z]);
-            uvs.push([
-                0.5 + x * (texture_scale / 0.25) / (SURFACE_WIDTH as f32 * SCALE),
-                (distance / SCALE + mode7_depth * texture_scale * (0xff000 as f32 / 65536.))
-                    / SURFACE_HEIGHT as f32,
-            ]);
-            let brightness = (1. - depth / 2000.).max(0.05);
+    for (depth, z) in ground_rows() {
+        let brightness = (1. - depth / 2000.).max(0.05);
+        for column in 0..=GROUND_WIDTH {
+            positions.push([ground_column(column), 0., z]);
             colors.push([brightness, brightness, brightness, 1.]);
         }
     }
     let mut indices = Vec::new();
-    for row in 0..DEPTH {
-        for column in 0..WIDTH {
-            let a = (row * (WIDTH + 1) + column) as u32;
+    for row in 0..GROUND_DEPTH {
+        for column in 0..GROUND_WIDTH {
+            let a = (row * (GROUND_WIDTH + 1) + column) as u32;
             let b = a + 1;
-            let c = a + (WIDTH + 1) as u32;
+            let c = a + (GROUND_WIDTH + 1) as u32;
             indices.extend([a, b, c, b, c + 1, c]);
         }
     }
@@ -234,32 +254,43 @@ fn ground_mesh(distance: f32, tick: u32) -> Mesh {
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 1., 0.]; positions.len()])
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, ground_uvs(distance, tick))
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn pixel_mesh(pixels: impl IntoIterator<Item = (Vec2, Color)>, fov: f32) -> Mesh {
+fn pixel_mesh(pixels: &[(Vec2, Color)], fov: f32) -> Mesh {
     let pixel = 20. * (fov * 0.5).tan() / 240.;
-    colored_mesh(
+    let visible = || {
         pixels
-            .into_iter()
+            .iter()
             .filter(|(p, _)| p.x.abs() <= 192. && p.y.abs() <= 120.)
-            .flat_map(|(p, color)| {
-                let center = Vec3::new(p.x * pixel, -p.y * pixel, -10.);
-                let corners = [
-                    Vec3::new(-0.5, -0.5, 0.),
-                    Vec3::new(0.5, -0.5, 0.),
-                    Vec3::new(0.5, 0.5, 0.),
-                    Vec3::new(-0.5, 0.5, 0.),
-                ]
-                .map(|offset| (center + offset * pixel, color));
-                [
-                    [corners[0], corners[1], corners[2]],
-                    [corners[0], corners[2], corners[3]],
-                ]
-            }),
+    };
+    let vertices = visible().count() * 6;
+    let mut positions = Vec::with_capacity(vertices);
+    let mut colors = Vec::with_capacity(vertices);
+    for (p, color) in visible() {
+        let center = Vec3::new(p.x * pixel, -p.y * pixel, -10.);
+        let color = LinearRgba::from(*color).to_f32_array();
+        for (x, y) in [
+            (-0.5, -0.5),
+            (0.5, -0.5),
+            (0.5, 0.5),
+            (-0.5, -0.5),
+            (0.5, 0.5),
+            (-0.5, 0.5),
+        ] {
+            positions.push((center + Vec3::new(x, y, 0.) * pixel).to_array());
+            colors.push(color);
+        }
+    }
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
     )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 0., 1.]; positions.len()])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, colors)
 }
 
 fn screen_mesh(aspect_ratio: f32) -> Mesh {
@@ -558,12 +589,18 @@ pub(crate) fn draw(
             }
         }
     }
-    if session.kind == ZoneKind::GateFlight
+    // The session only advances on simulation ticks, which always change `Game`.
+    let advanced = game.is_changed();
+    if advanced
+        && session.kind == ZoneKind::GateFlight
         && let Some(mesh) = meshes.get_mut(&assets.ground)
     {
-        *mesh = ground_mesh(
-            session.distance as f32 / 65536. * SCALE,
-            session.tick.saturating_sub(u32::from(failure_age)),
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            ground_uvs(
+                session.distance as f32 / 65536. * SCALE,
+                session.tick.saturating_sub(u32::from(failure_age)),
+            ),
         );
     }
     if let Some(rings) = &session.rings
@@ -599,14 +636,14 @@ pub(crate) fn draw(
             }
             WarpNode::Tunnel => {
                 if let Some(tunnel) = &session.tunnel {
-                    if let Some(mesh) = meshes.get_mut(&assets.tunnel) {
+                    if advanced && let Some(mesh) = meshes.get_mut(&assets.tunnel) {
                         let tick = if let Phase::Failure(ticks) | Phase::Fade(ticks) = session.phase
                         {
                             session.tick.saturating_sub(u32::from(151 - ticks.min(151)))
                         } else {
                             session.tick
                         };
-                        *mesh = pixel_mesh(tunnel.pixels(tick), 1.2);
+                        *mesh = pixel_mesh(&tunnel.pixels(tick), 1.2);
                     }
                     *visible = Visibility::Visible;
                 }
