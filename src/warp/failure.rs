@@ -42,23 +42,22 @@ pub(crate) struct Feedback {
 
 impl Feedback {
     fn capture(&mut self, image: &Image) {
-        let image = image
-            .clone()
-            .try_into_dynamic()
-            .expect("failure frame must be readable")
-            .to_rgb8();
+        // Sample the RGBA target in place rather than converting a full-resolution copy.
+        assert_eq!(
+            image.texture_descriptor.format,
+            TextureFormat::Rgba8UnormSrgb,
+            "failure frame must use the capture target's format"
+        );
+        let data = image.data.as_ref().expect("failure frame must be readable");
+        let (width, height) = (image.width() as usize, image.height() as usize);
         let palette = palette();
         self.pixels = (0..WIDTH * HEIGHT)
             .map(|i| {
-                let pixel = image
-                    .get_pixel(
-                        ((i % WIDTH) as u32 * image.width()) / WIDTH as u32,
-                        ((i / WIDTH) as u32 * image.height()) / HEIGHT as u32,
-                    )
-                    .0;
-                palette[pixel
-                    .into_iter()
-                    .fold(0, |i, c| (i << 5) | usize::from(c >> 3))]
+                let x = (i % WIDTH) * width / WIDTH;
+                let y = (i / WIDTH) * height / HEIGHT;
+                palette[data[(y * width + x) * 4..][..3]
+                    .iter()
+                    .fold(0, |i, &c| (i << 5) | usize::from(c >> 3))]
             })
             .collect();
         self.scratch = vec![0; WIDTH * HEIGHT];
