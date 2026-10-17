@@ -169,7 +169,7 @@ pub(crate) fn draw(
                 let age = 151 - ticks.min(151);
                 Some((session.tick.saturating_sub(u32::from(age)), age, false))
             }
-            (ZoneKind::Tunnel, Phase::Failure(ticks)) if ticks <= 151 => {
+            (ZoneKind::Tunnel, Phase::Failure(ticks) | Phase::Fade(ticks)) if ticks <= 151 => {
                 let age = 151 - ticks;
                 Some((session.tick.saturating_sub(u32::from(age)), age, true))
             }
@@ -346,6 +346,41 @@ mod tests {
         );
         feedback.advance(0, 0);
         assert_eq!(feedback.pixels, expected);
+    }
+
+    #[test]
+    fn tunnel_success_waits_for_the_final_fade_before_capturing() {
+        let mut app = App::new();
+        app.init_resource::<Game>()
+            .init_resource::<Assets<Image>>()
+            .add_systems(
+                Startup,
+                |mut commands: Commands, mut images: ResMut<Assets<Image>>| {
+                    setup(&mut commands, &mut images)
+                },
+            )
+            .add_systems(Update, draw);
+        let mut session = super::super::Session::new(ZoneKind::Tunnel, 0, Some(1), 0);
+        session.tick = 1000;
+        session.phase = Phase::Victory(1);
+        let mut game = app.world_mut().resource_mut::<Game>();
+        game.status = Status::Bonus;
+        game.bonus = Some(session);
+        app.update();
+        assert!(app.world().resource::<Feedback>().source.is_none());
+        let mut game = app.world_mut().resource_mut::<Game>();
+        let session = game.bonus.as_mut().unwrap();
+        session.tick += 1;
+        session.phase = Phase::Fade(151);
+        app.update();
+        assert_eq!(app.world().resource::<Feedback>().source, Some(1001));
+        assert_eq!(
+            app.world_mut()
+                .query::<&Screenshot>()
+                .iter(app.world())
+                .count(),
+            1
+        );
     }
 
     #[test]

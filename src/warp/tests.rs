@@ -466,7 +466,20 @@ fn tunnel_returns_preserving_lives_and_points_and_success_has_no_gate_completion
         } else {
             Phase::Failure(1)
         };
-        ticks(&mut app, if success { 302 } else { 1 });
+        if success {
+            ticks(&mut app, 302);
+            assert_eq!(
+                app.world().resource::<Game>().bonus.as_ref().unwrap().phase,
+                Phase::Fade(151)
+            );
+            assert_eq!(app.world().resource::<Level>().number, 17);
+            ticks(&mut app, 150);
+            assert_eq!(
+                app.world().resource::<Game>().bonus.as_ref().unwrap().phase,
+                Phase::Fade(1)
+            );
+        }
+        ticks(&mut app, 1);
         let game = app.world().resource::<Game>();
         assert_eq!((game.score, game.lives), (1234, 2));
         assert!(game.bonus.is_none());

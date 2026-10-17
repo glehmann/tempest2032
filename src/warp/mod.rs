@@ -333,10 +333,10 @@ pub(crate) fn advance(
                 game.add_score(session.step_flight(horizontal, vertical));
             }
         }
-        Phase::Victory(1) if session.kind != ZoneKind::Tunnel => {
+        Phase::Victory(1) => {
             session.phase = Phase::Fade(151);
         }
-        Phase::Failure(1) | Phase::Victory(1) | Phase::Fade(1) => {
+        Phase::Failure(1) | Phase::Fade(1) => {
             game.load = Some(LoadReason::ReturnWarp {
                 destination: session.destination,
             });

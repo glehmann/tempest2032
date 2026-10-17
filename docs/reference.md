@@ -1987,6 +1987,10 @@ screen center for 32 ticks, then freezes that scene for the 151-tick `ofade`/
 `ffade` bitmap melt before web entry (`yak.s:3964`, `yak.s:5069-5086`,
 `yak.s:5297-5336`). The melt retains its scale-and-rotate trails and 60 Hz blended
 presentation. This uses the existing 183-tick failure interval.
+Successful completion holds the tunnel's 301-tick victory animation, hides the
+separate WARP 5 LEVELS! text strip, and then applies the same 151-tick bitmap melt
+before web entry (`yak.s:3959-3967`). The victory frame is frozen throughout the
+melt; this adds the original final fade that was previously skipped on success.
 
 Psychedelic rings use the same two-axis inertial controls as gate flight.
 The original courses are mirrored horizontally, every ring uses the original

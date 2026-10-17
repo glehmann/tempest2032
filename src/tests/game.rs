@@ -277,6 +277,9 @@ fn keys_record_survived_exits_and_successful_warps_but_not_retries_or_failed_war
         .unwrap()
         .phase = crate::warp::Phase::Success(1);
     ticks(&mut app, 302);
+    assert_eq!(app.world().resource::<Level>().number, 18);
+    assert_eq!(app.world().resource::<Game>().key_level(), Some(17));
+    ticks(&mut app, 151);
     assert_eq!(app.world().resource::<Level>().number, 22);
     assert_eq!(app.world().resource::<Game>().key_level(), Some(21));
 }

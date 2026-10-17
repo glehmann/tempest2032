@@ -600,7 +600,8 @@ pub(crate) fn draw(
             WarpNode::Tunnel => {
                 if let Some(tunnel) = &session.tunnel {
                     if let Some(mesh) = meshes.get_mut(&assets.tunnel) {
-                        let tick = if let Phase::Failure(ticks) = session.phase {
+                        let tick = if let Phase::Failure(ticks) | Phase::Fade(ticks) = session.phase
+                        {
                             session.tick.saturating_sub(u32::from(151 - ticks.min(151)))
                         } else {
                             session.tick

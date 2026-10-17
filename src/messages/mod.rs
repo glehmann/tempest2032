@@ -174,11 +174,56 @@ fn advance(
         }
     }
     messages.step();
+    if game.bonus.as_ref().is_some_and(|session| {
+        session.kind == crate::warp::ZoneKind::Tunnel
+            && matches!(session.phase, crate::warp::Phase::Fade(_))
+    }) && messages
+        .banner
+        .is_some_and(|active| active.event.id == Id::WarpFive)
+    {
+        // _tunn hides its separate text strip before calling ofade.
+        messages.banner = None;
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tunnel_completion_hides_its_text_strip_when_the_final_melt_starts() {
+        for kind in [
+            crate::warp::ZoneKind::Tunnel,
+            crate::warp::ZoneKind::GateFlight,
+            crate::warp::ZoneKind::Rings,
+        ] {
+            let mut app = App::new();
+            app.init_resource::<Messages>()
+                .init_resource::<crate::game::Game>()
+                .init_resource::<crate::powerups::Upgrades>()
+                .add_systems(Update, advance);
+            let mut game = app.world_mut().resource_mut::<crate::game::Game>();
+            game.status = crate::game::Status::Bonus;
+            let mut session = crate::warp::Session::new(kind, 0, Some(1), 0);
+            session.phase = crate::warp::Phase::Victory(1);
+            game.bonus = Some(session);
+            game.announce(Id::WarpFive);
+            app.update();
+            assert!(app.world().resource::<Messages>().banner.is_some());
+            app.world_mut()
+                .resource_mut::<crate::game::Game>()
+                .bonus
+                .as_mut()
+                .unwrap()
+                .phase = crate::warp::Phase::Fade(151);
+            app.update();
+            assert_eq!(
+                app.world().resource::<Messages>().banner.is_none(),
+                kind == crate::warp::ZoneKind::Tunnel
+            );
+        }
+    }
+
     #[test]
     fn frozen_previews_keep_exact_age_and_score_lives_emit_one_effect_each() {
         let mut app = App::new();
