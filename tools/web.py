@@ -41,7 +41,9 @@ def build(profile):
         cwd=ROOT,
         check=True,
     )
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    # Stale files would otherwise enter the service-worker precache and version.
+    shutil.rmtree(OUTPUT, ignore_errors=True)
+    OUTPUT.mkdir(parents=True)
     directory = "debug" if profile == "dev" else profile
     subprocess.run(
         [
