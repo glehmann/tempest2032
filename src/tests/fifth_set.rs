@@ -108,15 +108,6 @@ fn fifth_set_matches_the_original_dispatch_table_and_speed_groups() {
             ][(number - 65) / 2]
         );
         assert_eq!(
-            level.appearance.surface,
-            [
-                crate::cry::RED[10][0],
-                crate::cry::GREEN[10][0],
-                crate::cry::BLUE[10][0]
-            ]
-            .map(|channel| f32::from(channel) / 255.)
-        );
-        assert_eq!(
             level.appearance.flipper,
             [
                 crate::cry::RED[8][8],

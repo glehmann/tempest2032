@@ -58,15 +58,6 @@ fn third_set_matches_original_waves_and_reuses_the_first_set_webs() {
             ][(number - 33) / 2]
         );
         assert_eq!(
-            level.appearance.surface,
-            [
-                crate::cry::RED[15][15],
-                crate::cry::GREEN[15][15],
-                crate::cry::BLUE[15][15]
-            ]
-            .map(|channel| f32::from(channel) / 255.)
-        );
-        assert_eq!(
             level.appearance.flipper,
             [
                 crate::cry::RED[12][11],

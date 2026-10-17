@@ -115,11 +115,7 @@ fn final_sets_match_original_waves_speeds_and_cry_palettes() {
             );
             assert_eq!(p.propagation_ticks, 5);
         }
-        let (web_hue, flip_hue) = if number >= 97 {
-            (0x88, 0x80)
-        } else {
-            (0xf8, 0xfb)
-        };
+        let flip_hue = if number >= 97 { 0x80 } else { 0xfb };
         let rgb = |hue: u8| {
             [
                 crate::cry::RED[(hue >> 4) as usize][(hue & 15) as usize],
@@ -127,10 +123,6 @@ fn final_sets_match_original_waves_speeds_and_cry_palettes() {
                 crate::cry::BLUE[(hue >> 4) as usize][(hue & 15) as usize],
             ]
         };
-        assert_eq!(
-            level.appearance.surface,
-            rgb(web_hue).map(|c| f32::from(c) / 255.)
-        );
         assert_eq!(level.appearance.flipper, rgb(flip_hue));
         assert_eq!(
             level.powerups.kill_interval,

@@ -84,15 +84,6 @@ fn fourth_set_matches_the_original_waves_and_second_set_geometry() {
             [0xb000, 0xb200, 0xb400, 0xb600][(number - 49) / 2]
         );
         assert_eq!(
-            level.appearance.surface,
-            [
-                crate::cry::RED[0][1],
-                crate::cry::GREEN[0][1],
-                crate::cry::BLUE[0][1]
-            ]
-            .map(|channel| f32::from(channel) / 255.)
-        );
-        assert_eq!(
             level.appearance.flipper,
             [
                 crate::cry::RED[2][11],

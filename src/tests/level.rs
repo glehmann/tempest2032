@@ -156,7 +156,6 @@ fn original_level_twenty_has_the_open_hook_and_a_thirty_three_spawn_budget() {
     assert_eq!(level.beasts.unwrap().climb_speed, 0xaa00);
     assert_eq!(level.fuseballs.unwrap().climb_speed, 0x9800);
     assert_eq!(level.enemy_shots, 3);
-    assert_eq!(level.appearance.surface, [1., 0., 0.]);
     assert_eq!(level.powerups.kill_interval, 7);
 }
 
@@ -191,7 +190,6 @@ fn original_level_nineteen_has_the_pentagon_and_restores_flipper_tankers() {
     assert_eq!(level.beasts.unwrap().climb_speed, 0xaa00);
     assert_eq!(level.fuseballs.unwrap().climb_speed, 0x9800);
     assert_eq!(level.enemy_shots, 3);
-    assert_eq!(level.appearance.surface, [1., 0., 0.]);
     assert_eq!(level.powerups.kill_interval, 7);
 }
 
@@ -230,7 +228,6 @@ fn original_level_eighteen_has_the_open_spiraloid_and_a_denser_pulsar_wave() {
     assert_eq!(level.spikers.unwrap().climb_speed, 0xd000);
     assert_eq!(level.beasts.unwrap().spawn_interval_ticks, 1001);
     assert_eq!(level.fuseballs.unwrap().spawn_interval_ticks, 901);
-    assert_eq!(level.appearance.surface, [1., 0., 0.]);
     assert_eq!(level.appearance.flipper, [135, 208, 255]);
     assert_eq!(level.powerups.kill_interval, 7);
 }
@@ -267,7 +264,6 @@ fn original_level_seventeen_starts_the_red_oval_and_pulsar_wave() {
     assert_eq!(level.spikers.unwrap().climb_speed, 0xd000);
     assert_eq!(level.beasts.unwrap().spawn_interval_ticks, 1001);
     assert_eq!(level.fuseballs.unwrap().spawn_interval_ticks, 901);
-    assert_eq!(level.appearance.surface, [1., 0., 0.]);
     assert_eq!(level.appearance.flipper, [135, 208, 255]);
     assert_eq!(level.powerups.kill_interval, 7);
     for bad in ["phase_ticks = 0", "propagation_ticks = 0"] {

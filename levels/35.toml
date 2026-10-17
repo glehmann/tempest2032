@@ -47,7 +47,6 @@ climb_speed = 0.65625
 
 [appearance]
 surface_hues = [0x5a, 0x48, 0x36, 0x34, 0x32, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80]
-surface = [1.0, 1.0, 0.0]
 lines = [0.78, 0.78, 0.015]
 flipper = [248, 255, 95]
 
