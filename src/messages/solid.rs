@@ -181,29 +181,14 @@ fn draw(
             let selected = row == menu.selected;
             let (center, scale) = crate::pause::choice_layout(row, viewport);
             let left = -(text.len() as f32 * ADVANCE - 2.) * scale / 2.;
-            for (index, character) in text.chars().enumerate() {
-                paused.extend(
-                    glyphs
-                        .get(
-                            character,
-                            if selected { Style::Gold } else { Style::Chrome },
-                        )
-                        .triangles
-                        .iter()
-                        .map(|triangle| {
-                            triangle.map(|(p, color)| {
-                                (
-                                    Vec3::new(
-                                        left + (index as f32 * ADVANCE + p.x) * scale,
-                                        center + (9. - p.y) * scale,
-                                        60. + p.z * scale,
-                                    ),
-                                    color,
-                                )
-                            })
-                        }),
-                );
-            }
+            glyphs.place(
+                &mut paused,
+                text,
+                if selected { Style::Gold } else { Style::Chrome },
+                Vec3::new(left, center + 9. * scale, 60.),
+                Vec3::splat(scale),
+                ADVANCE * scale,
+            );
             if selected {
                 let color = crate::cry::color(0x8f, 255);
                 for side in [-1., 1.] {
@@ -243,27 +228,15 @@ fn paused_geometry(glyphs: &Glyphs, viewport: f32, paused: bool) -> Vec<Triangle
     }
     let fit = ((viewport - 24.) / 174.).clamp(0.01, 1.);
     let mut triangles = Vec::new();
-    for (index, character) in "PAUSED".chars().enumerate() {
-        let offset = -87. + index as f32 * 29.;
-        triangles.extend(
-            glyphs
-                .get(character, Style::Gold)
-                .triangles
-                .iter()
-                .map(|t| {
-                    t.map(|(p, c)| {
-                        (
-                            Vec3::new(
-                                (offset + p.x * 27. / 15.) * fit,
-                                55. - p.y * 31. / 18. * fit,
-                                60. + p.z * fit,
-                            ),
-                            c,
-                        )
-                    })
-                }),
-        );
-    }
+    // bfont's 27x31 PAUSED glyphs on a 29-unit advance.
+    glyphs.place(
+        &mut triangles,
+        "PAUSED",
+        Style::Gold,
+        Vec3::new(-87. * fit, 55., 60.),
+        Vec3::new(27. / 15. * fit, 31. / 18. * fit, fit),
+        29. * fit,
+    );
     triangles
 }
 

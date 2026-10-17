@@ -90,6 +90,29 @@ impl Default for Glyphs {
 }
 
 impl Glyphs {
+    /// Appends a line of glyphs starting at `origin`, `advance` apart, with glyph Y pointing down.
+    pub(crate) fn place(
+        &self,
+        triangles: &mut Vec<Triangle>,
+        text: &str,
+        style: Style,
+        origin: Vec3,
+        scale: Vec3,
+        advance: f32,
+    ) {
+        for (index, character) in text.chars().enumerate() {
+            let x = index as f32 * advance;
+            triangles.extend(self.get(character, style).triangles.iter().map(|triangle| {
+                triangle.map(|(p, color)| {
+                    (
+                        origin + Vec3::new(x + p.x * scale.x, -p.y * scale.y, p.z * scale.z),
+                        color,
+                    )
+                })
+            }));
+        }
+    }
+
     pub fn get(&self, character: char, style: Style) -> &Glyph {
         self.0
             .get(&(character.to_ascii_uppercase(), style))

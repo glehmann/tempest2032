@@ -168,26 +168,14 @@ fn draw(
     };
     let mut triangles = Vec::new();
     let mut text = |value: &str, x: f32, y: f32, style: Style| {
-        for (index, character) in value.chars().enumerate() {
-            triangles.extend(
-                glyphs
-                    .get(character, style)
-                    .triangles
-                    .iter()
-                    .map(|triangle| {
-                        triangle.map(|(p, color)| {
-                            (
-                                Vec3::new(
-                                    x + (p.x + index as f32 * ADVANCE) * 1.2,
-                                    y - p.y * 1.2,
-                                    p.z * 1.2,
-                                ),
-                                color,
-                            )
-                        })
-                    }),
-            );
-        }
+        glyphs.place(
+            &mut triangles,
+            value,
+            style,
+            Vec3::new(x, y, 0.),
+            Vec3::splat(1.2),
+            ADVANCE * 1.2,
+        );
     };
     if front.screen == Screen::Welcome {
         text("HIGH SCORES", -11. * ADVANCE * 0.6, 181., Style::Chrome);

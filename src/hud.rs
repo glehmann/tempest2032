@@ -125,23 +125,14 @@ pub(crate) fn update_hud(
     // Match the warp pyramids' 16-unit outer margin; retain y=10/30 and 16/32-unit advances.
     let fit = (width / 384.).min(1.);
     let left = 16. * fit;
-    for (i, digit) in game.score.to_string().bytes().enumerate() {
-        triangles.extend(
-            glyphs
-                .get(digit as char, Style::Rainbow)
-                .triangles
-                .iter()
-                .map(|triangle| {
-                    triangle.map(|(p, color)| {
-                        (
-                            point(p.truncate() * fit + Vec2::new(left + i as f32 * 16. * fit, 10.))
-                                + Vec3::Z * p.z * fit,
-                            color,
-                        )
-                    })
-                }),
-        );
-    }
+    glyphs.place(
+        &mut triangles,
+        &game.score.to_string(),
+        Style::Rainbow,
+        point(Vec2::new(left, 10.)),
+        Vec3::splat(fit),
+        16. * fit,
+    );
     for (life, &progress) in assets.icons[..8].iter().enumerate() {
         if progress == 0. {
             continue;
