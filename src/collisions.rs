@@ -227,7 +227,9 @@ pub(crate) fn resolve_hits(
                 crate::sound::play(&mut commands, crate::sound::Effect::Shield);
                 beast.stage -= 1;
                 mesh.0 = beast_assets.frames[beast.stage].clone();
-                commands.entity(shot).despawn();
+                if particle.is_some() {
+                    commands.entity(shot).despawn();
+                }
                 commands.spawn((
                     EnemyShot {
                         lane: bullet.lane,
