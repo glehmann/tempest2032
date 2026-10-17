@@ -19,7 +19,6 @@ struct Graphic;
 pub(super) struct Assets {
     mesh: Handle<Mesh>,
     layouts: HashMap<super::Id, Vec<GlyphTriangle>>,
-    visible: bool,
 }
 
 pub(super) fn setup(
@@ -58,7 +57,6 @@ pub(super) fn setup(
     commands.insert_resource(Assets {
         mesh,
         layouts: HashMap::new(),
-        visible: false,
     });
 }
 
@@ -68,8 +66,9 @@ pub(super) fn draw(
     mut assets: ResMut<Assets>,
     mut meshes: ResMut<bevy::asset::Assets<Mesh>>,
     cameras: Query<(&Camera, &GlobalTransform), super::geometry::GameCameras>,
+    mut drawn: Local<Vec<(super::Id, f32, Vec2)>>,
 ) {
-    let mut triangles = Vec::new();
+    let mut frame = Vec::with_capacity(messages.rewards.len());
     for active in &messages.rewards {
         if !matches!(
             active.event.id,
@@ -82,24 +81,29 @@ pub(super) fn draw(
         ) {
             continue;
         }
-        let id = active.event.id;
-        let layout = assets.layouts.entry(id).or_insert_with(|| font.layout(id));
-        let projected = active.event.origin.and_then(|origin| {
-            cameras.iter().find_map(|(camera, pose)| {
-                let point = camera.world_to_viewport(pose, origin).ok()?;
-                let size = camera.logical_viewport_size()?;
-                Some(Vec2::new(point.x - size.x / 2., size.y / 2. - point.y) * (240. / size.y))
-            })
-        });
-        let center = if active.event.origin.is_some() {
-            let Some(center) = projected else {
-                continue;
-            };
-            center
-        } else {
-            Vec2::ZERO
+        let center = match active.event.origin {
+            // Score labels follow their world origin, so the camera can move them.
+            Some(origin) => {
+                let Some(center) = cameras.iter().find_map(|(camera, pose)| {
+                    let point = camera.world_to_viewport(pose, origin).ok()?;
+                    let size = camera.logical_viewport_size()?;
+                    Some(Vec2::new(point.x - size.x / 2., size.y / 2. - point.y) * (240. / size.y))
+                }) else {
+                    continue;
+                };
+                center
+            }
+            None => Vec2::ZERO,
         };
-        let age = active.age as f32;
+        frame.push((active.event.id, active.age as f32, center));
+    }
+    // Paused and between-tick frames repeat the last geometry.
+    if *drawn == frame {
+        return;
+    }
+    let mut triangles = Vec::new();
+    for &(id, age, center) in &frame {
+        let layout = assets.layouts.entry(id).or_insert_with(|| font.layout(id));
         let score = matches!(
             id,
             super::Id::Points250 | super::Id::Points500 | super::Id::Points750
@@ -157,14 +161,11 @@ pub(super) fn draw(
             }
         }
     }
-    let visible = !triangles.is_empty();
-    if (visible || assets.visible)
-        && let Some(mesh) = meshes.get_mut(&assets.mesh)
-    {
+    if let Some(mesh) = meshes.get_mut(&assets.mesh) {
         *mesh = message_mesh(triangles);
         mesh.asset_usage = RenderAssetUsages::RENDER_WORLD;
     }
-    assets.visible = visible;
+    *drawn = frame;
 }
 
 fn cell_point(point: Vec2, center: Vec2, scale: Vec2, shear: f32) -> Vec2 {
