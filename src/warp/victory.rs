@@ -228,16 +228,22 @@ pub(crate) fn draw(
         feedback.source = None;
     }
     for (mut sprite, mut pose, mut visible) in &mut canvases {
-        *visible = if active.is_some() {
+        visible.set_if_neq(if active.is_some() {
             Visibility::Visible
         } else {
             Visibility::Hidden
-        };
+        });
         if sprite.custom_size.is_some() {
-            sprite.custom_size = Some(Vec2::new(viewport, 240.));
+            let size = Some(Vec2::new(viewport, 240.));
+            if sprite.custom_size != size {
+                sprite.custom_size = size;
+            }
             continue;
         }
-        pose.scale = Vec3::splat((viewport / WIDTH as f32).min(1.));
+        let scale = Vec3::splat((viewport / WIDTH as f32).min(1.));
+        if pose.scale != scale {
+            pose.scale = scale;
+        }
         let Some((session, age)) = active else {
             continue;
         };

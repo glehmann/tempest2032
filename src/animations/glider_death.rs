@@ -152,16 +152,17 @@ pub(crate) fn draw(
     mut bursts: Query<(&ShotBurst, &mut Transform, &mut Visibility), Without<Glider>>,
 ) {
     for (burst, mut transform, mut visibility) in &mut bursts {
-        *visibility = if game.death.is_some_and(|death| death.visible) {
+        visibility.set_if_neq(if game.death.is_some_and(|death| death.visible) {
             Visibility::Visible
         } else {
             Visibility::Hidden
-        };
+        });
         if let Some(death) = game.death {
-            *transform = **player;
-            transform.translation.z += burst.0 as f32 * f32::from(death.tick) * WORLD_UNIT / 2.0;
-            transform.rotation *=
+            let mut target = **player;
+            target.translation.z += burst.0 as f32 * f32::from(death.tick) * WORLD_UNIT / 2.0;
+            target.rotation *=
                 Quat::from_rotation_z(f32::from((death.tick * 12) as u8) * TAU / 256.0);
+            transform.set_if_neq(target);
         }
     }
 }

@@ -518,24 +518,31 @@ pub(crate) fn draw(
     >,
     mut crosshairs: Query<&mut Visibility, (With<Crosshair>, Without<Text>, Without<WarpNode>)>,
     mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
+    mut screen_aspect: Local<f32>,
 ) {
     let bonus = game.status == Status::Bonus;
     let session = game.bonus.as_ref().filter(|_| bonus);
-    for (_, _, _, mut visible) in &mut nodes {
-        *visible = Visibility::Hidden;
-    }
     for mut visible in &mut crosshairs {
-        *visible = if session.is_some_and(|s| {
-            s.kind != ZoneKind::Tunnel
-                && (matches!(s.phase, Phase::Flying | Phase::Success(_))
-                    || s.kind == ZoneKind::GateFlight && matches!(s.phase, Phase::Failure(_)))
-        }) {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
+        visible.set_if_neq(
+            if session.is_some_and(|s| {
+                s.kind != ZoneKind::Tunnel
+                    && (matches!(s.phase, Phase::Flying | Phase::Success(_))
+                        || s.kind == ZoneKind::GateFlight && matches!(s.phase, Phase::Failure(_)))
+            }) {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+        );
     }
-    let Some(session) = session else { return };
+    let Some(session) = session.filter(|s| {
+        s.kind == ZoneKind::Tunnel || !matches!(s.phase, Phase::Victory(_) | Phase::Fade(_))
+    }) else {
+        for (_, _, _, mut visible) in &mut nodes {
+            visible.set_if_neq(Visibility::Hidden);
+        }
+        return;
+    };
     let gates = gate_views(session);
     if session.kind == ZoneKind::GateFlight {
         for (rank, gate) in gates.iter().take(6).enumerate() {
@@ -565,17 +572,15 @@ pub(crate) fn draw(
     } else {
         0
     };
-    if session.kind != ZoneKind::Tunnel
-        && matches!(session.phase, Phase::Victory(_) | Phase::Fade(_))
-    {
-        return;
-    }
+    let title = format!(
+        "Tempest 2032 | {} | Course {}",
+        session.kind.label(),
+        session.course + 1
+    );
     for mut window in &mut windows {
-        window.title = format!(
-            "Tempest 2032 | {} | Course {}",
-            session.kind.label(),
-            session.course + 1
-        );
+        if window.title != title {
+            window.title.clone_from(&title);
+        }
     }
     let position = if session.kind != ZoneKind::GateFlight {
         Vec2::ZERO
@@ -583,16 +588,27 @@ pub(crate) fn draw(
         session.position()
     };
     for (mut pose, mut projection) in &mut cameras {
-        *pose = Transform::from_xyz(position.x * SCALE, -position.y * SCALE, 0.);
-        if let Projection::Perspective(perspective) = &mut *projection {
+        pose.set_if_neq(Transform::from_xyz(
+            position.x * SCALE,
+            -position.y * SCALE,
+            0.,
+        ));
+        let Projection::Perspective(perspective) = projection.bypass_change_detection() else {
+            continue;
+        };
+        let aspect_ratio = perspective.aspect_ratio;
+        if (perspective.fov, perspective.near, perspective.far) != (1.2, 0.01, 1000.) {
             perspective.fov = 1.2;
             perspective.near = 0.01;
             perspective.far = 1000.;
-            if session.rings.is_some()
-                && let Some(mesh) = meshes.get_mut(&assets.rings)
-            {
-                *mesh = screen_mesh(perspective.aspect_ratio);
-            }
+            projection.set_changed();
+        }
+        if session.rings.is_some()
+            && *screen_aspect != aspect_ratio
+            && let Some(mesh) = meshes.get_mut(&assets.rings)
+        {
+            *screen_aspect = aspect_ratio;
+            *mesh = screen_mesh(aspect_ratio);
         }
     }
     // The session only advances on simulation ticks, which always change `Game`.
@@ -635,58 +651,61 @@ pub(crate) fn draw(
         }
     }
     for (node, mut pose, mut mesh, mut visible) in &mut nodes {
-        match *node {
-            WarpNode::Rings => {
-                if session.rings.is_some() {
-                    *visible = Visibility::Visible;
-                }
-            }
+        let shown = match *node {
+            WarpNode::Rings => session.rings.is_some(),
             WarpNode::Tunnel => {
-                if let Some(tunnel) = &session.tunnel {
-                    if advanced && let Some(mesh) = meshes.get_mut(&assets.tunnel) {
-                        let tick = if let Phase::Failure(ticks) | Phase::Fade(ticks) = session.phase
-                        {
-                            session.tick.saturating_sub(u32::from(151 - ticks.min(151)))
-                        } else {
-                            session.tick
-                        };
-                        *mesh = pixel_mesh(&tunnel.pixels(tick), 1.2);
-                    }
-                    *visible = Visibility::Visible;
+                if advanced
+                    && let Some(tunnel) = &session.tunnel
+                    && let Some(mesh) = meshes.get_mut(&assets.tunnel)
+                {
+                    let tick = if let Phase::Failure(ticks) | Phase::Fade(ticks) = session.phase {
+                        session.tick.saturating_sub(u32::from(151 - ticks.min(151)))
+                    } else {
+                        session.tick
+                    };
+                    *mesh = pixel_mesh(&tunnel.pixels(tick), 1.2);
                 }
+                session.tunnel.is_some()
             }
-            WarpNode::Ground => {
-                if session.kind == ZoneKind::GateFlight {
-                    *visible = Visibility::Visible;
-                }
-            }
-            WarpNode::Gate(index) | WarpNode::Icon(index) => {
+            WarpNode::Ground => session.kind == ZoneKind::GateFlight,
+            WarpNode::Gate(index) | WarpNode::Icon(index) => 'gate: {
                 if session.kind != ZoneKind::GateFlight {
-                    continue;
+                    break 'gate false;
                 }
                 let Some(gate) = gates.iter().take(6).find(|g| g.index == index) else {
-                    continue;
+                    break 'gate false;
                 };
                 let (x, y, kind) = session.spec(index);
                 if (y < 0) != (position.y < 0.) {
-                    continue;
+                    break 'gate false;
                 }
-                *pose = Transform::from_xyz(
+                let mut target = Transform::from_xyz(
                     f32::from(x) * SCALE,
                     -f32::from(y) * SCALE,
                     -gate.distance as f32 / 65536. * SCALE,
                 );
-                if matches!(*node, WarpNode::Gate(_)) {
-                    pose.rotation = Quat::from_rotation_z(-f32::from(gate.age as u8) * TAU / 256.);
-                    mesh.0 = assets.gates[usize::from(index % 3 == 2)].clone();
-                    *visible = Visibility::Visible;
+                let handle = if matches!(*node, WarpNode::Gate(_)) {
+                    target.rotation =
+                        Quat::from_rotation_z(-f32::from(gate.age as u8) * TAU / 256.);
+                    &assets.gates[usize::from(index % 3 == 2)]
                 } else if kind > 0 {
-                    pose.translation.z += 0.01;
-                    mesh.0 = assets.icons[usize::from(kind)].clone();
-                    *visible = Visibility::Visible;
+                    target.translation.z += 0.01;
+                    &assets.icons[usize::from(kind)]
+                } else {
+                    break 'gate false;
+                };
+                pose.set_if_neq(target);
+                if mesh.0 != *handle {
+                    mesh.0 = handle.clone();
                 }
+                true
             }
-        }
+        };
+        visible.set_if_neq(if shown {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        });
     }
 }
 

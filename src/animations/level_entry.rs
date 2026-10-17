@@ -242,29 +242,31 @@ pub(crate) fn draw(
 ) {
     let tick = game.entry.unwrap_or(APPROACH_TICKS + REZ_TICKS);
     if game.status == Status::Bonus {
-        *web.1 = Visibility::Hidden;
-        *player.2 = Visibility::Hidden;
+        web.1.set_if_neq(Visibility::Hidden);
+        player.2.set_if_neq(Visibility::Hidden);
         for (_, _, _, mut visibility) in &mut trails {
-            *visibility = Visibility::Hidden;
+            visibility.set_if_neq(Visibility::Hidden);
         }
         for mut visibility in &mut highlights {
-            *visibility = Visibility::Hidden;
+            visibility.set_if_neq(Visibility::Hidden);
         }
         for mut visibility in &mut droids {
-            *visibility = Visibility::Hidden;
+            visibility.set_if_neq(Visibility::Hidden);
         }
         return;
     }
     let (web_transform, web_visibility) = &mut *web;
-    **web_transform = self::web_transform(tick, &level.web);
-    **web_visibility = if game
-        .exit
-        .is_some_and(|exit| !exit.web_visible || exit.flash > 0)
-    {
-        Visibility::Hidden
-    } else {
-        Visibility::Visible
-    };
+    web_transform.set_if_neq(self::web_transform(tick, &level.web));
+    web_visibility.set_if_neq(
+        if game
+            .exit
+            .is_some_and(|exit| !exit.web_visible || exit.flash > 0)
+        {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        },
+    );
     let alpha = game.exit.map_or_else(
         || (f32::from(tick.saturating_sub(APPROACH_TICKS)) * 8.0 / 248.0).min(1.0),
         |exit| (1.0 - f32::from(exit.ticks) * 8.0 / 248.0).max(0.0),
@@ -281,53 +283,62 @@ pub(crate) fn draw(
         || game.exit.is_some_and(|exit| exit.wireframe)
         || (game.death.is_some() && game.status != Status::Spiked)
     {
-        **visibility = Visibility::Hidden;
+        visibility.set_if_neq(Visibility::Hidden);
     }
     // check_game owns the invulnerability blink once the claw has rezzed.
     else if game.invulnerable == 0 {
-        **visibility = Visibility::Visible;
+        visibility.set_if_neq(Visibility::Visible);
     }
     for mut visibility in &mut highlights {
-        *visibility = if tick < APPROACH_TICKS
-            || game.exit.is_some_and(|exit| exit.wireframe)
-            || game.death.is_some()
-        {
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
-        };
+        visibility.set_if_neq(
+            if tick < APPROACH_TICKS
+                || game.exit.is_some_and(|exit| exit.wireframe)
+                || game.death.is_some()
+            {
+                Visibility::Hidden
+            } else {
+                Visibility::Visible
+            },
+        );
     }
     for mut visibility in &mut droids {
-        *visibility = if tick < APPROACH_TICKS || game.exit.is_some() || game.death.is_some() {
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
-        };
+        visibility.set_if_neq(
+            if tick < APPROACH_TICKS || game.exit.is_some() || game.death.is_some() {
+                Visibility::Hidden
+            } else {
+                Visibility::Visible
+            },
+        );
     }
     let (frame, mirror) = vector_pose(glider.progress);
     for (trail, mut copy, mut mesh, mut visibility) in &mut trails {
         let exiting = game
             .exit
             .is_some_and(|exit| exit.wireframe && exit.flash == 0);
-        *visibility = if game.death.is_none()
-            && (exiting || (APPROACH_TICKS + 1..APPROACH_TICKS + REZ_TICKS).contains(&tick))
-        {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-        *copy = **transform;
+        visibility.set_if_neq(
+            if game.death.is_none()
+                && (exiting || (APPROACH_TICKS + 1..APPROACH_TICKS + REZ_TICKS).contains(&tick))
+            {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+        );
+        let mut target = **transform;
         let spacing = game
             .exit
             .map_or(f32::from(APPROACH_TICKS + REZ_TICKS - tick) / 4.0, |exit| {
                 exit.spacing as f32 / LANE_UNIT as f32
             });
-        copy.translation.z += trail.0 as f32 * spacing * WORLD_UNIT;
+        target.translation.z += trail.0 as f32 * spacing * WORLD_UNIT;
         if let Some(exit) = game.exit {
-            copy.rotation *= Quat::from_rotation_z(f32::from(exit.spin) * TAU / 256.0);
+            target.rotation *= Quat::from_rotation_z(f32::from(exit.spin) * TAU / 256.0);
         }
-        copy.scale.x = mirror;
-        mesh.0 = assets.frames[frame].clone();
+        target.scale.x = mirror;
+        copy.set_if_neq(target);
+        if mesh.0 != assets.frames[frame] {
+            mesh.0 = assets.frames[frame].clone();
+        }
     }
 }
 

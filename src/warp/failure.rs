@@ -230,8 +230,8 @@ pub(crate) fn draw(
             );
         }
     }
-    *canvas.1 = Visibility::Hidden;
     let Some((source, age, settle)) = failure else {
+        canvas.1.set_if_neq(Visibility::Hidden);
         return;
     };
     let angle = if settle {
@@ -249,9 +249,10 @@ pub(crate) fn draw(
         feedback.advance(age, angle);
     }
     if feedback.pixels.is_empty() {
+        canvas.1.set_if_neq(Visibility::Hidden);
         return;
     }
-    *canvas.1 = Visibility::Visible;
+    canvas.1.set_if_neq(Visibility::Visible);
     if fresh && let Some(image) = images.get_mut(&canvas.0.image) {
         let phase = age % TICKS_PER_FRAME;
         let next = if phase == 0 {
