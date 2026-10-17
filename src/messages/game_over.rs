@@ -159,10 +159,7 @@ fn draw(
     mut preview: Local<crate::cry::FeedbackPreview>,
 ) {
     let age = messages.game_over.map(|active| active.age);
-    let viewport = windows
-        .iter()
-        .next()
-        .map_or(384., |w| 240. * w.width() / w.height().max(1.));
+    let viewport = crate::messages::geometry::viewport_width(&windows);
     for (canvas, mut sprite, mut transform, mut visible) in &mut canvases {
         *visible = if age.is_some() {
             Visibility::Visible

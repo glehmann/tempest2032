@@ -9,6 +9,14 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub(crate) type Triangle = [(Vec3, Color); 3];
+
+/// Width of the primary window in the 240-line logical space, 384 without a window.
+pub(crate) fn viewport_width(windows: &Query<&Window, With<bevy::window::PrimaryWindow>>) -> f32 {
+    windows
+        .iter()
+        .next()
+        .map_or(384., |w| 240. * w.width() / w.height().max(1.))
+}
 pub(crate) const ADVANCE: f32 = 17.;
 
 #[derive(Component)]

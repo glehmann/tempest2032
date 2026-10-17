@@ -94,10 +94,7 @@ pub(crate) fn update_hud(
     mut assets: ResMut<HudAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    let width = windows
-        .iter()
-        .next()
-        .map_or(384., |w| 240. * w.width() / w.height().max(1.));
+    let width = crate::messages::geometry::viewport_width(&windows);
     let state = (game.score, game.lives, upgrades.warp_tokens(), width);
     let mut animating = false;
     let initialized = assets.previous.is_some();

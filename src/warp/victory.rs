@@ -200,10 +200,7 @@ pub(crate) fn draw(
         Phase::Fade(ticks) => Some((s, 401 + 151 - u32::from(ticks.min(151)))),
         _ => None,
     });
-    let viewport = windows
-        .iter()
-        .next()
-        .map_or(384., |w| 240. * w.width() / w.height().max(1.));
+    let viewport = crate::messages::geometry::viewport_width(&windows);
     if let Some((session, age)) = active {
         feedback.update(session.tick.saturating_sub(age), age, session.warp_five);
     } else {

@@ -99,10 +99,7 @@ fn draw(
     menu: Res<crate::pause::Menu>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
-    let viewport = windows
-        .iter()
-        .next()
-        .map_or(384., |w| 240. * w.width() / w.height().max(1.));
+    let viewport = crate::messages::geometry::viewport_width(&windows);
     let key = FrameKey {
         epoch: messages.epoch,
         clock: if messages.banner.is_some() {
