@@ -160,6 +160,8 @@ pub(crate) fn draw(
     window: Option<Single<&Window, With<bevy::window::PrimaryWindow>>>,
     mut preview: Local<cry::FeedbackPreview>,
 ) {
+    // Ticks change `Game`, and the screenshot observer changes `Feedback`.
+    let fresh = game.is_changed() || feedback.is_changed();
     let failure = game
         .bonus
         .as_ref()
@@ -250,7 +252,7 @@ pub(crate) fn draw(
         return;
     }
     *canvas.1 = Visibility::Visible;
-    if let Some(image) = images.get_mut(&canvas.0.image) {
+    if fresh && let Some(image) = images.get_mut(&canvas.0.image) {
         let phase = age % TICKS_PER_FRAME;
         let next = if phase == 0 {
             &feedback.pixels

@@ -603,7 +603,8 @@ pub(crate) fn draw(
             ),
         );
     }
-    if let Some(rings) = &session.rings
+    if advanced
+        && let Some(rings) = &session.rings
         && let Some(image) = images.get_mut(&assets.feedback)
     {
         // Updating the texture replaces its GPU view; refresh the material binding too.

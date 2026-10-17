@@ -208,6 +208,7 @@ pub(crate) fn draw(
     mut canvases: Query<(&mut Sprite, &mut Transform, &mut Visibility), With<Canvas>>,
     mut preview: Local<cry::FeedbackPreview>,
 ) {
+    let fresh = game.is_changed();
     let session = game
         .bonus
         .as_ref()
@@ -240,7 +241,7 @@ pub(crate) fn draw(
         let Some((session, age)) = active else {
             continue;
         };
-        if let Some(image) = images.get_mut(&sprite.image) {
+        if fresh && let Some(image) = images.get_mut(&sprite.image) {
             let phase = if age < 401 { age } else { age - 401 } % TICKS_PER_FRAME;
             let next = if phase == 0 {
                 &feedback.pixels
